@@ -3,408 +3,910 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V86 Virtual Machine</title>
+    <title>Web VM Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        gray: { 750: '#2D3748' },
-                        indigo: {
-                            500: '#6366F1',
-                            600: '#4F46E5',
-                            700: '#4338CA',
-                            900: '#312E81',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            color: #d1d5db;
         }
-
-        #screen {
-            background-color: #000;
-            width: 100%;
-            aspect-ratio: 4/3;
-            max-width: 720px;
-            margin: 0 auto;
-            image-rendering: pixelated;
+        .vm-list-item.active {
+            background-color: #4338CA; /* indigo-700 */
+            color: white;
         }
-
+        .vm-list-item.active .play-icon {
+            opacity: 1;
+        }
         .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-top: 3px solid #ffffff;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid #ffffff;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 16px;
+            height: 16px;
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 
             0% { transform: rotate(0deg); } 
             100% { transform: rotate(360deg); } 
         }
-        
-        .tab-active {
-            background-color: #1f2937;
-            color: #e5e7eb;
-            border-bottom: 2px solid #4F46E5;
+        #file-drop-zone.dragover {
+            background-color: #374151; /* gray-700 */
         }
-        .tab-inactive {
-            border-bottom: 2px solid transparent;
-            color: #9ca3af;
+        /* Virtual Keyboard Styles */
+        #virtual-keyboard {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
         }
-        .tab-inactive:hover {
-            color: #d1d5db;
-            background-color: #374151;
+        .key {
+            transition: background-color 0.1s ease;
         }
-
-        #screen canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .loading-dots:after {
-            content: '';
-            animation: dots 1.5s steps(5, end) infinite;
-        }
-        @keyframes dots {
-            0%, 20% { content: '.'; }
-            40% { content: '..'; }
-            60% { content: '...'; }
-            80%, 100% { content: ''; }
+        .key.pressed {
+            background-color: #4f46e5; /* indigo-600 */
+            transform: scale(0.98);
         }
     </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body class="bg-gray-900 text-gray-300 flex h-screen overflow-hidden antialiased">
 
-    <!-- Header -->
-    <header class="bg-gray-900 border-b border-gray-800 p-4">
-        <div class="max-w-4xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="bg-indigo-600 p-2 rounded-lg">
-                    <i class="fas fa-server text-white"></i>
-                </div>
-                <h1 class="text-xl font-bold text-white tracking-tight">V86 Virtual Machine</h1>
-            </div>
-            <div class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">v2.1</div>
-        </div>
-    </header>
-
-    <main class="flex-grow p-4 flex flex-col items-center">
+    <!-- Left Sidebar -->
+    <aside class="w-72 bg-gray-800/50 border-r border-gray-700/50 flex flex-col">
+        <header class="p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0">
+            <h1 class="text-lg font-bold text-white">Web Emulator</h1>
+        </header>
         
-        <!-- Screen Container -->
-        <div class="w-full max-w-4xl mb-6 relative">
-            <div id="screen" class="rounded-lg overflow-hidden border border-gray-700 relative flex justify-center items-center shadow-2xl shadow-indigo-500/10">
-                <!-- Elements required by libv86.js for rendering -->
-                <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
-                <canvas></canvas>
+        <div class="p-4 flex-shrink-0">
+            <h2 class="text-xs text-gray-400 uppercase font-semibold tracking-wider">Virtual Machines</h2>
+        </div>
 
-                <div id="screen-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10 bg-opacity-90 text-center p-6">
-                    <div class="text-indigo-500 text-6xl mb-4 opacity-50">
-                        <i class="fas fa-desktop"></i>
+        <nav id="vm-list" class="flex-grow overflow-y-auto px-4 space-y-2">
+            <div id="empty-list-placeholder" class="text-center text-gray-500 text-sm mt-8 hidden">
+                <i class="fas fa-folder-open text-4xl mb-2"></i>
+                <p>No machines added.</p>
+                <p>Create a new machine to start.</p>
+            </div>
+            <!-- Dynamically added VM items will go here -->
+        </nav>
+
+        <div class="p-4 border-t border-gray-700/50 mt-auto flex-shrink-0">
+            <button id="create-vm-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                <i class="fas fa-plus-circle"></i>
+                Create New Machine
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col bg-gray-900">
+        <!-- Top Bar -->
+        <header class="flex-shrink-0 flex items-center justify-between p-3 border-b border-gray-700/50 bg-gray-800/30">
+            <h2 id="vm-title" class="text-xl font-semibold text-white ml-2">Machine Offline</h2>
+            <div class="flex items-center space-x-2">
+                <div id="loading-indicator" class="flex items-center gap-2 text-sm text-gray-400 hidden w-48">
+                    <div class="spinner"></div>
+                    <div class="flex-1">
+                        <span id="loading-text">Initializing...</span>
+                        <div class="w-full bg-gray-600 rounded-full h-1.5 mt-1">
+                            <div id="progress-bar" class="bg-indigo-500 h-1.5 rounded-full" style="width: 0%"></div>
+                        </div>
                     </div>
-                    <h2 class="text-2xl font-bold text-white mb-2">System Offline</h2>
-                    <p id="status-message" class="text-gray-400 max-w-md">
-                        Please select a boot image below to start the machine.
-                    </p>
-                    <div id="loading-bar-container" class="w-64 h-2 bg-gray-700 rounded-full mt-4 hidden overflow-hidden">
-                        <div id="loading-bar" class="h-full bg-indigo-500 w-0 transition-all duration-300"></div>
+                </div>
+                <button id="start-btn" title="Start Machine" class="w-10 h-10 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-green-600 hover:text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fas fa-play"></i>
+                </button>
+                <button id="reset-btn" title="Shutdown" class="w-10 h-10 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-red-600 hover:text-white rounded-lg transition-colors hidden">
+                    <i class="fas fa-power-off"></i>
+                </button>
+                 <button id="fullscreen-btn" title="Fullscreen" class="w-10 h-10 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors disabled:opacity-50">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button id="toggle-keyboard-btn" title="Toggle Keyboard" class="w-10 h-10 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors disabled:opacity-50">
+                    <i class="far fa-keyboard"></i>
+                </button>
+                <div class="relative">
+                    <button id="keys-btn" title="Send Special Keys" class="w-10 h-10 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors disabled:opacity-50">
+                        <i class="fas fa-bolt"></i>
+                    </button>
+                    <div id="keys-dropdown" class="absolute right-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg z-20 hidden">
+                        <a href="#" id="send-ctrl-alt-del" class="block px-4 py-2 text-sm text-gray-200 hover:bg-indigo-600 rounded-md">Send Ctrl+Alt+Del</a>
+                    </div>
+                </div>
+                 <button id="save-state-btn" title="Save Snapshot" class="w-10 h-10 flex items-center justify-center text-gray-300 bg-gray-700 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors disabled:opacity-50">
+                    <i class="fas fa-camera-retro"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- VM Screen & Details -->
+        <div class="flex-grow flex flex-col items-center justify-center p-6 overflow-y-auto">
+            <div id="screen_container" class="w-full max-w-4xl aspect-[4/3] relative shadow-2xl shadow-indigo-900/20">
+                <div id="screen" class="w-full h-full bg-black rounded-lg border border-gray-700 flex items-center justify-center cursor-pointer relative">
+                    <!-- Elements required by libv86.js for rendering -->
+                    <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
+                    <canvas></canvas>
+                    
+                    <div id="screen-overlay" class="absolute inset-0 flex flex-col items-center justify-center z-10 text-center p-6">
+                        <div class="text-gray-600 text-6xl mb-4">
+                            <i class="fas fa-power-off"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mb-2">System Offline</h2>
+                        <p id="status-message" class="text-gray-400 max-w-md">
+                            Create a machine and select it to begin.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="details-panel" class="w-full max-w-4xl bg-gray-800/50 rounded-lg border border-gray-700/50 mt-6 p-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                    <div class="flex justify-between items-center pr-4 md:border-r md:border-gray-700">
+                        <span class="text-gray-400">Status</span>
+                        <div class="flex items-center gap-2">
+                            <div id="indicator-light" class="h-2 w-2 rounded-full bg-red-500"></div>
+                            <span id="system-state" class="font-mono text-red-400">Stopped</span>
+                        </div>
+                    </div>
+                     <div class="flex justify-between items-center pr-4 md:border-r md:border-gray-700">
+                        <span class="text-gray-400">Architecture</span>
+                        <span class="font-mono text-gray-200">x86_64</span>
+                    </div>
+                     <div class="flex justify-between items-center pr-4 md:border-r md:border-gray-700">
+                        <span class="text-gray-400">Image</span>
+                        <span id="cd-image-name" class="font-mono text-gray-200 truncate">(empty)</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Network</span>
+                        <span class="font-mono text-yellow-400">Disconnected</span>
                     </div>
                 </div>
             </div>
         </div>
+    </main>
+    
+    <!-- Create VM Modal -->
+    <div id="create-vm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg border border-gray-700">
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-white">Create New Virtual Machine</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+            </div>
 
-        <!-- Control Panel -->
-        <div class="w-full max-w-2xl bg-gray-800 rounded-xl border border-gray-700 shadow-xl overflow-hidden">
-            
-            <!-- Tabs -->
-            <div class="flex bg-gray-900/50">
-                <button onclick="switchTab('upload')" id="tab-upload" class="flex-1 py-3 text-sm font-medium tab-active transition-colors">
-                    <i class="fas fa-file-upload mr-2"></i> Upload File (ISO/IMG)
-                </button>
-                <button onclick="switchTab('url')" id="tab-url" class="flex-1 py-3 text-sm font-medium tab-inactive transition-colors">
-                    <i class="fas fa-globe mr-2"></i> Load from URL
-                </button>
+            <!-- Step Indicators -->
+            <div class="p-5 flex justify-center items-center space-x-4">
+                <!-- Step 1: File -->
+                <div id="step-indicator-1" class="flex items-center text-indigo-400">
+                    <div class="rounded-full h-8 w-8 flex items-center justify-center bg-indigo-600 border-2 border-indigo-400">1</div>
+                    <span class="ml-2 font-medium">Source</span>
+                </div>
+                <div class="flex-1 h-px bg-gray-600"></div>
+                <!-- Step 2: RAM -->
+                <div id="step-indicator-2" class="flex items-center text-gray-500">
+                    <div class="rounded-full h-8 w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600">2</div>
+                    <span class="ml-2 font-medium">Configure</span>
+                </div>
+                <div class="flex-1 h-px bg-gray-600"></div>
+                <!-- Step 3: Name -->
+                <div id="step-indicator-3" class="flex items-center text-gray-500">
+                    <div class="rounded-full h-8 w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600">3</div>
+                    <span class="ml-2 font-medium">Finalize</span>
+                </div>
             </div>
 
             <div class="p-6">
-                <!-- Upload Section -->
-                <div id="section-upload" class="block">
-                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-indigo-500 transition-colors cursor-pointer bg-gray-700" onclick="document.getElementById('file-input').click()">
-                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-500 mb-3"></i>
-                        <p class="text-gray-300 font-medium">Click to select an ISO or IMG file</p>
-                        <p class="text-xs text-gray-500 mt-1">Supports .iso, .img, .bin</p>
-                        <input type="file" id="file-input" class="hidden" accept=".iso,.img,.bin">
+                <!-- Step 1: File Selection -->
+                <div id="modal-step-1">
+                    <h4 class="text-md font-semibold mb-4 text-white">Select a Source</h4>
+                    <label id="file-drop-zone" for="file-upload" class="flex flex-col items-center justify-center w-full h-40 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700/50 hover:bg-gray-700/80 transition-colors">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                            <p class="mb-2 text-sm text-gray-400"><span class="font-semibold">Upload or drag & drop</span></p>
+                            <p class="text-xs text-gray-500">CD/DVD or Hard Disk Image</p>
+                        </div>
+                        <input id="file-upload" type="file" class="hidden" />
+                    </label>
+                    <p id="file-name-display" class="mt-2 text-sm text-center text-gray-400"></p>
+                    <div class="my-4 flex items-center"><div class="flex-grow border-t border-gray-600"></div><span class="flex-shrink mx-4 text-gray-400 text-sm">OR</span><div class="flex-grow border-t border-gray-600"></div></div>
+                    <div>
+                        <label for="modal-url-input" class="block mb-2 text-sm font-medium text-gray-300">Import from URL</label>
+                        <input type="text" id="modal-url-input" class="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 placeholder-gray-600" placeholder="https://.../image.iso">
                     </div>
-                    <div id="file-name-display" class="mt-3 text-sm text-indigo-400 font-mono hidden">
-                        <i class="fas fa-check-circle mr-1"></i> <span id="selected-filename"></span>
+                    <div class="mt-4">
+                        <label for="floppy-upload" class="block mb-2 text-sm font-medium text-gray-300">Floppy Disk (Optional)</label>
+                        <div class="flex items-center">
+                            <label for="floppy-upload" class="flex-1 cursor-pointer bg-gray-700 hover:bg-gray-600 text-sm rounded-lg p-2.5 text-center text-gray-400 border border-gray-600">
+                                <i class="fas fa-save mr-2"></i> Choose Floppy Image (.img, .flp)
+                            </label>
+                            <input id="floppy-upload" type="file" class="hidden" />
+                        </div>
+                        <p id="floppy-name-display" class="mt-2 text-sm text-center text-gray-400"></p>
                     </div>
                 </div>
 
-                <!-- URL Section -->
-                <div id="section-url" class="hidden">
-                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Disk Image URL</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="url-input" placeholder="https://example.com/image.iso" 
-                            class="flex-1 bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 placeholder-gray-600">
+                <!-- Step 2: RAM Allocation -->
+                <div id="modal-step-2" class="hidden">
+                    <h4 class="text-md font-semibold mb-4 text-white">Allocate Memory (RAM)</h4>
+                    <div class="flex items-center space-x-4 p-4 rounded-lg bg-gray-700/50">
+                        <i class="fas fa-memory text-indigo-400 text-xl"></i>
+                        <input id="ram-slider" type="range" min="64" max="512" value="128" step="32" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="ram-value" class="font-mono text-indigo-300 w-20 text-center bg-gray-900/50 rounded-md py-1">128 MB</span>
                     </div>
-                    <p class="mt-2 text-xs text-gray-500">Note: Due to CORS, some URLs might not load directly.</p>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="mt-6 pt-6 border-t border-gray-700 flex justify-between items-center">
-                    <div class="flex items-center gap-2">
-                         <div class="h-2 w-2 rounded-full bg-gray-500" id="indicator-light"></div>
-                         <span class="text-xs text-gray-400 font-mono uppercase" id="system-state">Offline</span>
+                <!-- Step 3: VM Name -->
+                <div id="modal-step-3" class="hidden">
+                    <h4 class="text-md font-semibold mb-4 text-white">Name Your Machine</h4>
+                    <label for="vm-name-input" class="block text-sm font-medium text-gray-400 mb-2">VM Name</label>
+                    <input type="text" id="vm-name-input" placeholder="e.g., My DOS Machine"
+                        class="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 placeholder-gray-600">
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="p-5 bg-gray-800/50 border-t border-gray-700 flex justify-between">
+                <button id="modal-back-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">Back</button>
+                <div>
+                    <button id="modal-next-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                    <button id="modal-create-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 hidden disabled:opacity-50">Create</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit VM Modal -->
+    <div id="edit-vm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-md border border-gray-700">
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-white">Edit Machine</h3>
+                <button id="close-edit-modal-btn" class="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="edit-vm-id">
+                <div>
+                    <label for="edit-vm-name-input" class="block text-sm font-medium text-gray-400 mb-2">VM Name</label>
+                    <input type="text" id="edit-vm-name-input" placeholder="e.g., My DOS Machine"
+                        class="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 placeholder-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Allocate Memory (RAM)</label>
+                    <div class="flex items-center space-x-4 p-4 rounded-lg bg-gray-700/50">
+                        <i class="fas fa-memory text-indigo-400 text-xl"></i>
+                        <input id="edit-ram-slider" type="range" min="64" max="512" value="128" step="32" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="edit-ram-value" class="font-mono text-indigo-300 w-20 text-center bg-gray-900/50 rounded-md py-1">128 MB</span>
                     </div>
-                    <div class="flex gap-3">
-                        <button id="reset-btn" class="hidden px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors" onclick="resetEmulator()">
-                            <i class="fas fa-power-off mr-1"></i> Shutdown
-                        </button>
-                        <button id="start-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-900/20 transition-all transform active:scale-95 flex items-center">
-                            <i class="fas fa-play mr-2"></i>
-                            <span id="btn-text">Boot System</span>
-                            <div id="btn-spinner" class="spinner ml-2 hidden"></div>
-                        </button>
+                </div>
+            </div>
+            <div class="p-5 bg-gray-800/50 border-t border-gray-700 flex justify-end">
+                <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 mr-2">Cancel</button>
+                <button id="save-changes-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Virtual Keyboard -->
+    <div id="virtual-keyboard" class="fixed bottom-0 left-0 right-0 bg-gray-800/80 backdrop-blur-sm p-2 z-30 hidden">
+        <div class="max-w-4xl mx-auto space-y-1 text-white">
+            <!-- F-keys row -->
+            <div class="key-row flex justify-center space-x-1">
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="01">Esc</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3B">F1</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3C">F2</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3D">F3</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3E">F4</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3F">F5</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="40">F6</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="41">F7</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="42">F8</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="43">F9</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="44">F10</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="57">F11</button>
+                <button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="58">F12</button>
+            </div>
+            <!-- Number row -->
+            <div class="key-row flex justify-center space-x-1">
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="29">`</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="02">1</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="03">2</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="04">3</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="05">4</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="06">5</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="07">6</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="08">7</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="09">8</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0A">9</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0B">0</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0C">-</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0D">=</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 100px;" data-scancode="0E">Backspace</button>
+            </div>
+            <!-- Top letter row -->
+            <div class="key-row flex justify-center space-x-1">
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 75px;" data-scancode="0F">Tab</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="10">Q</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="11">W</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="12">E</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="13">R</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="14">T</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="15">Y</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="16">U</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="17">I</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="18">O</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="19">P</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1A">[</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1B">]</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2B">\</button>
+            </div>
+            <!-- Middle letter row -->
+            <div class="key-row flex justify-center space-x-1">
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 90px;" data-scancode="3A">Caps Lock</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1E">A</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1F">S</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="20">D</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="21">F</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="22">G</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="23">H</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="24">J</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="25">K</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="26">L</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="27">;</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="28">'</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 90px;" data-scancode="1C">Enter</button>
+            </div>
+            <!-- Bottom letter row -->
+            <div class="key-row flex justify-center space-x-1">
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 110px;" data-scancode="2A">Shift</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2C">Z</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2D">X</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2E">C</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2F">V</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="30">B</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="31">N</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="32">M</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="33">,</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="34">.</button>
+                <button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="35">/</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 110px;" data-scancode="36">Shift</button>
+            </div>
+             <!-- Modifier row -->
+            <div class="key-row flex justify-center space-x-1">
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="1D">Ctrl</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 5B">Win</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="38">Alt</button>
+                <button class="key flex-grow h-10 bg-gray-700 rounded" data-scancode="39">Space</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 38">Alt</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 5D">Menu</button>
+                <button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 1D">Ctrl</button>
+                <div class="flex flex-col space-y-1" style="flex-basis: 120px;">
+                    <button class="key w-full h-5 bg-gray-700 rounded text-xs" data-scancode="E0 48">▲</button>
+                    <div class="flex space-x-1">
+                        <button class="key w-1/2 h-5 bg-gray-700 rounded text-xs" data-scancode="E0 4B">◀</button>
+                        <button class="key w-1/2 h-5 bg-gray-700 rounded text-xs" data-scancode="E0 50">▼</button>
+                        <button class="key w-1/2 h-5 bg-gray-700 rounded text-xs" data-scancode="E0 4D">▶</button>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Instructions -->
-        <div class="max-w-2xl w-full mt-8 text-gray-500 text-xs space-y-2 text-center">
-            <p>Powered by <a href="https://github.com/copy/v86" target="_blank" class="text-indigo-400 hover:underline">v86</a>. An x86 emulator in your browser.</p>
-            <p>Tip: Mobile users might need a Bluetooth keyboard for best experience.</p>
-        </div>
-
-    </main>
-
-    <!-- Local v86 Library -->
+    </div>
+    
     <script src="libv86.js"></script>
-
     <script>
         // --- State Management ---
         let emulator = null;
-        let currentMode = 'upload';
-        let selectedFile = null;
-        let isV86Loaded = false;
+        let selectedOS = null;
+        let machines = [];
 
         // --- DOM Elements ---
+        const vmTitle = document.getElementById('vm-title');
+        const screenContainer = document.getElementById('screen');
         const screenOverlay = document.getElementById('screen-overlay');
         const statusMessage = document.getElementById('status-message');
-        const loadingBarContainer = document.getElementById('loading-bar-container');
-        const loadingBar = document.getElementById('loading-bar');
         const startBtn = document.getElementById('start-btn');
         const resetBtn = document.getElementById('reset-btn');
-        const btnText = document.getElementById('btn-text');
-        const btnSpinner = document.getElementById('btn-spinner');
-        const fileInput = document.getElementById('file-input');
-        const urlInput = document.getElementById('url-input');
-        const fileNameDisplay = document.getElementById('file-name-display');
-        const selectedFilenameSpan = document.getElementById('selected-filename');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const saveStateBtn = document.getElementById('save-state-btn');
+        const keysBtn = document.getElementById('keys-btn');
+        const keysDropdown = document.getElementById('keys-dropdown');
+        const sendCtrlAltDelBtn = document.getElementById('send-ctrl-alt-del');
+        const toggleKeyboardBtn = document.getElementById('toggle-keyboard-btn');
+        const virtualKeyboard = document.getElementById('virtual-keyboard');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const loadingText = document.getElementById('loading-text');
+        const progressBar = document.getElementById('progress-bar');
+        const vmList = document.getElementById('vm-list');
+        const emptyListPlaceholder = document.getElementById('empty-list-placeholder');
+        const detailsPanel = document.getElementById('details-panel');
         const indicatorLight = document.getElementById('indicator-light');
         const systemState = document.getElementById('system-state');
+        const cdImageName = document.getElementById('cd-image-name');
 
-        // Check if v86 is loaded properly
-        function checkV86Loaded() {
-            if (typeof window.V86 === 'undefined') {
-                console.log("Waiting for v86 library to load...");
-                setTimeout(checkV86Loaded, 100);
-                return;
-            }
-            isV86Loaded = true;
-            console.log("v86 library loaded successfully");
-        }
+        // --- Create Modal Elements ---
+        let currentStep = 1;
+        let newVMCreationData = { file: null, floppyFile: null, url: '', sourceType: null, ram: 128, name: '' };
+        const createVmBtn = document.getElementById('create-vm-btn');
+        const createVmModal = document.getElementById('create-vm-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const modalSteps = [document.getElementById('modal-step-1'), document.getElementById('modal-step-2'), document.getElementById('modal-step-3')];
+        const stepIndicators = [document.getElementById('step-indicator-1'), document.getElementById('step-indicator-2'), document.getElementById('step-indicator-3')];
+        const modalBackBtn = document.getElementById('modal-back-btn');
+        const modalNextBtn = document.getElementById('modal-next-btn');
+        const modalCreateBtn = document.getElementById('modal-create-btn');
+        const fileUpload = document.getElementById('file-upload');
+        const fileDropZone = document.getElementById('file-drop-zone');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const floppyUpload = document.getElementById('floppy-upload');
+        const floppyNameDisplay = document.getElementById('floppy-name-display');
+        const ramSlider = document.getElementById('ram-slider');
+        const ramValue = document.getElementById('ram-value');
+        const vmNameInput = document.getElementById('vm-name-input');
+        const modalUrlInput = document.getElementById('modal-url-input');
 
-        // Initialize check when page loads
-        window.addEventListener('load', function() {
-            checkV86Loaded();
-        });
+        // --- Edit Modal Elements ---
+        const editVmModal = document.getElementById('edit-vm-modal');
+        const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const saveChangesBtn = document.getElementById('save-changes-btn');
+        const editRamSlider = document.getElementById('edit-ram-slider');
+        const editRamValue = document.getElementById('edit-ram-value');
 
-        // --- Tab Switching Logic ---
-        function switchTab(mode) {
-            currentMode = mode;
-            const uploadTab = document.getElementById('tab-upload');
-            const urlTab = document.getElementById('tab-url');
-            const uploadSection = document.getElementById('section-upload');
-            const urlSection = document.getElementById('section-url');
 
-            if (mode === 'upload') {
-                uploadTab.classList.replace('tab-inactive', 'tab-active');
-                urlTab.classList.replace('tab-active', 'tab-inactive');
-                uploadSection.classList.remove('hidden');
-                urlSection.classList.add('hidden');
-            } else {
-                urlTab.classList.replace('tab-inactive', 'tab-active');
-                uploadTab.classList.replace('tab-active', 'tab-inactive');
-                urlSection.classList.remove('hidden');
-                uploadSection.classList.add('hidden');
-            }
-        }
-
-        // --- File Selection Logic ---
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                selectedFile = e.target.files[0];
-                selectedFilenameSpan.textContent = selectedFile.name;
-                fileNameDisplay.classList.remove('hidden');
-                statusMessage.textContent = `Ready to boot: ${selectedFile.name}`;
-            }
-        });
-
-        // --- Emulator Logic ---
-        startBtn.addEventListener('click', async () => {
-            if (startBtn.disabled) return;
-
-            // Check if v86 is loaded
-            if (!isV86Loaded) {
-                handleEmulatorError("v86 library is not loaded. Please check if libv86.js is in the same folder.");
-                return;
-            }
-
-            // UI Updates
-            startBtn.disabled = true;
-            startBtn.classList.add('opacity-75');
-            btnText.textContent = 'Initializing...';
-            btnSpinner.classList.remove('hidden');
-            startBtn.querySelector('i').classList.add('hidden');
-            
+        // --- Persistence ---
+        function saveMachines() {
             try {
-                let bootSource = {};
+                const machinesToSave = machines.filter(m => !m.isLocal);
+                localStorage.setItem('web_emulator_machines', JSON.stringify(machinesToSave));
+            } catch (e) { console.error("Failed to save machines to localStorage", e); }
+        }
 
-                if (currentMode === 'upload') {
-                    if (!selectedFile) {
-                        throw new Error("Please select a file first.");
-                    }
-                    
-                    statusMessage.textContent = "Reading file into memory...";
-                    loadingBarContainer.classList.remove('hidden');
-                    
-                    // Read file as ArrayBuffer
-                    const buffer = await readFileAsArrayBuffer(selectedFile);
-                    
-                    // Determine drive type based on extension
-                    const isIso = selectedFile.name.toLowerCase().endsWith('.iso');
-                    if (isIso) {
-                        bootSource = { cdrom: { buffer: buffer } };
-                    } else {
-                        bootSource = { hda: { buffer: buffer, size: buffer.byteLength } };
-                    }
-                } else {
-                    const url = urlInput.value.trim();
-                    if (!url) {
-                         // Allow empty boot (BIOS only)
-                         bootSource = {}; 
-                         statusMessage.textContent = "Booting to BIOS (no disk image)...";
-                    } else {
-                        const isIso = url.toLowerCase().endsWith('.iso');
-                        if (isIso) {
-                            bootSource = { cdrom: { url: url } };
-                        } else {
-                            bootSource = { hda: { url: url } };
-                        }
-                    }
+        function loadMachines() {
+            try {
+                const storedMachines = localStorage.getItem('web_emulator_machines');
+                if (storedMachines) {
+                    machines = JSON.parse(storedMachines);
+                    renderAllMachineItems();
+                }
+            } catch (e) { console.error("Failed to load machines from localStorage", e); machines = []; }
+            updatePlaceholderVisibility();
+        }
+
+        // --- UI Rendering ---
+        function renderAllMachineItems() {
+            vmList.innerHTML = '';
+            machines.forEach(renderMachineItem);
+        }
+
+        function renderMachineItem(machine) {
+            let iconClass, description, id;
+            const mainFileName = machine.isLocal ? machine.file.name : machine.url;
+            const isIso = mainFileName.toLowerCase().endsWith('.iso');
+            iconClass = isIso ? 'fa-compact-disc' : 'fa-hdd';
+            
+            let extraDesc = '';
+            if (machine.floppyFile) {
+                extraDesc = ` + Floppy`;
+            }
+
+            if (machine.isLocal) {
+                description = `${machine.ram} MB RAM (local file)${extraDesc}`;
+                id = machine.id;
+            } else { // URL-based
+                description = `${machine.ram} MB RAM - ${machine.url}`;
+                id = machine.url;
+            }
+
+            const itemHTML = `
+                <a href="#" class="vm-list-item group flex items-center p-3 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors" data-id="${id}">
+                    <i class="fas ${iconClass} w-6 text-center text-lg"></i>
+                    <div class="ml-3 flex-1 overflow-hidden">
+                        <p class="truncate">${machine.name}</p>
+                        <p class="text-xs text-gray-400 truncate">${description}</p>
+                    </div>
+                    <button class="edit-vm-btn hidden group-hover:block text-gray-400 hover:text-indigo-400 p-1 rounded-full z-10" title="Edit Machine">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
+                    <button class="remove-vm-btn hidden group-hover:block text-gray-500 hover:text-red-400 p-1 rounded-full z-10 ml-1" title="Delete Machine">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                    <i class="fas fa-play-circle ml-1 text-xl text-gray-400 opacity-0 play-icon transition-opacity"></i>
+                </a>`;
+            vmList.insertAdjacentHTML('beforeend', itemHTML);
+        }
+
+        function updatePlaceholderVisibility() {
+            emptyListPlaceholder.classList.toggle('hidden', machines.length > 0);
+        }
+        
+        // --- Event Handlers ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMachines();
+            resetUIState(); // Ensure buttons are in correct disabled state
+        });
+
+        vmList.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.edit-vm-btn');
+            if (editBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (emulator && emulator.is_running()) {
+                    alert("Please shut down the running virtual machine before editing.");
+                    return;
+                }
+                const itemToEdit = editBtn.closest('.vm-list-item');
+                openEditModal(itemToEdit.dataset.id);
+                return;
+            }
+            
+            const removeBtn = e.target.closest('.remove-vm-btn');
+            if (removeBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                 if (emulator && emulator.is_running()) {
+                    alert("Please shut down the running virtual machine before deleting.");
+                    return;
+                }
+                const itemToRemove = removeBtn.closest('.vm-list-item');
+                const idToRemove = itemToRemove.dataset.id;
+                
+                machines = machines.filter(m => (m.isLocal ? m.id : m.url) !== idToRemove);
+                saveMachines();
+                itemToRemove.remove();
+                updatePlaceholderVisibility();
+
+                if (selectedOS && (selectedOS.isLocal ? selectedOS.id : selectedOS.url) === idToRemove) {
+                    selectedOS = null;
+                    resetUIState();
+                }
+                return;
+            }
+            
+            if (emulator && emulator.is_running()) {
+                return;
+            }
+            
+            const listItem = e.target.closest('.vm-list-item');
+            if (!listItem) return;
+            e.preventDefault();
+
+            vmList.querySelectorAll('.vm-list-item').forEach(i => i.classList.remove('active'));
+            listItem.classList.add('active');
+            
+            const machineId = listItem.dataset.id;
+            selectedOS = machines.find(m => (m.isLocal ? m.id : m.url) === machineId);
+
+            statusMessage.textContent = `Ready to boot ${selectedOS.name}. Press Play to start.`;
+            vmTitle.textContent = selectedOS.name;
+            cdImageName.textContent = selectedOS.name;
+        });
+
+        startBtn.addEventListener('click', startEmulator);
+        resetBtn.addEventListener('click', resetEmulator);
+        fullscreenBtn.addEventListener('click', () => emulator?.screen_go_fullscreen());
+        saveStateBtn.addEventListener('click', saveState);
+        keysBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            keysDropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => keysDropdown.classList.add('hidden'));
+
+        sendCtrlAltDelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (emulator) {
+                // Ctrl+Alt+Del sequence
+                emulator.keyboard_send_scancodes([
+                    0x1D,       // Ctrl Press
+                    0x38,       // Alt Press
+                    0xE0, 0x53, // Del Press
+                    0xE0, 0xD3, // Del Release
+                    0xB8,       // Alt Release
+                    0x9D        // Ctrl Release
+                ]);
+            }
+            keysDropdown.classList.add('hidden');
+        });
+
+        screenContainer.addEventListener('click', () => {
+            if (emulator && emulator.is_running()) {
+                emulator.lock_mouse();
+            }
+        });
+
+        // --- Keyboard Handlers ---
+        toggleKeyboardBtn.addEventListener('click', () => {
+            virtualKeyboard.classList.toggle('hidden');
+        });
+
+        function handleVirtualKeyPress(e) {
+            const key = e.target.closest('.key');
+            if (!key || !emulator) return;
+            
+            e.preventDefault();
+            key.classList.add('pressed');
+            
+            const scancodes = key.dataset.scancode.split(' ').map(s => parseInt(s, 16));
+            emulator.keyboard_send_scancodes(scancodes);
+        }
+
+        function handleVirtualKeyRelease(e) {
+            const key = e.target.closest('.key');
+            if (!key || !emulator) return;
+            
+            key.classList.remove('pressed');
+            
+            const pressCodes = key.dataset.scancode.split(' ').map(s => parseInt(s, 16));
+            const releaseCodes = pressCodes.map((code, index) => 
+                (index === pressCodes.length - 1) ? code | 0x80 : code
+            );
+            emulator.keyboard_send_scancodes(releaseCodes);
+        }
+        
+        // Handle both mouse and touch events
+        virtualKeyboard.addEventListener('mousedown', handleVirtualKeyPress);
+        virtualKeyboard.addEventListener('mouseup', handleVirtualKeyRelease);
+        virtualKeyboard.addEventListener('mouseleave', handleVirtualKeyRelease);
+        virtualKeyboard.addEventListener('touchstart', handleVirtualKeyPress, { passive: false });
+        virtualKeyboard.addEventListener('touchend', handleVirtualKeyRelease);
+        virtualKeyboard.addEventListener('touchcancel', handleVirtualKeyRelease);
+
+
+        // --- Create Modal Handlers ---
+        createVmBtn.addEventListener('click', () => {
+            resetModal();
+            createVmModal.classList.remove('hidden');
+        });
+        closeModalBtn.addEventListener('click', () => createVmModal.classList.add('hidden'));
+        modalBackBtn.addEventListener('click', () => changeStep(currentStep - 1));
+        modalNextBtn.addEventListener('click', () => changeStep(currentStep + 1));
+        modalCreateBtn.addEventListener('click', createVMFromModal);
+        
+        ramSlider.addEventListener('input', () => {
+            ramValue.textContent = `${ramSlider.value} MB`;
+            newVMCreationData.ram = parseInt(ramSlider.value, 10);
+        });
+        
+        fileUpload.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+        floppyUpload.addEventListener('change', (e) => handleFloppySelect(e.target.files[0]));
+        modalUrlInput.addEventListener('input', handleUrlInput);
+        vmNameInput.addEventListener('input', updateModalUI);
+
+        // Drag & Drop
+        fileDropZone.addEventListener('dragover', e => { e.preventDefault(); fileDropZone.classList.add('dragover'); });
+        fileDropZone.addEventListener('dragleave', e => { e.preventDefault(); fileDropZone.classList.remove('dragover'); });
+        fileDropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            fileDropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) { handleFileSelect(e.dataTransfer.files[0]); }
+        });
+
+
+        // --- Create Modal Logic ---
+        function resetModal() {
+            currentStep = 1;
+            newVMCreationData = { file: null, floppyFile: null, url: '', sourceType: null, ram: 128, name: '' };
+            ramSlider.value = 128;
+            ramValue.textContent = '128 MB';
+            vmNameInput.value = '';
+            fileNameDisplay.textContent = '';
+            floppyNameDisplay.textContent = '';
+            fileUpload.value = null;
+            floppyUpload.value = null;
+            modalUrlInput.value = '';
+            updateModalUI();
+        }
+
+        function handleFileSelect(file) {
+            if (!file) return;
+            newVMCreationData = { ...newVMCreationData, file, url: '', sourceType: 'file' };
+            modalUrlInput.value = '';
+            fileNameDisplay.textContent = `Selected: ${file.name}`;
+            if (!vmNameInput.value) { // Don't overwrite if user typed something
+                vmNameInput.value = file.name.split('.').slice(0, -1).join('.') || file.name;
+            }
+            updateModalUI();
+        }
+        
+        function handleFloppySelect(file) {
+            if (!file) return;
+            newVMCreationData.floppyFile = file;
+            floppyNameDisplay.textContent = `Selected: ${file.name}`;
+            updateModalUI();
+        }
+
+        function handleUrlInput(e) {
+            const url = e.target.value.trim();
+            newVMCreationData = { ...newVMCreationData, url, file: null, sourceType: url ? 'url' : null };
+            fileUpload.value = null;
+            fileNameDisplay.textContent = '';
+            if (url && !vmNameInput.value) {
+                vmNameInput.value = url.substring(url.lastIndexOf('/') + 1) || 'Custom Image';
+            }
+            updateModalUI();
+        }
+
+        function changeStep(step) {
+            if (step < 1 || step > 3) return;
+            currentStep = step;
+            updateModalUI();
+        }
+
+        function updateModalUI() {
+            modalSteps.forEach((s, i) => s.classList.toggle('hidden', i + 1 !== currentStep));
+            stepIndicators.forEach((indicator, i) => {
+                const stepNumDiv = indicator.querySelector('div');
+                const isActive = i < currentStep;
+                indicator.classList.toggle('text-indigo-400', isActive);
+                indicator.classList.toggle('text-gray-500', !isActive);
+                stepNumDiv.classList.toggle('bg-indigo-600', isActive);
+                stepNumDiv.classList.toggle('bg-gray-700', !isActive);
+                stepNumDiv.classList.toggle('border-indigo-400', isActive);
+                stepNumDiv.classList.toggle('border-gray-600', !isActive);
+            });
+
+            modalBackBtn.disabled = currentStep === 1;
+            modalNextBtn.classList.toggle('hidden', currentStep === 3);
+            modalCreateBtn.classList.toggle('hidden', currentStep !== 3);
+            modalNextBtn.disabled = (currentStep === 1 && !newVMCreationData.sourceType);
+            modalCreateBtn.disabled = (currentStep === 3 && !vmNameInput.value.trim());
+        }
+
+        function createVMFromModal() {
+            const name = vmNameInput.value.trim();
+            if (!name) { alert('Please provide a name for the machine.'); return; }
+            
+            let newMachine;
+            if (newVMCreationData.sourceType === 'file') {
+                newMachine = { name, ram: newVMCreationData.ram, file: newVMCreationData.file, floppyFile: newVMCreationData.floppyFile, isLocal: true, id: `local-${Date.now()}` };
+                machines.push(newMachine);
+            } else if (newVMCreationData.sourceType === 'url') {
+                if (machines.some(m => !m.isLocal && m.url === newVMCreationData.url)) { alert("This machine URL has already been added."); return; }
+                newMachine = { name, url: newVMCreationData.url, ram: newVMCreationData.ram, floppyFile: newVMCreationData.floppyFile, isLocal: false };
+                machines.push(newMachine);
+                saveMachines();
+            } else return;
+
+            renderMachineItem(newMachine);
+            updatePlaceholderVisibility();
+            createVmModal.classList.add('hidden');
+        }
+
+        // --- Edit Modal Logic ---
+        function openEditModal(machineId) {
+            const machine = machines.find(m => (m.isLocal ? m.id : m.url) === machineId);
+            if (!machine) return;
+
+            document.getElementById('edit-vm-id').value = machineId;
+            document.getElementById('edit-vm-name-input').value = machine.name;
+            editRamSlider.value = machine.ram;
+            editRamValue.textContent = `${machine.ram} MB`;
+            
+            editVmModal.classList.remove('hidden');
+        }
+        
+        closeEditModalBtn.addEventListener('click', () => editVmModal.classList.add('hidden'));
+        cancelEditBtn.addEventListener('click', () => editVmModal.classList.add('hidden'));
+
+        editRamSlider.addEventListener('input', () => {
+            editRamValue.textContent = `${editRamSlider.value} MB`;
+        });
+        
+        saveChangesBtn.addEventListener('click', () => {
+            const machineId = document.getElementById('edit-vm-id').value;
+            const newName = document.getElementById('edit-vm-name-input').value.trim();
+            const newRam = parseInt(document.getElementById('edit-ram-slider').value, 10);
+
+            if (!newName) {
+                alert('Machine name cannot be empty.');
+                return;
+            }
+
+            const machineIndex = machines.findIndex(m => (m.isLocal ? m.id : m.url) === machineId);
+            if (machineIndex > -1) {
+                machines[machineIndex].name = newName;
+                machines[machineIndex].ram = newRam;
+                
+                if (!machines[machineIndex].isLocal) {
+                    saveMachines();
                 }
 
-                // Update status
-                statusMessage.innerHTML = "Loading emulator components<span class='loading-dots'></span>";
-                loadingBarContainer.classList.remove('hidden');
-                loadingBar.style.width = '30%';
-
-                // Use local files
-                const v86Config = {
-                    wasm_path: "v86.wasm",
-                    memory_size: 64 * 1024 * 1024,
-                    vga_memory_size: 8 * 1024 * 1024,
-                    bios: { url: "seabios.bin" },
-                    vga_bios: { url: "vgabios.bin" },
-                    screen_container: document.getElementById("screen"),
-                    autostart: true,
-                    disable_mouse: false,
-                    disable_keyboard: false,
-                    ...bootSource
-                };
-
-                loadingBar.style.width = '60%';
-                statusMessage.innerHTML = "Starting emulator<span class='loading-dots'></span>";
-
-                console.log("Starting v86 emulator with local files...");
+                renderAllMachineItems();
                 
-                // Create emulator instance
-                emulator = new V86(v86Config);
-
-                // Listen for emulator events
-                emulator.add_listener("emulator-ready", () => {
-                    console.log("Emulator Ready");
-                    loadingBar.style.width = '100%';
-                    
-                    setTimeout(() => {
-                        screenOverlay.classList.add('hidden');
-                        btnText.textContent = "Running";
-                        btnSpinner.classList.add('hidden');
-                        startBtn.classList.add('hidden');
-                        resetBtn.classList.remove('hidden');
-                        loadingBarContainer.classList.add('hidden');
-                        
-                        indicatorLight.classList.remove('bg-gray-500');
-                        indicatorLight.classList.add('bg-green-500', 'animate-pulse');
-                        systemState.textContent = "Online";
-                        systemState.classList.add('text-green-400');
-                    }, 500);
-                });
-
-                // Error handling
-                emulator.add_listener("download-error", function(error) {
-                    console.error("Download error:", error);
-                    handleEmulatorError("Failed to load BIOS/firmware files. Make sure seabios.bin and vgabios.bin are accessible.");
-                });
-                
-                let loadingTimeout = setTimeout(() => {
-                    if (screenOverlay.classList.contains('hidden') === false) {
-                        handleEmulatorError("Emulator is taking too long to load. Check browser console for errors.");
-                    }
-                }, 30000);
-
-                emulator.add_listener("emulator-started", () => {
-                    clearTimeout(loadingTimeout);
-                });
-
-            } catch (err) {
-                console.error("Startup error:", err);
-                handleEmulatorError(err.message);
+                if (selectedOS && (selectedOS.isLocal ? selectedOS.id : selectedOS.url) === machineId) {
+                    selectedOS.name = newName;
+                    selectedOS.ram = newRam;
+                    vmTitle.textContent = newName;
+                    cdImageName.textContent = newName;
+                    const newListItem = vmList.querySelector(`.vm-list-item[data-id="${machineId}"]`);
+                    if (newListItem) newListItem.classList.add('active');
+                }
             }
+            
+            editVmModal.classList.add('hidden');
         });
 
-        function handleEmulatorError(message) {
-            if (emulator) {
-                try { emulator.destroy(); } catch(e) {}
-                emulator = null;
+
+        // --- Emulator Logic ---
+        function startEmulator() {
+            if (emulator || startBtn.disabled || !selectedOS) {
+                if (!selectedOS) alert("Please create and select a machine to boot.");
+                return;
             }
+
+            const { name, url, file, floppyFile, ram, isLocal } = selectedOS;
+            let bootSource = {};
+            const fileName = isLocal ? file.name : url;
+            const isIso = fileName.toLowerCase().endsWith('.iso');
+            
+            if (isLocal) {
+                bootSource = isIso ? { cdrom: { buffer: file } } : { hda: { buffer: file } };
+            } else {
+                bootSource = isIso ? { cdrom: { url } } : { hda: { url } };
+            }
+            if (floppyFile) {
+                bootSource.fda = { buffer: floppyFile };
+            }
+            
+            setLoadingState(true, "Booting...");
+
+            const v86Config = {
+                wasm_path: "v86.wasm",
+                memory_size: (ram || 64) * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+                bios: { url: "seabios.bin" },
+                vga_bios: { url: "vgabios.bin" },
+                screen_container: document.getElementById("screen_container"),
+                autostart: true,
+                ...bootSource
+            };
+
+            try {
+                emulator = new V86(v86Config);
+                emulator.add_listener("emulator-ready", () => {
+                    setLoadingState(false);
+                    screenOverlay.classList.add('hidden');
+                    startBtn.classList.add('hidden');
+                    resetBtn.classList.remove('hidden');
+                    detailsPanel.classList.remove('hidden');
+                    indicatorLight.classList.replace('bg-red-500', 'bg-green-500');
+                    indicatorLight.classList.add('animate-pulse');
+                    systemState.textContent = "Running";
+                    systemState.classList.replace('text-red-400', 'text-green-400');
+                });
+                emulator.add_listener("download-progress", e => {
+                    const percentage = e.total ? (e.loaded / e.total * 100) : 0;
+                    loadingText.textContent = `Loading file...`;
+                    progressBar.style.width = `${percentage.toFixed(0)}%`;
+                });
+                emulator.add_listener("download-error", e => handleEmulatorError(`Failed to load: ${e.file_name}. Check URL and network.`));
+            } catch(err) { handleEmulatorError(err.message); }
+        }
+
+        async function saveState() {
+            if (!emulator || !emulator.is_running()) return;
+            setLoadingState(true, 'Saving state...');
+            try {
+                const state = await emulator.save_state();
+                const blob = new Blob([state], { type: "application/octet-stream" });
+                const url = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${selectedOS.name}-state.bin`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error("Failed to save state:", e);
+                alert("Could not save state.");
+            } finally {
+                setLoadingState(false);
+            }
+        }
+        
+        function handleEmulatorError(message) {
+            console.error("Emulator Error:", message);
+            if (emulator) { try { emulator.destroy(); } catch(e) {} }
+            emulator = null;
+            resetUIState();
             statusMessage.textContent = `Error: ${message}`;
-            loadingBarContainer.classList.add('hidden');
-            screenOverlay.classList.remove('hidden');
-            
-            startBtn.disabled = false;
-            startBtn.classList.remove('opacity-75');
-            btnText.textContent = 'Boot System';
-            btnSpinner.classList.add('hidden');
-            startBtn.querySelector('i').classList.remove('hidden');
-            
-            // Reset status indicators
-            indicatorLight.classList.remove('bg-green-500', 'animate-pulse');
-            indicatorLight.classList.add('bg-gray-500');
-            systemState.textContent = "Offline";
-            systemState.classList.remove('text-green-400');
         }
 
         function resetEmulator() {
@@ -415,57 +917,70 @@
                 } catch (e) {
                     console.error("Error during reset:", e);
                 }
-                emulator = null;
             }
+            emulator = null;
             
-            // Reset UI
+            // UI updates for a stopped machine, preserving selection
+            setLoadingState(false);
             screenOverlay.classList.remove('hidden');
-            statusMessage.textContent = "Please select a boot image below to start the machine.";
-            loadingBarContainer.classList.add('hidden');
-            loadingBar.style.width = '0%';
-            
-            startBtn.disabled = false;
-            startBtn.classList.remove('opacity-75', 'hidden');
-            btnText.textContent = 'Boot System';
-            btnSpinner.classList.add('hidden');
-            startBtn.querySelector('i').classList.remove('hidden');
+            startBtn.classList.remove('hidden');
             resetBtn.classList.add('hidden');
-            
-            indicatorLight.classList.remove('bg-green-500', 'animate-pulse');
-            indicatorLight.classList.add('bg-gray-500');
-            systemState.textContent = "Offline";
-            systemState.classList.remove('text-green-400');
-        }
+            detailsPanel.classList.add('hidden');
+            virtualKeyboard.classList.add('hidden');
 
-        // Helper: Read File
-        function readFileAsArrayBuffer(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                
-                reader.onprogress = (data) => {
-                    if (data.lengthComputable) {
-                        const percentage = (data.loaded / data.total) * 30; // Reading file is 30% of the process
-                        loadingBar.style.width = `${percentage}%`;
-                    }
-                };
+            indicatorLight.classList.replace('bg-green-500', 'bg-red-500');
+            indicatorLight.classList.remove('animate-pulse');
+            systemState.textContent = "Stopped";
+            systemState.classList.replace('text-green-400', 'text-red-400');
 
-                reader.onload = (e) => {
-                    loadingBar.style.width = '30%';
-                    resolve(e.target.result);
-                };
-                reader.onerror = (e) => reject(e);
-                
-                reader.readAsArrayBuffer(file);
-            });
-        }
-
-        // Global error handler for canvas issues
-        window.addEventListener('error', function(e) {
-            if (e.error && e.error.message && e.error.message.includes('getContext')) {
-                console.error('Canvas context error:', e.error);
-                handleEmulatorError('Canvas initialization failed. Your browser may not support WebGL.');
+            if (selectedOS) {
+                statusMessage.textContent = `Ready to boot ${selectedOS.name}. Press Play to start.`;
+                // Title and cd-image-name are already set and shouldn't change
+            } else {
+                // This case should not be reached if called from reset button,
+                // but as a fallback, do a full UI reset.
+                resetUIState();
             }
-        });
+        }
+        
+        function resetUIState() {
+            setLoadingState(false);
+            screenOverlay.classList.remove('hidden');
+            statusMessage.textContent = "Create a machine and select it to begin.";
+            vmTitle.textContent = 'Machine Offline';
+            cdImageName.textContent = '(empty)';
+            startBtn.classList.remove('hidden');
+            resetBtn.classList.add('hidden');
+            detailsPanel.classList.add('hidden');
+            indicatorLight.classList.replace('bg-green-500', 'bg-red-500');
+            indicatorLight.classList.remove('animate-pulse');
+            systemState.textContent = "Stopped";
+            systemState.classList.replace('text-green-400', 'text-red-400');
+            const activeItem = vmList.querySelector('.vm-list-item.active');
+            if (activeItem) activeItem.classList.remove('active');
+            selectedOS = null;
+            virtualKeyboard.classList.add('hidden');
+        }
+
+        function setLoadingState(isLoading, text = "Initializing...") {
+            const isRunning = emulator && emulator.is_running();
+            startBtn.disabled = isLoading || isRunning;
+            createVmBtn.disabled = isLoading || isRunning;
+
+            // These buttons are now always enabled, except when a task is loading.
+            fullscreenBtn.disabled = isLoading;
+            saveStateBtn.disabled = isLoading;
+            keysBtn.disabled = isLoading;
+            toggleKeyboardBtn.disabled = isLoading;
+
+            if (isLoading) {
+                loadingIndicator.classList.remove('hidden');
+                loadingText.textContent = text;
+                progressBar.style.width = '0%';
+            } else {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
     </script>
 </body>
 </html>
