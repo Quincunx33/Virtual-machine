@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V86 Virtual Machine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gray: { 750: '#2D3748' },
+                        indigo: {
+                            500: '#6366F1',
+                            600: '#4F46E5',
+                            700: '#4338CA',
+                            900: '#312E81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+
+        #screen {
+            background-color: #000;
+            width: 100%;
+            aspect-ratio: 4/3;
+            max-width: 720px;
+            margin: 0 auto;
+            image-rendering: pixelated;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #ffffff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        
+        .tab-active {
+            background-color: #1f2937;
+            color: #e5e7eb;
+            border-bottom: 2px solid #4F46E5;
+        }
+        .tab-inactive {
+            border-bottom: 2px solid transparent;
+            color: #9ca3af;
+        }
+        .tab-inactive:hover {
+            color: #d1d5db;
+            background-color: #374151;
+        }
+
+        #screen canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .loading-dots:after {
+            content: '';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-gray-900 border-b border-gray-800 p-4">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 p-2 rounded-lg">
+                    <i class="fas fa-server text-white"></i>
+                </div>
+                <h1 class="text-xl font-bold text-white tracking-tight">V86 Virtual Machine</h1>
+            </div>
+            <div class="text-xs text-gray-500 font-mono bg-gray-800 px-2 py-1 rounded">v2.1</div>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 flex flex-col items-center">
+        
+        <!-- Screen Container -->
+        <div class="w-full max-w-4xl mb-6 relative">
+            <div id="screen" class="rounded-lg overflow-hidden border border-gray-700 relative flex justify-center items-center shadow-2xl shadow-indigo-500/10">
+                <!-- Elements required by libv86.js for rendering -->
+                <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
+                <canvas></canvas>
+
+                <div id="screen-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10 bg-opacity-90 text-center p-6">
+                    <div class="text-indigo-500 text-6xl mb-4 opacity-50">
+                        <i class="fas fa-desktop"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2">System Offline</h2>
+                    <p id="status-message" class="text-gray-400 max-w-md">
+                        Please select a boot image below to start the machine.
+                    </p>
+                    <div id="loading-bar-container" class="w-64 h-2 bg-gray-700 rounded-full mt-4 hidden overflow-hidden">
+                        <div id="loading-bar" class="h-full bg-indigo-500 w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="w-full max-w-2xl bg-gray-800 rounded-xl border border-gray-700 shadow-xl overflow-hidden">
+            
+            <!-- Tabs -->
+            <div class="flex bg-gray-900/50">
+                <button onclick="switchTab('upload')" id="tab-upload" class="flex-1 py-3 text-sm font-medium tab-active transition-colors">
+                    <i class="fas fa-file-upload mr-2"></i> Upload File (ISO/IMG)
+                </button>
+                <button onclick="switchTab('url')" id="tab-url" class="flex-1 py-3 text-sm font-medium tab-inactive transition-colors">
+                    <i class="fas fa-globe mr-2"></i> Load from URL
+                </button>
+            </div>
+
+            <div class="p-6">
+                <!-- Upload Section -->
+                <div id="section-upload" class="block">
+                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center hover:border-indigo-500 transition-colors cursor-pointer bg-gray-700" onclick="document.getElementById('file-input').click()">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-500 mb-3"></i>
+                        <p class="text-gray-300 font-medium">Click to select an ISO or IMG file</p>
+                        <p class="text-xs text-gray-500 mt-1">Supports .iso, .img, .bin</p>
+                        <input type="file" id="file-input" class="hidden" accept=".iso,.img,.bin">
+                    </div>
+                    <div id="file-name-display" class="mt-3 text-sm text-indigo-400 font-mono hidden">
+                        <i class="fas fa-check-circle mr-1"></i> <span id="selected-filename"></span>
+                    </div>
+                </div>
+
+                <!-- URL Section -->
+                <div id="section-url" class="hidden">
+                    <label class="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Disk Image URL</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="url-input" placeholder="https://example.com/image.iso" 
+                            class="flex-1 bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 placeholder-gray-600">
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">Note: Due to CORS, some URLs might not load directly.</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-6 pt-6 border-t border-gray-700 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                         <div class="h-2 w-2 rounded-full bg-gray-500" id="indicator-light"></div>
+                         <span class="text-xs text-gray-400 font-mono uppercase" id="system-state">Offline</span>
+                    </div>
+                    <div class="flex gap-3">
+                        <button id="reset-btn" class="hidden px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors" onclick="resetEmulator()">
+                            <i class="fas fa-power-off mr-1"></i> Shutdown
+                        </button>
+                        <button id="start-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-900/20 transition-all transform active:scale-95 flex items-center">
+                            <i class="fas fa-play mr-2"></i>
+                            <span id="btn-text">Boot System</span>
+                            <div id="btn-spinner" class="spinner ml-2 hidden"></div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="max-w-2xl w-full mt-8 text-gray-500 text-xs space-y-2 text-center">
+            <p>Powered by <a href="https://github.com/copy/v86" target="_blank" class="text-indigo-400 hover:underline">v86</a>. An x86 emulator in your browser.</p>
+            <p>Tip: Mobile users might need a Bluetooth keyboard for best experience.</p>
+        </div>
+
+    </main>
+
+    <!-- Local v86 Library -->
+    <script src="libv86.js"></script>
+
+    <script>
+        // --- State Management ---
+        let emulator = null;
+        let currentMode = 'upload';
+        let selectedFile = null;
+        let isV86Loaded = false;
+
+        // --- DOM Elements ---
+        const screenOverlay = document.getElementById('screen-overlay');
+        const statusMessage = document.getElementById('status-message');
+        const loadingBarContainer = document.getElementById('loading-bar-container');
+        const loadingBar = document.getElementById('loading-bar');
+        const startBtn = document.getElementById('start-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnSpinner = document.getElementById('btn-spinner');
+        const fileInput = document.getElementById('file-input');
+        const urlInput = document.getElementById('url-input');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const selectedFilenameSpan = document.getElementById('selected-filename');
+        const indicatorLight = document.getElementById('indicator-light');
+        const systemState = document.getElementById('system-state');
+
+        // Check if v86 is loaded properly
+        function checkV86Loaded() {
+            if (typeof window.V86 === 'undefined') {
+                console.log("Waiting for v86 library to load...");
+                setTimeout(checkV86Loaded, 100);
+                return;
+            }
+            isV86Loaded = true;
+            console.log("v86 library loaded successfully");
+        }
+
+        // Initialize check when page loads
+        window.addEventListener('load', function() {
+            checkV86Loaded();
+        });
+
+        // --- Tab Switching Logic ---
+        function switchTab(mode) {
+            currentMode = mode;
+            const uploadTab = document.getElementById('tab-upload');
+            const urlTab = document.getElementById('tab-url');
+            const uploadSection = document.getElementById('section-upload');
+            const urlSection = document.getElementById('section-url');
+
+            if (mode === 'upload') {
+                uploadTab.classList.replace('tab-inactive', 'tab-active');
+                urlTab.classList.replace('tab-active', 'tab-inactive');
+                uploadSection.classList.remove('hidden');
+                urlSection.classList.add('hidden');
+            } else {
+                urlTab.classList.replace('tab-inactive', 'tab-active');
+                uploadTab.classList.replace('tab-active', 'tab-inactive');
+                urlSection.classList.remove('hidden');
+                uploadSection.classList.add('hidden');
+            }
+        }
+
+        // --- File Selection Logic ---
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                selectedFilenameSpan.textContent = selectedFile.name;
+                fileNameDisplay.classList.remove('hidden');
+                statusMessage.textContent = `Ready to boot: ${selectedFile.name}`;
+            }
+        });
+
+        // --- Emulator Logic ---
+        startBtn.addEventListener('click', async () => {
+            if (startBtn.disabled) return;
+
+            // Check if v86 is loaded
+            if (!isV86Loaded) {
+                handleEmulatorError("v86 library is not loaded. Please check if libv86.js is in the same folder.");
+                return;
+            }
+
+            // UI Updates
+            startBtn.disabled = true;
+            startBtn.classList.add('opacity-75');
+            btnText.textContent = 'Initializing...';
+            btnSpinner.classList.remove('hidden');
+            startBtn.querySelector('i').classList.add('hidden');
+            
+            try {
+                let bootSource = {};
+
+                if (currentMode === 'upload') {
+                    if (!selectedFile) {
+                        throw new Error("Please select a file first.");
+                    }
+                    
+                    statusMessage.textContent = "Reading file into memory...";
+                    loadingBarContainer.classList.remove('hidden');
+                    
+                    // Read file as ArrayBuffer
+                    const buffer = await readFileAsArrayBuffer(selectedFile);
+                    
+                    // Determine drive type based on extension
+                    const isIso = selectedFile.name.toLowerCase().endsWith('.iso');
+                    if (isIso) {
+                        bootSource = { cdrom: { buffer: buffer } };
+                    } else {
+                        bootSource = { hda: { buffer: buffer, size: buffer.byteLength } };
+                    }
+                } else {
+                    const url = urlInput.value.trim();
+                    if (!url) {
+                         // Allow empty boot (BIOS only)
+                         bootSource = {}; 
+                         statusMessage.textContent = "Booting to BIOS (no disk image)...";
+                    } else {
+                        const isIso = url.toLowerCase().endsWith('.iso');
+                        if (isIso) {
+                            bootSource = { cdrom: { url: url } };
+                        } else {
+                            bootSource = { hda: { url: url } };
+                        }
+                    }
+                }
+
+                // Update status
+                statusMessage.innerHTML = "Loading emulator components<span class='loading-dots'></span>";
+                loadingBarContainer.classList.remove('hidden');
+                loadingBar.style.width = '30%';
+
+                // Use local files
+                const v86Config = {
+                    wasm_path: "v86.wasm",
+                    memory_size: 64 * 1024 * 1024,
+                    vga_memory_size: 8 * 1024 * 1024,
+                    bios: { url: "seabios.bin" },
+                    vga_bios: { url: "vgabios.bin" },
+                    screen_container: document.getElementById("screen"),
+                    autostart: true,
+                    disable_mouse: false,
+                    disable_keyboard: false,
+                    ...bootSource
+                };
+
+                loadingBar.style.width = '60%';
+                statusMessage.innerHTML = "Starting emulator<span class='loading-dots'></span>";
+
+                console.log("Starting v86 emulator with local files...");
+                
+                // Create emulator instance
+                emulator = new V86(v86Config);
+
+                // Listen for emulator events
+                emulator.add_listener("emulator-ready", () => {
+                    console.log("Emulator Ready");
+                    loadingBar.style.width = '100%';
+                    
+                    setTimeout(() => {
+                        screenOverlay.classList.add('hidden');
+                        btnText.textContent = "Running";
+                        btnSpinner.classList.add('hidden');
+                        startBtn.classList.add('hidden');
+                        resetBtn.classList.remove('hidden');
+                        loadingBarContainer.classList.add('hidden');
+                        
+                        indicatorLight.classList.remove('bg-gray-500');
+                        indicatorLight.classList.add('bg-green-500', 'animate-pulse');
+                        systemState.textContent = "Online";
+                        systemState.classList.add('text-green-400');
+                    }, 500);
+                });
+
+                // Error handling
+                emulator.add_listener("download-error", function(error) {
+                    console.error("Download error:", error);
+                    handleEmulatorError("Failed to load BIOS/firmware files. Make sure seabios.bin and vgabios.bin are accessible.");
+                });
+                
+                let loadingTimeout = setTimeout(() => {
+                    if (screenOverlay.classList.contains('hidden') === false) {
+                        handleEmulatorError("Emulator is taking too long to load. Check browser console for errors.");
+                    }
+                }, 30000);
+
+                emulator.add_listener("emulator-started", () => {
+                    clearTimeout(loadingTimeout);
+                });
+
+            } catch (err) {
+                console.error("Startup error:", err);
+                handleEmulatorError(err.message);
+            }
+        });
+
+        function handleEmulatorError(message) {
+            if (emulator) {
+                try { emulator.destroy(); } catch(e) {}
+                emulator = null;
+            }
+            statusMessage.textContent = `Error: ${message}`;
+            loadingBarContainer.classList.add('hidden');
+            screenOverlay.classList.remove('hidden');
+            
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-75');
+            btnText.textContent = 'Boot System';
+            btnSpinner.classList.add('hidden');
+            startBtn.querySelector('i').classList.remove('hidden');
+            
+            // Reset status indicators
+            indicatorLight.classList.remove('bg-green-500', 'animate-pulse');
+            indicatorLight.classList.add('bg-gray-500');
+            systemState.textContent = "Offline";
+            systemState.classList.remove('text-green-400');
+        }
+
+        function resetEmulator() {
+            if (emulator) {
+                try {
+                    emulator.stop();
+                    emulator.destroy();
+                } catch (e) {
+                    console.error("Error during reset:", e);
+                }
+                emulator = null;
+            }
+            
+            // Reset UI
+            screenOverlay.classList.remove('hidden');
+            statusMessage.textContent = "Please select a boot image below to start the machine.";
+            loadingBarContainer.classList.add('hidden');
+            loadingBar.style.width = '0%';
+            
+            startBtn.disabled = false;
+            startBtn.classList.remove('opacity-75', 'hidden');
+            btnText.textContent = 'Boot System';
+            btnSpinner.classList.add('hidden');
+            startBtn.querySelector('i').classList.remove('hidden');
+            resetBtn.classList.add('hidden');
+            
+            indicatorLight.classList.remove('bg-green-500', 'animate-pulse');
+            indicatorLight.classList.add('bg-gray-500');
+            systemState.textContent = "Offline";
+            systemState.classList.remove('text-green-400');
+        }
+
+        // Helper: Read File
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onprogress = (data) => {
+                    if (data.lengthComputable) {
+                        const percentage = (data.loaded / data.total) * 30; // Reading file is 30% of the process
+                        loadingBar.style.width = `${percentage}%`;
+                    }
+                };
+
+                reader.onload = (e) => {
+                    loadingBar.style.width = '30%';
+                    resolve(e.target.result);
+                };
+                reader.onerror = (e) => reject(e);
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Global error handler for canvas issues
+        window.addEventListener('error', function(e) {
+            if (e.error && e.error.message && e.error.message.includes('getContext')) {
+                console.error('Canvas context error:', e.error);
+                handleEmulatorError('Canvas initialization failed. Your browser may not support WebGL.');
+            }
+        });
+    </script>
+</body>
+</html>
