@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web VM Screen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        #virtual-keyboard { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+        .key { transition: background-color 0.1s ease; }
+        .key.pressed { background-color: #4f46e5; transform: scale(0.98); }
+
+        /* Assistive Touch Menu */
+        .menu-container { position: relative; width: 56px; height: 56px; }
+        .menu-items .menu-item {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.3s ease;
+            transform: translate(0, 0) scale(0.5);
+            opacity: 0;
+            pointer-events: none;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .menu-container.expanded .menu-items .menu-item {
+            transform-origin: center;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .menu-container.expanded #main-assistive-btn { transform: rotate(135deg); }
+
+        .menu-container.expanded .menu-item:nth-child(1) { transform: translate(-70px, 0px) scale(1); } /* Left */
+        .menu-container.expanded .menu-item:nth-child(2) { transform: translate(-50px, -50px) scale(1); } /* Top-Left */
+        .menu-container.expanded .menu-item:nth-child(3) { transform: translate(0px, -70px) scale(1); } /* Top */
+        .menu-container.expanded .menu-item:nth-child(4) { transform: translate(50px, -50px) scale(1); } /* Top-Right */
+        .menu-container.expanded .menu-item:nth-child(5) { transform: translate(70px, 0px) scale(1); } /* Right */
+        .menu-container.expanded .menu-item:nth-child(6) { transform: translate(0px, 70px) scale(1); } /* Bottom */
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
+
+    <div id="screen_container" class="w-full h-full flex items-center justify-center bg-black relative">
+        <!-- libv86 elements -->
+        <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
+        <canvas></canvas>
+
+        <div id="loading-indicator" class="absolute inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-black/50">
+            <div class="spinner"></div>
+            <p id="loading-text" class="mt-4 text-white text-lg font-semibold">Initializing VM...</p>
+            <div class="w-64 bg-gray-600 rounded-full h-2 mt-2">
+                <div id="progress-bar" class="bg-indigo-500 h-2 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- iOS-style Assistive Touch Menu -->
+    <div id="assistive-touch" class="fixed bottom-5 right-5 z-50">
+        <div class="menu-container">
+            <div class="menu-items absolute bottom-0 right-0 w-14 h-14">
+                <button id="vm-fullscreen-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Fullscreen"><i class="fas fa-expand"></i></button>
+                <button id="vm-keyboard-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Toggle Keyboard"><i class="far fa-keyboard"></i></button>
+                <button id="vm-cad-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Send Ctrl+Alt+Del"><i class="fas fa-bolt"></i></button>
+                <button id="vm-save-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Save Snapshot"><i class="fas fa-camera-retro"></i></button>
+                <button id="vm-reset-btn" class="menu-item w-12 h-12 bg-orange-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Reset"><i class="fas fa-sync-alt"></i></button>
+                <button id="vm-power-btn" class="menu-item w-12 h-12 bg-red-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Shutdown"><i class="fas fa-power-off"></i></button>
+            </div>
+            <button id="main-assistive-btn" class="w-14 h-14 bg-gray-800/70 backdrop-blur-sm border border-gray-500/50 rounded-full flex items-center justify-center text-white text-2xl shadow-lg transition-transform duration-300 hover:scale-110">
+                <i class="fas fa-th-large"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Virtual Keyboard -->
+    <div id="virtual-keyboard" class="fixed bottom-0 left-0 right-0 bg-gray-800/80 backdrop-blur-sm p-2 z-30 hidden">
+        <div class="max-w-4xl mx-auto space-y-1 text-white">
+            <div class="key-row flex justify-center space-x-1"><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="01">Esc</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3B">F1</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3C">F2</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3D">F3</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3E">F4</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3F">F5</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="40">F6</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="41">F7</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="42">F8</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="43">F9</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="44">F10</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="57">F11</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="58">F12</button></div>
+            <div class="key-row flex justify-center space-x-1"><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="29">`</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="02">1</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="03">2</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="04">3</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="05">4</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="06">5</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="07">6</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="08">7</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="09">8</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0A">9</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0B">0</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0C">-</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="0D">=</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 100px;" data-scancode="0E">Backspace</button></div>
+            <div class="key-row flex justify-center space-x-1"><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 75px;" data-scancode="0F">Tab</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="10">Q</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="11">W</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="12">E</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="13">R</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="14">T</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="15">Y</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="16">U</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="17">I</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="18">O</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="19">P</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1A">[</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1B">]</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2B">\</button></div>
+            <div class="key-row flex justify-center space-x-1"><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 90px;" data-scancode="3A">Caps Lock</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1E">A</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="1F">S</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="20">D</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="21">F</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="22">G</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="23">H</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="24">J</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="25">K</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="26">L</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="27">;</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="28">'</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 90px;" data-scancode="1C">Enter</button></div>
+            <div class="key-row flex justify-center space-x-1"><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 110px;" data-scancode="2A">Shift</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2C">Z</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2D">X</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2E">C</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="2F">V</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="30">B</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="31">N</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="32">M</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="33">,</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="34">.</button><button class="key flex-1 h-10 bg-gray-700 rounded" data-scancode="35">/</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 110px;" data-scancode="36">Shift</button></div>
+            <div class="key-row flex justify-center space-x-1"><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="1D">Ctrl</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 5B">Win</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="38">Alt</button><button class="key flex-grow h-10 bg-gray-700 rounded" data-scancode="39">Space</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 38">Alt</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 5D">Menu</button><button class="key h-10 bg-gray-700 rounded" style="flex-basis: 65px;" data-scancode="E0 1D">Ctrl</button><div class="flex flex-col space-y-1" style="flex-basis: 120px;"><button class="key w-full h-5 bg-gray-700 rounded text-xs" data-scancode="E0 48">▲</button><div class="flex space-x-1"><button class="key w-1/3 h-5 bg-gray-700 rounded text-xs" data-scancode="E0 4B">◀</button><button class="key w-1/3 h-5 bg-gray-700 rounded text-xs" data-scancode="E0 50">▼</button><button class="key w-1/3 h-5 bg-gray-700 rounded text-xs" data-scancode="E0 4D">▶</button></div></div></div>
+        </div>
+    </div>
+
+    <script src="libv86.js"></script>
+    <script>
+        let emulator = null;
+        let selectedOS = null;
+
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const loadingText = document.getElementById('loading-text');
+        const progressBar = document.getElementById('progress-bar');
+        const virtualKeyboard = document.getElementById('virtual-keyboard');
+        
+        // --- IndexedDB ---
+        const DB_NAME = 'WebEmulatorDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'vm_configs';
+        let db;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onerror = () => reject("Error opening DB");
+                request.onsuccess = (event) => { db = event.target.result; resolve(db); };
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+        
+        function getFromDB(storeName, key) {
+             return new Promise((resolve, reject) => {
+                if (!db) { reject("DB not initialized"); return; }
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(key);
+                request.onsuccess = (event) => resolve(event.target.result);
+                request.onerror = () => reject("Error getting data");
+            });
+        }
+
+        async function getConfigWithRetry(key, retries = 50, delay = 200) { // 10 seconds total
+            for (let i = 1; i <= retries; i++) {
+                const config = await getFromDB(STORE_NAME, key);
+                if (config) {
+                    return config;
+                }
+                loadingText.textContent = `Waiting for VM configuration... (Attempt ${i})`;
+                progressBar.style.width = `${(i / retries) * 50}%`; // First half of progress
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            return null;
+        }
+        
+        // --- Communication ---
+        const channel = new BroadcastChannel('vm_channel');
+        
+        window.addEventListener('beforeunload', () => {
+            if (emulator) { emulator.stop(); }
+            if (selectedOS) {
+                channel.postMessage({ type: 'stopped', id: selectedOS.id });
+            }
+        });
+
+        // --- Emulator Logic ---
+        function initializeEmulator(config) {
+            try {
+                emulator = new V86(config);
+                emulator.add_listener("emulator-ready", () => {
+                    loadingIndicator.classList.add('hidden');
+                    document.getElementById('screen_container').addEventListener('click', () => {
+                        if (emulator && emulator.is_running()) {
+                            emulator.lock_mouse();
+                        }
+                    });
+                });
+                emulator.add_listener("download-progress", e => {
+                    const percentage = e.total ? (50 + (e.loaded / e.total * 50)) : 50; // Second half
+                    loadingText.textContent = `Loading: ${e.file_name.split('/').pop()}`;
+                    progressBar.style.width = `${percentage.toFixed(0)}%`;
+                });
+                emulator.add_listener("download-error", e => handleEmulatorError(`Failed to load: ${e.file_name}.`));
+            } catch(err) { handleEmulatorError(err.message); }
+        }
+
+        async function startEmulator() {
+            const { name, url, file, floppyFile, ram, isLocal, sourceType } = selectedOS;
+            document.title = `${name} - Web VM`;
+            
+            let v86Config;
+
+            if (sourceType === 'snapshot') {
+                loadingText.textContent = 'Loading from snapshot...';
+                progressBar.style.width = `25%`;
+                const snapshotBuffer = await file.arrayBuffer();
+                progressBar.style.width = `50%`;
+                v86Config = {
+                    wasm_path: "v86.wasm",
+                    initial_state: { buffer: snapshotBuffer },
+                    screen_container: document.getElementById("screen_container"),
+                    autostart: true,
+                };
+            } else {
+                let bootSource = {};
+                const fileName = isLocal ? (file ? file.name : '') : url;
+                const isIso = fileName.toLowerCase().endsWith('.iso');
+                
+                if (isLocal) {
+                    bootSource = isIso ? { cdrom: { buffer: file } } : { hda: { buffer: file } };
+                } else {
+                    bootSource = isIso ? { cdrom: { url } } : { hda: { url } };
+                }
+                if (floppyFile) {
+                    bootSource.fda = { buffer: floppyFile };
+                }
+                
+                v86Config = {
+                    wasm_path: "v86.wasm",
+                    memory_size: ram * 1024 * 1024,
+                    vga_memory_size: 8 * 1024 * 1024,
+                    bios: { url: "seabios.bin" },
+                    vga_bios: { url: "vgabios.bin" },
+                    screen_container: document.getElementById("screen_container"),
+                    autostart: true,
+                    ...bootSource
+                };
+            }
+            
+            initializeEmulator(v86Config);
+        }
+
+        function handleEmulatorError(message) {
+            console.error("Emulator Error:", message);
+            loadingText.textContent = `Error: ${message}`;
+            document.querySelector('.spinner').style.display = 'none';
+            progressBar.style.width = '100%';
+            progressBar.classList.remove('bg-indigo-500');
+            progressBar.classList.add('bg-red-500');
+            if (emulator) { try { emulator.destroy(); } catch(e) {} }
+            emulator = null;
+        }
+
+        async function saveState() {
+            if (!emulator || !emulator.is_running()) return;
+            loadingText.textContent = 'Saving state...';
+            loadingIndicator.classList.remove('hidden');
+            try {
+                const state = await emulator.save_state();
+                const blob = new Blob([state], { type: "application/octet-stream" });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${selectedOS.name}-state.v86state`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error("Failed to save state:", e);
+                alert("Could not save state.");
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+        
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const vmId = urlParams.get('id');
+
+                if (!vmId) {
+                    throw new Error("No VM ID provided in the URL.");
+                }
+
+                await initDB();
+                const config = await getConfigWithRetry(vmId);
+
+                if (config) {
+                    selectedOS = config;
+                    loadingText.textContent = 'Configuration loaded. Initializing VM...';
+                    await startEmulator();
+                } else {
+                    throw new Error(`VM configuration for ID "${vmId}" not found.`);
+                }
+            } catch (err) {
+                handleEmulatorError(err.message || err.toString());
+                setTimeout(() => window.close(), 3000);
+            }
+        });
+
+        // --- Assistive Menu ---
+        const menuContainer = document.querySelector('.menu-container');
+        document.getElementById('main-assistive-btn').addEventListener('click', () => {
+            menuContainer.classList.toggle('expanded');
+        });
+        
+        document.getElementById('vm-power-btn').addEventListener('click', () => window.close());
+        document.getElementById('vm-reset-btn').addEventListener('click', () => emulator?.restart());
+        document.getElementById('vm-fullscreen-btn').addEventListener('click', () => document.documentElement.requestFullscreen().catch(e => console.error(e)));
+        document.getElementById('vm-keyboard-btn').addEventListener('click', () => virtualKeyboard.classList.toggle('hidden'));
+        document.getElementById('vm-save-btn').addEventListener('click', saveState);
+        document.getElementById('vm-cad-btn').addEventListener('click', () => {
+            emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]);
+        });
+        
+        // --- Virtual Keyboard Handlers ---
+        function handleVirtualKeyPress(e) {
+            const key = e.target.closest('.key');
+            if (!key || !emulator) return;
+            e.preventDefault();
+            key.classList.add('pressed');
+            const scancodes = key.dataset.scancode.split(' ').map(s => parseInt(s, 16));
+            emulator.keyboard_send_scancodes(scancodes);
+        }
+
+        function handleVirtualKeyRelease(e) {
+            const key = e.target.closest('.key');
+            if (!key || !emulator) return;
+            key.classList.remove('pressed');
+            const pressCodes = key.dataset.scancode.split(' ').map(s => parseInt(s, 16));
+            const releaseCodes = pressCodes.map((code, index) => 
+                (index === pressCodes.length - 1 && code < 0xE0) ? code | 0x80 : code
+            );
+            // Handle multi-byte scancodes release properly
+            if (pressCodes.length > 1 && releaseCodes[0] >= 0xE0) {
+                 releaseCodes[releaseCodes.length - 1] |= 0x80;
+            }
+            emulator.keyboard_send_scancodes(releaseCodes);
+        }
+        
+        virtualKeyboard.addEventListener('mousedown', handleVirtualKeyPress);
+        virtualKeyboard.addEventListener('mouseup', handleVirtualKeyRelease);
+        virtualKeyboard.addEventListener('mouseleave', handleVirtualKeyRelease);
+        virtualKeyboard.addEventListener('touchstart', handleVirtualKeyPress, { passive: false });
+        virtualKeyboard.addEventListener('touchend', handleVirtualKeyRelease);
+        virtualKeyboard.addEventListener('touchcancel', handleVirtualKeyRelease);
+
+    </script>
+</body>
+</html>
