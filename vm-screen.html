@@ -54,6 +54,14 @@
         .menu-container.expanded .menu-item:nth-child(4) { transform: translate(50px, -50px) scale(1); } /* Top-Right */
         .menu-container.expanded .menu-item:nth-child(5) { transform: translate(70px, 0px) scale(1); } /* Right */
         .menu-container.expanded .menu-item:nth-child(6) { transform: translate(0px, 70px) scale(1); } /* Bottom */
+
+        #assistive-touch {
+            cursor: grab;
+        }
+        #assistive-touch:active {
+            cursor: grabbing;
+        }
+
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
@@ -73,7 +81,7 @@
     </div>
 
     <!-- iOS-style Assistive Touch Menu -->
-    <div id="assistive-touch" class="fixed bottom-5 right-5 z-50">
+    <div id="assistive-touch" class="fixed z-50" style="bottom: 1.25rem; right: 1.25rem;">
         <div class="menu-container">
             <div class="menu-items absolute bottom-0 right-0 w-14 h-14">
                 <button id="vm-fullscreen-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Fullscreen"><i class="fas fa-expand"></i></button>
@@ -290,9 +298,74 @@
             }
         });
 
-        // --- Assistive Menu ---
+        // --- Assistive Menu Logic ---
         const menuContainer = document.querySelector('.menu-container');
-        document.getElementById('main-assistive-btn').addEventListener('click', () => {
+        const assistiveTouch = document.getElementById('assistive-touch');
+        const mainAssistiveBtn = document.getElementById('main-assistive-btn');
+
+        let isDragging = false;
+        let hasDragged = false;
+        let offsetX, offsetY;
+
+        function dragStart(e) {
+            if (e.target.closest('.menu-item')) return;
+            hasDragged = false;
+            isDragging = true;
+            const rect = assistiveTouch.getBoundingClientRect();
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            offsetX = clientX - rect.left;
+            offsetY = clientY - rect.top;
+            assistiveTouch.style.transition = 'none';
+            window.addEventListener('mousemove', dragMove);
+            window.addEventListener('touchmove', dragMove, { passive: false });
+            window.addEventListener('mouseup', dragEnd);
+            window.addEventListener('touchend', dragEnd);
+            if (e.type === 'mousedown') e.preventDefault();
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            if (!hasDragged) {
+                hasDragged = true;
+                if (menuContainer.classList.contains('expanded')) {
+                    menuContainer.classList.remove('expanded');
+                }
+            }
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            let newX = clientX - offsetX;
+            let newY = clientY - offsetY;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const elemWidth = assistiveTouch.offsetWidth;
+            const elemHeight = assistiveTouch.offsetHeight;
+            newX = Math.max(0, Math.min(newX, viewportWidth - elemWidth));
+            newY = Math.max(0, Math.min(newY, viewportHeight - elemHeight));
+            assistiveTouch.style.right = 'auto';
+            assistiveTouch.style.bottom = 'auto';
+            assistiveTouch.style.left = `${newX}px`;
+            assistiveTouch.style.top = `${newY}px`;
+        }
+
+        function dragEnd() {
+            isDragging = false;
+            assistiveTouch.style.transition = '';
+            window.removeEventListener('mousemove', dragMove);
+            window.removeEventListener('touchmove', dragMove);
+            window.removeEventListener('mouseup', dragEnd);
+            window.removeEventListener('touchend', dragEnd);
+        }
+
+        mainAssistiveBtn.addEventListener('mousedown', dragStart);
+        mainAssistiveBtn.addEventListener('touchstart', dragStart, { passive: false });
+
+        mainAssistiveBtn.addEventListener('click', (e) => {
+            if (hasDragged) {
+                e.preventDefault();
+                return;
+            }
             menuContainer.classList.toggle('expanded');
         });
         
