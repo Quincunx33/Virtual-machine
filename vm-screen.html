@@ -206,7 +206,7 @@
                 const snapshotBuffer = await file.arrayBuffer();
                 progressBar.style.width = `50%`;
                 v86Config = {
-                    wasm_path: "https://copy.sh/v86/build/v86.wasm?ccb5e1ce",
+                    wasm_path: "v86.wasm",
                     initial_state: { buffer: snapshotBuffer },
                     screen_container: document.getElementById("screen_container"),
                     autostart: true,
@@ -226,11 +226,11 @@
                 }
                 
                 v86Config = {
-                    wasm_path: "https://copy.sh/v86/build/v86.wasm?ccb5e1ce",
+                    wasm_path: "v86.wasm",
                     memory_size: ram * 1024 * 1024,
                     vga_memory_size: 8 * 1024 * 1024,
-                    bios: { url: "https://copy.sh/v86/bios/seabios.bin" },
-                    vga_bios: { url: "https://copy.sh/v86/bios/vgabios.bin" },
+                    bios: { url: "seabios.bin" },
+                    vga_bios: { url: "vgabios.bin" },
                     screen_container: document.getElementById("screen_container"),
                     autostart: true,
                     ...bootSource
