@@ -1,12 +1,14 @@
-<!DOCTYPE html><html lang="bn"><head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Web VM Emulator - ক্লাউড ভিত্তিক ভার্চুয়াল মেশিন</title>
-    <meta name="description" content="ব্রাউজারে চলমান সম্পূর্ণ ফাংশনাল ভার্চুয়াল মেশিন ইমুলেটর। কোন ইনস্টলেশনের প্রয়োজন নেই।"/>
-    <meta name="keywords" content="ভিএম, ভার্চুয়াল মেশিন, ক্লাউড কম্পিউটিং, ব্রাউজার ইমুলেটর"/>
+    <title>Web VM Emulator - Browser-Based Virtual Machines</title>
+    <meta name="description" content="A fully functional virtual machine emulator that runs in your browser. No installation required."/>
+    <meta name="keywords" content="VM, Virtual Machine, Browser Emulator, libv86"/>
     
     <!-- Security Headers -->
-    <meta http-equiv="Content-Security-Policy" content="default-src &#39;self&#39;; script-src &#39;self&#39; &#39;unsafe-inline&#39; &#39;unsafe-eval&#39; https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src &#39;self&#39; &#39;unsafe-inline&#39; https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src &#39;self&#39; https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src &#39;self&#39; https://*; img-src &#39;self&#39; data: https:; media-src &#39;self&#39;;"/>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*; img-src 'self' data: https:; media-src 'self';"/>
     <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
     <meta http-equiv="X-Frame-Options" content="DENY"/>
     <meta http-equiv="X-XSS-Protection" content="1; mode=block"/>
@@ -55,30 +57,15 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            animation: gradient-shift 3s ease-in-out infinite;
         }
-        
-        @keyframes gradient-shift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-        
-        .floating-element {
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-20px); }
-        }
-        
-        .card-hover {
+
+        .card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        .card-hover:hover {
-            transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3);
         }
         
         .btn-primary {
@@ -88,7 +75,7 @@
         
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         }
         
         .feature-icon {
@@ -103,32 +90,6 @@
                 linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px);
             background-size: 50px 50px;
-            animation: grid-move 20s linear infinite;
-        }
-        
-        @keyframes grid-move {
-            0% { background-position: 0 0; }
-            100% { background-position: 50px 50px; }
-        }
-        
-        .loading-bar {
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--accent-color));
-            background-size: 200% 100%;
-            animation: loading-progress 2s ease-in-out infinite;
-        }
-        
-        @keyframes loading-progress {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-        
-        .pulse-glow {
-            animation: pulse-glow 2s ease-in-out infinite alternate;
-        }
-        
-        @keyframes pulse-glow {
-            from { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
-            to { box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); }
         }
         
         /* Responsive Design */
@@ -181,7 +142,6 @@
             background: var(--secondary-color);
         }
     </style>
-<script src="https://statics.moonshot.cn/sdk/preview-widgets.min.js" defer=""></script><link rel="stylesheet" href="/index.css">
 </head>
 <body>
     <!-- Navigation -->
@@ -196,11 +156,11 @@
                 </div>
                 
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="#features" class="text-gray-300 hover:text-white transition-colors">বৈশিষ্ট্য</a>
-                    <a href="#technology" class="text-gray-300 hover:text-white transition-colors">প্রযুক্তি</a>
-                    <a href="#about" class="text-gray-300 hover:text-white transition-colors">সম্পর্কে</a>
+                    <a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a>
+                    <a href="#technology" class="text-gray-300 hover:text-white transition-colors">Technology</a>
+                    <a href="#about" class="text-gray-300 hover:text-white transition-colors">About</a>
                     <a href="text.html" class="btn-primary px-4 py-2 rounded-lg text-white font-medium">
-                        শুরু করুন
+                        Launch App
                     </a>
                 </div>
                 
@@ -215,11 +175,11 @@
         <!-- Mobile Menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-slate-900/95 backdrop-blur-md border-t border-slate-700/50">
             <div class="px-4 py-4 space-y-3">
-                <a href="#features" class="block text-gray-300 hover:text-white transition-colors py-2">বৈশিষ্ট্য</a>
-                <a href="#technology" class="block text-gray-300 hover:text-white transition-colors py-2">প্রযুক্তি</a>
-                <a href="#about" class="block text-gray-300 hover:text-white transition-colors py-2">সম্পর্কে</a>
+                <a href="#features" class="block text-gray-300 hover:text-white transition-colors py-2">Features</a>
+                <a href="#technology" class="block text-gray-300 hover:text-white transition-colors py-2">Technology</a>
+                <a href="#about" class="block text-gray-300 hover:text-white transition-colors py-2">About</a>
                 <a href="text.html" class="block btn-primary px-4 py-2 rounded-lg text-white font-medium text-center mt-4">
-                    শুরু করুন
+                    Launch App
                 </a>
             </div>
         </div>
@@ -227,120 +187,114 @@
 
     <!-- Hero Section -->
     <section class="relative min-h-screen flex items-center justify-center pt-16 tech-grid">
-        <div class="absolute inset-0 bg-gradient-to-br from-slate-900/50 to-slate-800/30"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900/80 to-slate-900"></div>
         
         <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <div class="floating-element">
+            <div>
                 <h1 class="hero-title text-5xl md:text-7xl lg:text-8xl font-bold mb-6">
-                    ক্লাউড ভিএম
+                    Web VM Emulator
                 </h1>
                 <p class="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-                    ব্রাউজারেই চলমান সম্পূর্ণ ফাংশনাল ভার্চুয়াল মেশিন। কোন ইনস্টলেশনের প্রয়োজন নেই, 
-                    কেবল একটি ক্লিকেই শুরু করুন আপনার ক্লাউড কম্পিউটিং যাত্রা।
+                    Run full operating systems directly in your web browser. No installation required.
                 </p>
                 
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
                     <a href="text.html" class="btn-primary px-8 py-4 rounded-xl text-lg font-semibold text-white inline-flex items-center space-x-2">
                         <i class="fas fa-play"></i>
-                        <span>এখনই শুরু করুন</span>
+                        <span>Launch App</span>
                     </a>
                     <a href="#features" class="px-8 py-4 rounded-xl text-lg font-semibold text-gray-300 border-2 border-gray-600 hover:border-gray-400 hover:text-white transition-all inline-flex items-center space-x-2">
                         <i class="fas fa-info-circle"></i>
-                        <span>আরও জানুন</span>
+                        <span>Learn More</span>
                     </a>
                 </div>
                 
                 <div class="flex justify-center items-center space-x-8 text-gray-400">
                     <div class="flex items-center space-x-2">
                         <i class="fas fa-shield-alt text-green-400"></i>
-                        <span>নিরাপদ</span>
+                        <span>Secure</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <i class="fas fa-bolt text-yellow-400"></i>
-                        <span>দ্রুত</span>
+                        <span>Fast</span>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <i class="fas fa-cloud text-blue-400"></i>
-                        <span>ক্লাউড-ভিত্তিক</span>
+                        <i class="fas fa-desktop text-blue-400"></i>
+                        <span>Browser-Based</span>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Floating Elements -->
-        <div class="absolute top-20 left-10 w-20 h-20 bg-indigo-500/10 rounded-full floating-element" style="animation-delay: -1s;"></div>
-        <div class="absolute bottom-32 right-16 w-16 h-16 bg-purple-500/10 rounded-full floating-element" style="animation-delay: -2s;"></div>
-        <div class="absolute top-1/2 left-1/4 w-12 h-12 bg-cyan-500/10 rounded-full floating-element" style="animation-delay: -3s;"></div>
     </section>
 
     <!-- Features Section -->
     <section id="features" class="py-20 bg-slate-800/50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">অসাধারণ বৈশিষ্ট্য</h2>
+                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">Features</h2>
                 <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                    আধুনিক প্রযুক্তির সমন্বয়ে তৈরি একটি শক্তিশালী ভার্চুয়াল মেশিন প্ল্যাটফর্ম
+                    A robust virtual machine platform built with modern web technology.
                 </p>
             </div>
             
             <div class="feature-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div class="card-hover bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mb-6">
                         <i class="fas fa-desktop text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">সম্পূর্ণ ডেস্কটপ অভিজ্ঞতা</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Full Desktop Experience</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        ব্রাউজারের মধ্যেই একটি সম্পূর্ণ অপারেটিং সিস্টেম চালান। উইন্ডোজ, লিনাক্স বা অন্য যেকোনো OS সাপোর্ট করে।
+                        Run complete operating systems like Windows, Linux, and more, directly in your browser.
                     </p>
                 </div>
                 
-                <div class="card-hover bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6">
                         <i class="fas fa-keyboard text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">ভার্চুয়াল কীবোর্ড</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">On-Screen Keyboard</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        বিল্ট-ইন ভার্চুয়াল কীবোর্ড সহ সম্পূর্ণ কীবোর্ড সাপোর্ট। সকল শর্টকাট এবং ফাংশন কী কাজ করে।
+                        Full keyboard support with a built-in virtual keyboard for mobile and touch devices.
                     </p>
                 </div>
                 
-                <div class="card-hover bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6">
                         <i class="fas fa-mouse-pointer text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">স্মার্ট কন্ট্রোল</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Intuitive Controls</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        iOS-স্টাইল অ্যাসিস্টিভ টাচ মেনু সহ সহজ নিয়ন্ত্রণ। ফুলস্ক্রিন, স্ন্যাপশট এবং আরও অনেক কিছু।
+                        Easy access to controls like fullscreen, snapshots, and Ctrl+Alt+Del through an assistive menu.
                     </p>
                 </div>
                 
-                <div class="card-hover bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-6">
-                        <i class="fas fa-cloud-upload-alt text-white text-2xl"></i>
+                        <i class="fas fa-database text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">ক্লাউড স্টোরেজ</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Persistent Storage</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        আপনার VM ফাইলগুলো ক্লাউডে সংরক্ষণ করুন। যেকোনো সময়, যেকোনো ডিভাইস থেকে অ্যাক্সেস করুন।
+                        Your VM library is saved locally in your browser, ready for your next session.
                     </p>
                 </div>
                 
-                <div class="card-hover bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mb-6">
                         <i class="fas fa-shield-alt text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">নিরাপত্তা প্রথম</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Secure Sandbox</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        উন্নত নিরাপত্তা বৈশিষ্ট্য সহ সুরক্ষিত পরিবেশ। আপনার ডেটা সুরক্ষিত এবং এনক্রিপ্টেড।
+                        Runs in a sandboxed browser environment, keeping your local system secure and isolated.
                     </p>
                 </div>
                 
-                <div class="card-hover bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-green-600 rounded-xl flex items-center justify-center mb-6">
                         <i class="fas fa-rocket text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">ব্লেজিং ফাস্ট</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Fast Performance</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        অপটিমাইজড পারফরম্যান্স এবং দ্রুত লোডিং সময়। WebAssembly এবং ক্লাউড প্রযুক্তির সর্বোত্তম ব্যবহার।
+                        Optimized for performance, leveraging WebAssembly for near-native speed.
                     </p>
                 </div>
             </div>
@@ -351,53 +305,53 @@
     <section id="technology" class="py-20 bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">আধুনিক প্রযুক্তি</h2>
+                <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">Technology Stack</h2>
                 <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                    সর্বাধুনিক ওয়েব প্রযুক্তি ব্যবহার করে তৈরি একটি শক্তিশালী প্ল্যাটফর্ম
+                    Built on a foundation of powerful, modern web technologies.
                 </p>
             </div>
             
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 items-center justify-center">
                 <div class="text-center group">
-                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i class="fab fa-js-square text-white text-3xl"></i>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-gray-700">
+                        <i class="fab fa-js-square text-yellow-400 text-3xl"></i>
                     </div>
                     <p class="text-gray-300 font-medium">JavaScript</p>
                 </div>
                 
                 <div class="text-center group">
-                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i class="fab fa-html5 text-white text-3xl"></i>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-gray-700">
+                        <i class="fab fa-html5 text-orange-500 text-3xl"></i>
                     </div>
                     <p class="text-gray-300 font-medium">HTML5</p>
                 </div>
                 
                 <div class="text-center group">
-                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i class="fab fa-css3-alt text-white text-3xl"></i>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-gray-700">
+                        <i class="fab fa-css3-alt text-blue-500 text-3xl"></i>
                     </div>
                     <p class="text-gray-300 font-medium">CSS3</p>
                 </div>
                 
                 <div class="text-center group">
-                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i class="fas fa-cube text-white text-3xl"></i>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-gray-700">
+                        <i class="fas fa-cube text-indigo-400 text-3xl"></i>
                     </div>
                     <p class="text-gray-300 font-medium">WebAssembly</p>
                 </div>
                 
                 <div class="text-center group">
-                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i class="fas fa-cloud text-white text-3xl"></i>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-gray-700">
+                        <i class="fas fa-database text-green-400 text-3xl"></i>
                     </div>
-                    <p class="text-gray-300 font-medium">Cloud</p>
+                    <p class="text-gray-300 font-medium">IndexedDB</p>
                 </div>
                 
                 <div class="text-center group">
-                    <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i class="fas fa-server text-white text-3xl"></i>
+                    <div class="w-20 h-20 mx-auto mb-4 bg-gray-800 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform border border-gray-700">
+                        <i class="fas fa-wind text-cyan-400 text-3xl"></i>
                     </div>
-                    <p class="text-gray-300 font-medium">CDN</p>
+                    <p class="text-gray-300 font-medium">Tailwind CSS</p>
                 </div>
             </div>
         </div>
@@ -406,25 +360,25 @@
     <!-- About Section -->
     <section id="about" class="py-20 bg-slate-800/30">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 class="text-4xl md:text-5xl font-bold text-white mb-8">ক্লাউড কম্পিউটিংয়ের ভবিষ্যত</h2>
+            <h2 class="text-4xl md:text-5xl font-bold text-white mb-8">About the Project</h2>
             <p class="text-xl text-gray-300 mb-8 leading-relaxed">
-                আমাদের প্ল্যাটফর্ম ভার্চুয়াল মেশিন প্রযুক্তিকে একটি নতুন উচ্চতায় নিয়ে গেছে। 
-                এখন আপনি আপনার ব্রাউজারেই একটি সম্পূর্ণ কম্পিউটার চালাতে পারবেন, কোন সফটওয়্যার ইনস্টল 
-                করার প্রয়োজন ছাড়াই। এটি ক্লাউড কম্পিউটিং এবং ওয়েব প্রযুক্তির একটি বিপ্লবী সংমিশ্রণ।
+                This project demonstrates the power of modern web technologies by running a full x86 virtual machine directly in the browser. It leverages the libv86 emulation engine and WebAssembly to provide a fast, secure, and accessible computing environment without any server-side components or installations.
             </p>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
                 <div class="text-center">
                     <div class="text-4xl font-bold text-indigo-400 mb-2">100%</div>
-                    <p class="text-gray-300">ব্রাউজার-ভিত্তিক</p>
+                    <p class="text-gray-300">Client-Side</p>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-purple-400 mb-2">24/7</div>
-                    <p class="text-gray-300">অনলাইন সাপোর্ট</p>
+                    <div class="text-4xl font-bold text-purple-400 mb-2">Zero</div>
+                    <p class="text-gray-300">Installation</p>
                 </div>
                 <div class="text-center">
-                    <div class="text-4xl font-bold text-cyan-400 mb-2">∞</div>
-                    <p class="text-gray-300">অসীম সম্ভাবনা</p>
+                    <div class="text-4xl font-bold text-cyan-400 mb-2">
+                        <i class="fab fa-github"></i>
+                    </div>
+                    <p class="text-gray-300">Open Source</p>
                 </div>
             </div>
         </div>
@@ -442,24 +396,24 @@
                 </div>
                 
                 <p class="text-gray-400 mb-6 max-w-2xl mx-auto">
-                    আধুনিক ক্লাউড কম্পিউটিং প্রযুক্তির সর্বোত্তম ব্যবহারে তৈরি একটি শক্তিশালী ভার্চুয়াল মেশিন প্ল্যাটফর্ম।
+                    A powerful virtual machine platform built with the best of modern cloud and web technologies.
                 </p>
                 
                 <div class="flex justify-center space-x-6 mb-8">
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors" aria-label="Twitter">
                         <i class="fab fa-twitter text-xl"></i>
                     </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors" aria-label="GitHub">
                         <i class="fab fa-github text-xl"></i>
                     </a>
-                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors" aria-label="LinkedIn">
                         <i class="fab fa-linkedin text-xl"></i>
                     </a>
                 </div>
                 
                 <div class="border-t border-slate-700/50 pt-6">
                     <p class="text-gray-500 text-sm">
-                        © ২০২৪ Web VM Emulator. সমস্ত অধিকার সংরক্ষিত।
+                        &copy; 2024 Web VM Emulator. All Rights Reserved.
                     </p>
                 </div>
             </div>
@@ -469,10 +423,9 @@
     <!-- Loading Screen -->
     <div id="loading-screen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center">
         <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-4">
-                <div class="loading-bar w-full h-full rounded-lg"></div>
+            <div class="w-16 h-16 mx-auto mb-4 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin">
             </div>
-            <p class="text-white text-lg">লোড হচ্ছে...</p>
+            <p class="text-white text-lg">Loading...</p>
         </div>
     </div>
 
@@ -487,7 +440,7 @@
                 setTimeout(() => {
                     loadingScreen.style.display = 'none';
                 }, 500);
-            }, 1000);
+            }, 500);
         });
 
         // Mobile menu toggle
@@ -511,65 +464,6 @@
                 }
             });
         });
-
-        // Intersection Observer for animations
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
-
-        const observer = new IntersectionObserver(function(entries) {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        }, observerOptions);
-
-        // Observe elements for animation
-        document.querySelectorAll('.card-hover').forEach(el => {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(20px)';
-            el.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
-            observer.observe(el);
-        });
-
-        // Performance optimization: Lazy loading images
-        if ('IntersectionObserver' in window) {
-            const imageObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        img.src = img.dataset.src;
-                        img.classList.remove('lazy');
-                        imageObserver.unobserve(img);
-                    }
-                });
-            });
-
-            document.querySelectorAll('img[data-src]').forEach(img => {
-                imageObserver.observe(img);
-            });
-        }
-
-        // Error handling
-        window.addEventListener('error', function(e) {
-            console.error('JavaScript Error:', e.error);
-        });
-
-        // Service Worker Registration (for PWA capabilities)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful');
-                    })
-                    .catch(function(err) {
-                        console.log('ServiceWorker registration failed');
-                    });
-            });
-        }
     </script>
 
 <script type="module" src="/index.tsx"></script>
