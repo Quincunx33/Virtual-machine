@@ -207,7 +207,6 @@
                 progressBar.style.width = `50%`;
                 v86Config = {
                     wasm_path: "v86.wasm",
-                    wasm_fallback_path: "v86-fallback.wasm",
                     initial_state: { buffer: snapshotBuffer },
                     screen_container: document.getElementById("screen_container"),
                     autostart: true,
@@ -228,7 +227,6 @@
                 
                 v86Config = {
                     wasm_path: "v86.wasm",
-                    wasm_fallback_path: "v86-fallback.wasm",
                     memory_size: ram * 1024 * 1024,
                     vga_memory_size: 8 * 1024 * 1024,
                     bios: { url: "seabios.bin" },
