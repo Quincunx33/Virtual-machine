@@ -1,0 +1,9 @@
+/*
+  Content-Security-Policy: default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;
+  Access-Control-Allow-Origin: *
+  
+/v86.wasm
+  Content-Type: application/wasm
+
+/v86-fallback.wasm
+  Content-Type: application/wasm
