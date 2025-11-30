@@ -1,20 +1,14 @@
 {
-  "name": "app",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "web-vm-emulator-server",
+  "version": "1.0.0",
+  "description": "Static file server for the Web VM Emulator, suitable for hosting on Render.com.",
+  "main": "server.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "node server.js"
   },
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "express": "^4.19.2"
   }
 }
