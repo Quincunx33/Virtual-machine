@@ -6,12 +6,16 @@ const app = express();
 // Render.com sets the PORT environment variable, with a fallback for local development.
 const port = process.env.PORT || 3000;
 
-// Options for express.static to ensure correct Content-Type for .wasm files.
-// While Express is usually good at this, being explicit helps avoid deployment issues.
+// Options for express.static.
 const staticOptions = {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.wasm')) {
+      // Set the correct Content-Type for WebAssembly files.
       res.setHeader('Content-Type', 'application/wasm');
+      // Instruct proxies (like Render.com's or Cloudflare's) not to apply
+      // any transformations, such as Brotli or Gzip compression.
+      // libv86 expects an uncompressed .wasm file.
+      res.setHeader('Cache-Control', 'no-transform');
     }
   }
 };
@@ -20,10 +24,9 @@ const staticOptions = {
 // This will serve index.html, text.html, vm-screen.html, libv86.js, and other assets.
 app.use(express.static(path.join(__dirname, ''), staticOptions));
 
-// By removing the previous catch-all `app.get('*', ...)` route, requests for files
-// that are not found by `express.static` will now correctly result in a 404 Not Found error.
+// Requests for files not found by `express.static` will now correctly result in a 404 Not Found error.
 // This prevents the server from incorrectly sending `index.html` when the browser
-// expects a binary file like `.wasm` or `.bin`, which was the likely cause of the reported error.
+// expects a binary file like `.wasm` or `.bin`.
 // `express.static` automatically handles serving `index.html` for requests to the root path `/`.
 
 app.listen(port, () => {
