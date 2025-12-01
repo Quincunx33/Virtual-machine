@@ -87,7 +87,7 @@
                 <button id="vm-fullscreen-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Fullscreen"><i class="fas fa-expand"></i></button>
                 <button id="vm-keyboard-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Toggle Keyboard"><i class="far fa-keyboard"></i></button>
                 <button id="vm-cad-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Send Ctrl+Alt+Del"><i class="fas fa-bolt"></i></button>
-                <button id="vm-save-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Save Snapshot"><i class="fas fa-camera-retro"></i></button>
+                <button id="vm-save-disk-btn" class="menu-item w-12 h-12 bg-green-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Save Disk Image"><i class="fas fa-save"></i></button>
                 <button id="vm-reset-btn" class="menu-item w-12 h-12 bg-orange-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Reset"><i class="fas fa-sync-alt"></i></button>
                 <button id="vm-power-btn" class="menu-item w-12 h-12 bg-red-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Shutdown"><i class="fas fa-power-off"></i></button>
             </div>
@@ -195,7 +195,7 @@
         }
 
         async function startEmulator() {
-            const { name, url, file, floppyFile, ram, isLocal, sourceType } = selectedOS;
+            const { name, url, file, floppyFile, ram, isLocal, sourceType, network, cdromFile, hddFile, hddReadonly, bootOrder } = selectedOS;
             document.title = `${name} - Web VM`;
             
             let v86Config;
@@ -203,6 +203,7 @@
             if (sourceType === 'snapshot') {
                 loadingText.textContent = 'Loading from snapshot...';
                 progressBar.style.width = `25%`;
+                // Snapshots still use the 'file' property
                 const snapshotBuffer = await file.arrayBuffer();
                 progressBar.style.width = `50%`;
                 v86Config = {
@@ -213,16 +214,42 @@
                 };
             } else {
                 let bootSource = {};
-                const fileName = isLocal ? (file ? file.name : '') : url;
-                const isIso = fileName.toLowerCase().endsWith('.iso');
-                
-                if (isLocal) {
-                    bootSource = isIso ? { cdrom: { buffer: file } } : { hda: { buffer: file } };
-                } else {
-                    bootSource = isIso ? { cdrom: { url } } : { hda: { url } };
+
+                const addSource = (key, fileInfo, options = {}) => {
+                    if (fileInfo) {
+                        if (fileInfo.isLocal === false && fileInfo.url) {
+                            bootSource[key] = { url: fileInfo.url, ...options };
+                        } else {
+                            bootSource[key] = { buffer: fileInfo, ...options };
+                        }
+                    }
+                };
+
+                if (sourceType === 'install') {
+                    addSource('cdrom', cdromFile);
+                    addSource('hda', hddFile, { "read-only": !!hddReadonly, async: true });
+                } else if (sourceType === 'boot') {
+                    addSource('hda', hddFile, { "read-only": !!hddReadonly, async: true });
+                } else { // Legacy support
+                    const fileName = isLocal ? (file ? file.name : '') : url;
+                    const isIso = fileName.toLowerCase().endsWith('.iso');
+                    const fileObject = isLocal ? file : { url: url };
+
+                    if (isIso) {
+                         bootSource['cdrom'] = fileObject;
+                    } else {
+                         bootSource['hda'] = { ...fileObject, "read-only": !!hddReadonly, async: true };
+                    }
                 }
-                if (floppyFile) {
-                    bootSource.fda = { buffer: floppyFile };
+                
+                addSource('fda', floppyFile, { async: true });
+
+                let boot_order;
+                switch(bootOrder) {
+                    case 'cdrom': boot_order = 0x321; break; // CD, HDD, Floppy
+                    case 'hdd': boot_order = 0x213; break; // HDD, Floppy, CD
+                    case 'floppy': boot_order = 0x123; break; // Floppy, HDD, CD
+                    default: boot_order = sourceType === 'install' ? 0x321 : 0x213;
                 }
                 
                 v86Config = {
@@ -233,8 +260,13 @@
                     vga_bios: { url: "vgabios.bin" },
                     screen_container: document.getElementById("screen_container"),
                     autostart: true,
+                    boot_order: boot_order,
                     ...bootSource
                 };
+
+                if (network) {
+                    v86Config.network_relay_url = "wss://relay.widgetry.org/";
+                }
             }
             
             initializeEmulator(v86Config);
@@ -251,22 +283,43 @@
             emulator = null;
         }
 
-        async function saveState() {
-            if (!emulator || !emulator.is_running()) return;
-            loadingText.textContent = 'Saving state...';
+        async function saveDiskImage() {
+            if (!emulator || !emulator.is_running()) {
+                alert("VM is not running.");
+                return;
+            }
+            
+            const hda_buffer = emulator.hda && emulator.hda.buffer;
+            if (!hda_buffer || typeof hda_buffer.get_as_file !== 'function') {
+                alert("No writable local disk image to save. This feature is for VMs created from a local .img file.");
+                return;
+            }
+
+            loadingText.textContent = 'Saving disk image... This can take a while.';
+            progressBar.style.width = `50%`;
+            document.querySelector('.spinner').style.display = 'block';
             loadingIndicator.classList.remove('hidden');
+
             try {
-                const state = await emulator.save_state();
-                const blob = new Blob([state], { type: "application/octet-stream" });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${selectedOS.name}-state.v86state`;
-                a.click();
-                window.URL.revokeObjectURL(url);
+                const originalFileName = selectedOS.hddFile ? selectedOS.hddFile.name : (selectedOS.file ? selectedOS.file.name : "disk.img");
+                const newFileName = prompt(
+                    "Enter file name for the saved disk image:",
+                    originalFileName.replace(/(\.img|\.iso|\.bin)$/i, "-snapshot.img")
+                );
+
+                if (newFileName) {
+                    const file = hda_buffer.get_as_file(newFileName);
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(file);
+                    a.download = newFileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
+                }
             } catch (e) {
-                console.error("Failed to save state:", e);
-                alert("Could not save state.");
+                console.error("Failed to save disk image:", e);
+                alert("Could not save disk image. " + e.message);
             } finally {
                 loadingIndicator.classList.add('hidden');
             }
@@ -373,7 +426,7 @@
         document.getElementById('vm-reset-btn').addEventListener('click', () => emulator?.restart());
         document.getElementById('vm-fullscreen-btn').addEventListener('click', () => document.documentElement.requestFullscreen().catch(e => console.error(e)));
         document.getElementById('vm-keyboard-btn').addEventListener('click', () => virtualKeyboard.classList.toggle('hidden'));
-        document.getElementById('vm-save-btn').addEventListener('click', saveState);
+        document.getElementById('vm-save-disk-btn').addEventListener('click', saveDiskImage);
         document.getElementById('vm-cad-btn').addEventListener('click', () => {
             emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]);
         });

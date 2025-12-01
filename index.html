@@ -42,6 +42,10 @@
             box-sizing: border-box;
         }
         
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background: var(--dark-bg);
@@ -240,41 +244,41 @@
             <div class="feature-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mb-6">
-                        <i class="fas fa-desktop text-white text-2xl"></i>
+                        <i class="fas fa-hdd text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">Full Desktop Experience</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Flexible Boot Options</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        Run complete operating systems like Windows, Linux, and more, directly in your browser.
+                        Install a new OS from an `.iso` file or boot directly from a pre-configured `.img` disk image. Full control over boot order.
                     </p>
                 </div>
                 
                 <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6">
-                        <i class="fas fa-keyboard text-white text-2xl"></i>
+                        <i class="fas fa-sliders-h text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">On-Screen Keyboard</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Powerful In-VM Controls</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        Full keyboard support with a built-in virtual keyboard for mobile and touch devices.
+                       An iOS-style assistive menu gives you access to fullscreen, virtual keyboard, Ctrl+Alt+Del, and other essential functions.
                     </p>
                 </div>
                 
                 <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6">
-                        <i class="fas fa-mouse-pointer text-white text-2xl"></i>
+                        <i class="fas fa-save text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">Intuitive Controls</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Disk Snapshots</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        Easy access to controls like fullscreen, snapshots, and Ctrl+Alt+Del through an assistive menu.
+                        Download a snapshot of your virtual hard disk (`.img` file) with all your changes, ready to be resumed later.
                     </p>
                 </div>
                 
                 <div class="card bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-6">
-                        <i class="fas fa-database text-white text-2xl"></i>
+                        <i class="fas fa-folder-open text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">Persistent Storage</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Built-in Disk Explorer</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        Your VM library is saved locally in your browser, ready for your next session.
+                        Inspect `.img` files without booting. Our read-only file explorer lets you safely browse FAT16/FAT32 filesystems in-browser.
                     </p>
                 </div>
                 
@@ -292,9 +296,9 @@
                     <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-green-600 rounded-xl flex items-center justify-center mb-6">
                         <i class="fas fa-rocket text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-4">Fast Performance</h3>
+                    <h3 class="text-2xl font-bold text-white mb-4">Cross-Device Compatibility</h3>
                     <p class="text-gray-300 leading-relaxed">
-                        Optimized for performance, leveraging WebAssembly for near-native speed.
+                        Leverages WebAssembly for near-native speed and includes a virtual keyboard for seamless use on desktops and tablets.
                     </p>
                 </div>
             </div>

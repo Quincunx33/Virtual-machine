@@ -17,7 +17,7 @@ A modern, browser-based virtual machine emulator that allows you to run legacy o
     - **Virtual Keyboard**: A built-in on-screen keyboard for touch devices or when you need special keys.
     - **Essential Shortcuts**: Easily send `Ctrl+Alt+Del` or reset the machine.
 - **State Management**:
-    - **Save Snapshots**: Capture the entire state of a running VM to a file and restore it later.
+    - **Save Disk Image**: For VMs running from a `.img` file, this saves the modified disk image to your computer. Perfect for saving your OS installation.
     - **Persistent Configuration**: Your VM library is saved locally in your browser using IndexedDB and localStorage, so your machines are always there when you return.
 - **Modern Tech Stack**: Built with vanilla JavaScript (ES6+), Tailwind CSS for a sleek UI, and IndexedDB for robust client-side storage.
 
@@ -45,7 +45,7 @@ The floating menu button gives you quick access to all controls:
 - <i class="fas fa-expand"></i> **Fullscreen**: Toggle fullscreen mode.
 - <i class="far fa-keyboard"></i> **Keyboard**: Show or hide the virtual keyboard.
 - <i class="fas fa-bolt"></i> **Ctrl+Alt+Del**: Send the Ctrl+Alt+Del key combination.
-- <i class="fas fa-camera-retro"></i> **Save Snapshot**: Save the current state of the VM to a file.
+- <i class="fas fa-save"></i> **Save Disk Image**: Saves the modified disk image (.img) to a file.
 - <i class="fas fa-sync-alt"></i> **Reset**: Hard reset the virtual machine.
 - <i class="fas fa-power-off"></i> **Shutdown**: Close the VM window and shut down the emulator.
 
