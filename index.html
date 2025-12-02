@@ -489,14 +489,17 @@
         
         // --- UI Update Logic ---
         function updateUIForLogin(user) {
-            if (!user || !user.displayName || !user.photoLink) {
+            if (!user) {
                 handleLogout();
                 return;
             }
-            const firstName = user.displayName.split(' ')[0];
+
+            const displayName = user.displayName || 'User';
+            const photoLink = user.photoLink || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&rounded=true`;
+            const firstName = displayName.split(' ')[0];
 
             // Desktop UI
-            userAvatarNav.src = user.photoLink;
+            userAvatarNav.src = photoLink;
             userNameNav.textContent = `Hi, ${firstName}`;
             userProfileNav.classList.remove('hidden');
             userProfileNav.classList.add('flex');
@@ -504,7 +507,7 @@
             logoutBtnNav.classList.remove('hidden');
             
             // Mobile UI
-            userAvatarNavMobile.src = user.photoLink;
+            userAvatarNavMobile.src = photoLink;
             userNameNavMobile.textContent = `Hi, ${firstName}`;
             userProfileNavMobile.classList.remove('hidden');
             userProfileNavMobile.classList.add('flex');
