@@ -4,11 +4,11 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Web VM Emulator - Browser-Based Virtual Machines</title>
-    <meta name="description" content="A fully functional virtual machine emulator that runs in your browser. No installation required."/>
-    <meta name="keywords" content="VM, Virtual Machine, Browser Emulator, libv86"/>
+    <meta name="description" content="Run legacy operating systems and software directly in your web browser. Fast, secure, and no installation required."/>
+    <meta name="keywords" content="VM, Virtual Machine, Browser Emulator, libv86, DOS, Windows 98"/>
     
     <!-- Security Headers -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*; img-src 'self' data: https:; media-src 'self';"/>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*; img-src 'self' data: https:; media-src 'self';"/>
     <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
     <meta http-equiv="X-Frame-Options" content="DENY"/>
     <meta http-equiv="X-XSS-Protection" content="1; mode=block"/>
@@ -22,107 +22,71 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     
     <!-- Custom Styles -->
     <style>
-        :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --accent-color: #06b6d4;
-            --dark-bg: #0f172a;
-            --card-bg: #1e293b;
-            --text-primary: #f8fafc;
-            --text-secondary: #cbd5e1;
-        }
-        
         html {
             scroll-behavior: smooth;
         }
-
         body {
             font-family: 'Poppins', sans-serif;
-            background: var(--dark-bg);
-            color: var(--text-primary);
-            overflow-x: hidden;
+            background-color: #0f172a; /* slate-900 */
+            color: #f8fafc; /* slate-50 */
         }
-        
-        #tsparticles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }
-
-        .hero-title {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color), var(--accent-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .card-3d {
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: transform 0.4s ease, box-shadow 0.4s ease;
-            transform-style: preserve-3d;
-        }
-        
-        .card-3d:hover {
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-        }
-        
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            transition: all 0.3s ease;
+            background-color: #4f46e5; /* indigo-600 */
+            transition: background-color 0.3s ease, transform 0.2s ease;
         }
-        
         .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+            background-color: #4338ca; /* indigo-700 */
+            transform: translateY(-2px);
         }
-        
-        .tech-icon-card {
-             background: rgba(30, 41, 59, 0.5);
-             border: 1px solid rgba(255, 255, 255, 0.1);
-             transition: transform 0.3s ease, background 0.3s ease;
+        .btn-secondary {
+            background-color: #334155; /* slate-700 */
+            border-color: #475569; /* slate-600 */
+            transition: background-color 0.3s ease, border-color 0.3s ease;
         }
-        .tech-icon-card:hover {
-            transform: translateY(-5px) scale(1.05);
-            background: rgba(99, 102, 241, 0.2);
+        .btn-secondary:hover {
+            background-color: #475569; /* slate-600 */
+            border-color: #64748b; /* slate-500 */
+        }
+        .feature-card {
+            background-color: #1e293b; /* slate-800 */
+            border: 1px solid #334155; /* slate-700 */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 <body class="antialiased">
-    <div id="tsparticles"></div>
     <!-- Navigation -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/50 backdrop-blur-md border-b border-slate-700/50">
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-3">
-                    <a href="https://virtual-machine.pages.dev/text.html" class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <a href="/text.html" class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                         <i class="fas fa-desktop text-white text-sm"></i>
                     </a>
-                    <a href="https://virtual-machine.pages.dev/text.html" class="text-xl font-bold text-white">Web VM</a>
+                    <a href="/text.html" class="text-xl font-bold text-white">Web VM</a>
                 </div>
                 
-                <div class="hidden md:flex items-center space-x-8">
+                <div class="hidden md:flex items-center space-x-6">
                     <a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a>
                     <a href="#technology" class="text-gray-300 hover:text-white transition-colors">Technology</a>
-                    <a href="#about" class="text-gray-300 hover:text-white transition-colors">About</a>
                     
+                    <!-- Auth state for desktop -->
                     <div id="user-profile-nav" class="hidden items-center space-x-3">
                         <img id="user-avatar-nav" src="" alt="User Avatar" class="w-9 h-9 rounded-full border-2 border-indigo-500">
-                        <span id="user-name-nav" class="text-white font-medium"></span>
+                        <span id="user-name-nav" class="text-white font-medium text-sm"></span>
                         <button id="logout-btn-nav" class="text-gray-400 hover:text-white" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
                     </div>
-
-                    <button id="login-btn-nav" class="px-4 py-2 rounded-lg text-white font-medium bg-gray-700 hover:bg-gray-600">Login with Google</button>
+                    <button id="login-btn-nav" class="px-4 py-2 rounded-md text-white text-sm font-medium bg-slate-700 hover:bg-slate-600 transition-colors">Login with Google</button>
                     
-                    <a id="launch-btn-nav" href="https://virtual-machine.pages.dev/text.html" class="btn-primary px-4 py-2 rounded-lg text-white font-medium">
+                    <a id="launch-btn-nav" href="/text.html" class="btn-primary px-4 py-2 rounded-md text-white text-sm font-medium">
                         Launch App
                     </a>
                 </div>
@@ -136,26 +100,23 @@
         </div>
         
         <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden md:hidden bg-slate-900/95 backdrop-blur-md border-t border-slate-700/50">
-            <div class="px-4 py-4 space-y-3">
+        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-t border-slate-700/50">
+            <div class="px-4 pt-2 pb-4 space-y-2">
                 <a href="#features" class="block text-gray-300 hover:text-white transition-colors py-2">Features</a>
                 <a href="#technology" class="block text-gray-300 hover:text-white transition-colors py-2">Technology</a>
-                <a href="#about" class="block text-gray-300 hover:text-white transition-colors py-2">About</a>
                 
-                <div class="border-t border-slate-700/50 pt-4 mt-2">
-                    <!-- Shown when logged IN -->
-                    <div id="user-profile-nav-mobile" class="hidden items-center justify-between mb-4">
+                <div class="border-t border-slate-700/50 pt-4 mt-2 space-y-3">
+                    <!-- Mobile Auth State -->
+                    <div id="user-profile-nav-mobile" class="hidden items-center justify-between">
                         <div class="flex items-center space-x-3">
                             <img id="user-avatar-nav-mobile" src="" alt="User Avatar" class="w-9 h-9 rounded-full border-2 border-indigo-500">
                             <span id="user-name-nav-mobile" class="text-white font-medium"></span>
                         </div>
-                        <button id="logout-btn-nav-mobile" class="px-3 py-1.5 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white text-sm">Logout</button>
+                        <button id="logout-btn-nav-mobile" class="px-3 py-1.5 rounded-md font-medium bg-red-600 hover:bg-red-700 text-white text-sm">Logout</button>
                     </div>
-
-                    <!-- Shown when logged OUT -->
-                    <button id="login-btn-nav-mobile" class="w-full block text-center px-4 py-2 rounded-lg font-medium bg-gray-700 hover:bg-gray-600 text-white mb-3">Login with Google</button>
+                    <button id="login-btn-nav-mobile" class="w-full text-center px-4 py-2 rounded-md font-medium bg-slate-700 hover:bg-slate-600 text-white">Login with Google</button>
                     
-                    <a id="launch-btn-nav-mobile" href="https://virtual-machine.pages.dev/text.html" class="block btn-primary px-4 py-2 rounded-lg text-white font-medium text-center">
+                    <a id="launch-btn-nav-mobile" href="/text.html" class="block btn-primary px-4 py-2 rounded-md text-white font-medium text-center">
                         Launch App
                     </a>
                 </div>
@@ -165,98 +126,65 @@
 
     <!-- Hero Section -->
     <main>
-        <section class="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
-            <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <div>
-                    <h1 class="hero-title text-5xl md:text-7xl font-bold mb-6 drop-shadow-lg">
-                        Web VM Emulator
-                    </h1>
-                    <p class="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-                        Run full operating systems directly in your web browser. No installation required.
-                    </p>
-                    
-                    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-                        <a href="https://virtual-machine.pages.dev/text.html" class="btn-primary px-8 py-4 rounded-xl text-lg font-semibold text-white inline-flex items-center space-x-2">
-                            <i class="fas fa-play"></i>
-                            <span>Launch App</span>
-                        </a>
-                        <a href="#features" class="px-8 py-4 rounded-xl text-lg font-semibold text-gray-300 bg-gray-800/50 border-2 border-gray-600 hover:border-gray-400 hover:text-white transition-all inline-flex items-center space-x-2">
-                            <i class="fas fa-info-circle"></i>
-                            <span>Learn More</span>
-                        </a>
-                    </div>
+        <section class="relative pt-32 pb-20 md:pt-48 md:pb-32 flex items-center justify-center">
+            <div class="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-900/80 backdrop-blur-sm"></div>
+            <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
+                    Legacy Systems, Modern Browser
+                </h1>
+                <p class="text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
+                    Experience classic operating systems and software directly in your web browser. Fast, secure, and no installation needed.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <a href="/text.html" class="w-full sm:w-auto btn-primary px-8 py-3 rounded-lg text-lg font-semibold text-white inline-flex items-center justify-center gap-2">
+                        <i class="fas fa-play"></i>
+                        <span>Launch Emulator</span>
+                    </a>
+                    <a href="#features" class="w-full sm:w-auto btn-secondary border-2 px-8 py-3 rounded-lg text-lg font-semibold text-gray-300 inline-flex items-center justify-center gap-2">
+                        <span>Learn More</span>
+                    </a>
                 </div>
             </div>
         </section>
 
         <!-- Features Section -->
-        <section id="features" class="py-20">
+        <section id="features" class="py-20 bg-slate-900">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
-                    <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">Features</h2>
-                    <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                        A robust virtual machine platform built with modern web technology.
+                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Powerful Features, Simple Interface</h2>
+                    <p class="text-lg text-gray-400 max-w-3xl mx-auto">
+                        Everything you need for a seamless emulation experience, right in your browser.
                     </p>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" style="--tilt-x: 0; --tilt-y: 0;">
-                    <div class="card-3d rounded-2xl p-8">
-                        <div class="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mb-6">
-                            <i class="fas fa-hdd text-white text-2xl"></i>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="feature-card rounded-xl p-8">
+                        <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
+                            <i class="fas fa-hdd text-2xl"></i>
                         </div>
-                        <h3 class="text-2xl font-bold text-white mb-4">Flexible Boot Options</h3>
-                        <p class="text-gray-300 leading-relaxed">
-                            Install a new OS from an `.iso` file or boot directly from a pre-configured `.img` disk image. Full control over boot order.
+                        <h3 class="text-xl font-bold text-white mb-3">Flexible Boot Options</h3>
+                        <p class="text-gray-400 leading-relaxed">
+                            Install from an OS installer `.iso` or boot a pre-configured `.img` disk. Full floppy disk support included.
                         </p>
                     </div>
                     
-                    <div class="card-3d rounded-2xl p-8">
-                        <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mb-6">
-                            <i class="fas fa-sliders-h text-white text-2xl"></i>
+                    <div class="feature-card rounded-xl p-8">
+                        <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
+                            <i class="fas fa-sliders-h text-2xl"></i>
                         </div>
-                        <h3 class="text-2xl font-bold text-white mb-4">Powerful In-VM Controls</h3>
-                        <p class="text-gray-300 leading-relaxed">
-                           An iOS-style assistive menu gives you access to fullscreen, virtual keyboard, Ctrl+Alt+Del, and other essential functions.
+                        <h3 class="text-xl font-bold text-white mb-3">In-VM Controls</h3>
+                        <p class="text-gray-400 leading-relaxed">
+                           An intuitive floating menu provides access to fullscreen, virtual keyboard, Ctrl+Alt+Del, and other essential functions.
                         </p>
                     </div>
                     
-                    <div class="card-3d rounded-2xl p-8">
-                        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center mb-6">
-                            <i class="fas fa-save text-white text-2xl"></i>
+                    <div class="feature-card rounded-xl p-8">
+                        <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
+                            <i class="fab fa-google-drive text-2xl"></i>
                         </div>
-                        <h3 class="text-2xl font-bold text-white mb-4">Disk Snapshots</h3>
-                        <p class="text-gray-300 leading-relaxed">
-                            Download a snapshot of your virtual hard disk (`.img` file) with all your changes, ready to be resumed later.
-                        </p>
-                    </div>
-                    
-                    <div class="card-3d rounded-2xl p-8">
-                        <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mb-6">
-                            <i class="fas fa-folder-open text-white text-2xl"></i>
-                        </div>
-                        <h3 class="text-2xl font-bold text-white mb-4">Built-in Disk Explorer</h3>
-                        <p class="text-gray-300 leading-relaxed">
-                            Inspect `.img` files without booting. Our read-only file explorer lets you safely browse FAT16/FAT32 filesystems in-browser.
-                        </p>
-                    </div>
-                    
-                    <div class="card-3d rounded-2xl p-8">
-                        <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mb-6">
-                            <i class="fas fa-shield-alt text-white text-2xl"></i>
-                        </div>
-                        <h3 class="text-2xl font-bold text-white mb-4">Secure Sandbox</h3>
-                        <p class="text-gray-300 leading-relaxed">
-                            Runs in a sandboxed browser environment, keeping your local system secure and isolated.
-                        </p>
-                    </div>
-                    
-                    <div class="card-3d rounded-2xl p-8">
-                        <div class="w-16 h-16 bg-gradient-to-br from-teal-500 to-green-600 rounded-xl flex items-center justify-center mb-6">
-                            <i class="fab fa-google-drive text-white text-2xl"></i>
-                        </div>
-                        <h3 class="text-2xl font-bold text-white mb-4">Cloud Storage</h3>
-                        <p class="text-gray-300 leading-relaxed">
-                           Securely connect your Google Drive account to save and load virtual machine disk images directly from the cloud.
+                        <h3 class="text-xl font-bold text-white mb-3">Cloud Storage</h3>
+                        <p class="text-gray-400 leading-relaxed">
+                           Securely connect your Google Drive to save and load virtual machine disk images directly from the cloud.
                         </p>
                     </div>
                 </div>
@@ -267,60 +195,30 @@
         <section id="technology" class="py-20">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
-                    <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">Technology Stack</h2>
-                    <p class="text-xl text-gray-300 max-w-3xl mx-auto">
-                        Built on a foundation of powerful, modern web technologies.
+                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Powered by Modern Technology</h2>
+                    <p class="text-lg text-gray-400 max-w-3xl mx-auto">
+                        Built on a foundation of powerful, open web technologies for maximum performance and security.
                     </p>
                 </div>
                 
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 items-center justify-center">
-                    <div class="tech-icon-card text-center group p-4 rounded-2xl">
-                        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                            <i class="fab fa-js-square text-yellow-400 text-5xl"></i>
-                        </div>
-                        <p class="text-gray-300 font-medium">JavaScript</p>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 max-w-4xl mx-auto">
+                    <div class="text-center p-4">
+                        <i class="fab fa-js-square text-yellow-400 text-5xl mb-3"></i>
+                        <p class="text-gray-300 font-medium">JavaScript (ES6+)</p>
                     </div>
-                    <div class="tech-icon-card text-center group p-4 rounded-2xl">
-                        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                            <i class="fab fa-html5 text-orange-500 text-5xl"></i>
-                        </div>
-                        <p class="text-gray-300 font-medium">HTML5</p>
-                    </div>
-                    <div class="tech-icon-card text-center group p-4 rounded-2xl">
-                        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                            <i class="fas fa-wind text-cyan-400 text-5xl"></i>
-                        </div>
-                        <p class="text-gray-300 font-medium">Tailwind CSS</p>
-                    </div>
-                     <div class="tech-icon-card text-center group p-4 rounded-2xl">
-                        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                            <i class="fas fa-cube text-indigo-400 text-5xl"></i>
-                        </div>
+                    <div class="text-center p-4">
+                         <i class="fas fa-cube text-indigo-400 text-5xl mb-3"></i>
                         <p class="text-gray-300 font-medium">WebAssembly</p>
                     </div>
-                    <div class="tech-icon-card text-center group p-4 rounded-2xl">
-                        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                            <i class="fas fa-database text-green-400 text-5xl"></i>
-                        </div>
+                    <div class="text-center p-4">
+                        <i class="fas fa-wind text-cyan-400 text-5xl mb-3"></i>
+                        <p class="text-gray-300 font-medium">Tailwind CSS</p>
+                    </div>
+                    <div class="text-center p-4">
+                        <i class="fas fa-database text-green-400 text-5xl mb-3"></i>
                         <p class="text-gray-300 font-medium">IndexedDB</p>
                     </div>
-                    <div class="tech-icon-card text-center group p-4 rounded-2xl">
-                        <div class="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                           <svg class="w-12 h-12" fill="#f6821f" viewBox="0 0 448 512"><path d="M439.39 362.29c-19.32-34.62-48.44-62.24-84.5-81.52L256 232.05v-89.6c17.81-11.23 32.33-27.43 41.69-46.12 9.1-18.15 13.96-38.33 13.96-59.25 0-26.51-10.56-50.45-27.88-67.77C269.13 6.99 245.19 0 218.67 0s-50.45 10.56-67.77 27.88C133.56 45.2 123 69.14 123 96.65c0 20.92 4.86 41.1 13.96 59.25 9.36 18.69 23.88 34.89 41.69 46.12v89.6L79.82 280.77c-36.06 19.28-65.18 46.9-84.5 81.52-12.48 22.46-19.32 48.44-19.32 75.36 0 26.51 10.56 50.45 27.88 67.77C19.2 500.75 43.14 512 74.05 512h291.18c30.91 0 54.85-11.25 72.17-38.57 17.32-27.32 27.88-51.26 27.88-77.77 0-26.92-6.84-52.9-19.32-75.36zM218.67 56.49c12.48 0 22.46 10.08 22.46 22.46s-10.08 22.46-22.46 22.46-22.46-10.08-22.46-22.46 10.08-22.46 22.46-22.46z"/></svg>
-                        </div>
-                        <p class="text-gray-300 font-medium">Cloudflare</p>
-                    </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- About Section -->
-        <section id="about" class="py-20">
-            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h2 class="text-4xl md:text-5xl font-bold text-white mb-8">About the Project</h2>
-                <p class="text-xl text-gray-300 mb-8 leading-relaxed">
-                    This project demonstrates the power of modern web technologies by running a full x86 virtual machine directly in the browser. It leverages the libv86 emulation engine and WebAssembly to provide a fast, secure, and accessible computing environment without any server-side components or installations.
-                </p>
             </div>
         </section>
     </main>
@@ -335,14 +233,12 @@
     <!-- Loading Screen -->
     <div id="loading-screen" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center">
         <div class="text-center">
-            <div class="w-16 h-16 mx-auto mb-4 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin">
-            </div>
-            <p class="text-white text-lg">Loading...</p>
+            <div class="w-12 h-12 mx-auto mb-4 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+            <p class="text-white">Initializing...</p>
         </div>
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
     <script>
         // --- DOM Elements ---
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -376,7 +272,7 @@
         // --- UI Update Logic ---
         function updateUIForLogin(user) {
             const displayName = user.name || 'User';
-            const photoLink = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&rounded=true`;
+            const photoLink = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=4f46e5&color=fff&rounded=true`;
             const firstName = displayName.split(' ')[0];
 
             // Desktop UI
@@ -428,7 +324,7 @@
                 loadingScreen.style.opacity = '0';
                 loadingScreen.style.transition = 'opacity 0.5s ease-out';
                 setTimeout(() => loadingScreen.style.display = 'none', 500);
-            }, 500);
+            }, 200);
 
             checkAuthOnLoad();
         });
@@ -438,53 +334,6 @@
         loginBtnNavMobile.addEventListener('click', handleLogin);
         logoutBtnNav.addEventListener('click', handleLogout);
         logoutBtnNavMobile.addEventListener('click', handleLogout);
-
-        // Particle background
-        tsParticles.load("tsparticles", {
-            fpsLimit: 60,
-            interactivity: {
-                events: {
-                    onHover: { enable: true, mode: "repulse" },
-                },
-                modes: {
-                    repulse: { distance: 80, duration: 0.4 },
-                },
-            },
-            particles: {
-                color: { value: "#4f46e5" },
-                links: { color: "#4f46e5", distance: 150, enable: true, opacity: 0.2, width: 1 },
-                move: {
-                    direction: "none",
-                    enable: true,
-                    outModes: "out",
-                    random: false,
-                    speed: 1,
-                    straight: false,
-                },
-                number: { density: { enable: true, area: 800 }, value: 80 },
-                opacity: { value: 0.3 },
-                shape: { type: "circle" },
-                size: { value: { min: 1, max: 3 } },
-            },
-            detectRetina: true,
-        });
-
-        // 3D Card Effect
-        const cards = document.querySelectorAll('.card-3d');
-        cards.forEach(card => {
-            card.addEventListener('mousemove', (e) => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const { width, height } = rect;
-                const rotateX = (y / height - 0.5) * -15; // Max rotation 7.5deg
-                const rotateY = (x / width - 0.5) * 15;  // Max rotation 7.5deg
-                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.05, 1.05, 1.05)`;
-            });
-            card.addEventListener('mouseleave', () => {
-                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
-            });
-        });
     </script>
 </body>
 </html>
