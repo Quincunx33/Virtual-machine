@@ -523,17 +523,18 @@
         }
 
         async function checkAuthOnLoad() {
-            let token = sessionStorage.getItem('google_drive_token');
+            // Get token from cookie
+            const tokenFromCookie = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('access_token='))
+                ?.split('=')[1];
 
-            if (window.location.hash.includes('access_token')) {
-                const params = new URLSearchParams(window.location.hash.substring(1));
-                const newToken = params.get('access_token');
-                if (newToken) {
-                    token = newToken;
-                    sessionStorage.setItem('google_drive_token', token);
-                    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-                }
+            if (tokenFromCookie) {
+                sessionStorage.setItem('google_drive_token', tokenFromCookie);
+                document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
             }
+            
+            let token = sessionStorage.getItem('google_drive_token');
 
             if (!token) {
                 updateUIForLogout();

@@ -1521,19 +1521,23 @@
         }
 
         function checkTokenOnLoad() {
-            if (window.location.hash.includes('access_token')) {
-                const params = new URLSearchParams(window.location.hash.substring(1));
-                const token = params.get('access_token');
-                if (token) {
-                    googleAccessToken = token;
-                    sessionStorage.setItem('google_drive_token', token);
-                    // Clean the URL
-                    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-                }
-            } else {
-                googleAccessToken = sessionStorage.getItem('google_drive_token');
+            // Get token from cookie
+            const tokenFromCookie = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('access_token='))
+                ?.split('=')[1];
+
+            if (tokenFromCookie) {
+                // Store it in session storage for consistency with the rest of the app
+                sessionStorage.setItem('google_drive_token', tokenFromCookie);
+                // Clean up the cookie
+                document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
             }
             
+            // Now, get the token from session storage (either from the cookie just now, or from a previous session)
+            googleAccessToken = sessionStorage.getItem('google_drive_token');
+            
+            // If we have a token, fetch user profile to update the UI
             if (googleAccessToken) {
                 fetchAndDisplayUserProfile();
             }
