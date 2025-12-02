@@ -1,0 +1,5 @@
+{
+  "routes": [
+    { "pattern": "/auth/*", "function": "worker.nafisfuhad26.workers.dev" }
+  ]
+}
