@@ -446,11 +446,22 @@
             <div class="p-6 space-y-6">
                 <!-- Auth Section -->
                 <div id="cloud-auth-section" class="flex items-center justify-between p-4 rounded-lg bg-gray-700/50">
-                    <div class="flex items-center gap-4">
-                        <i class="fab fa-google-drive text-3xl text-green-400"></i>
-                        <div>
-                            <p class="font-semibold text-white">Google Drive Status</p>
-                            <p id="cloud-status-text" class="text-sm text-gray-400">Not connected.</p>
+                    <div class="flex-grow">
+                        <!-- Logged out view -->
+                        <div id="cloud-auth-default" class="flex items-center gap-4">
+                            <i class="fab fa-google-drive text-3xl text-green-400"></i>
+                            <div>
+                                <p class="font-semibold text-white">Google Drive Status</p>
+                                <p class="text-sm text-gray-400">Not connected.</p>
+                            </div>
+                        </div>
+                        <!-- Logged in view -->
+                        <div id="cloud-user-profile" class="hidden flex items-center gap-4">
+                            <img id="cloud-user-avatar" class="w-12 h-12 rounded-full border-2 border-gray-600" src="" alt="User Avatar">
+                            <div>
+                                <p id="cloud-user-name" class="font-semibold text-white"></p>
+                                <p id="cloud-user-email" class="text-sm text-gray-400"></p>
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -567,12 +578,17 @@
         // --- Cloud Storage ---
         const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
         let googleAccessToken = null;
+        let googleUser = null;
 
         // Cloud modal elements
         const cloudStorageBtn = document.getElementById('cloud-storage-btn');
         const cloudModal = document.getElementById('cloud-modal');
         const closeCloudModalBtn = document.getElementById('close-cloud-modal-btn');
-        const cloudStatusText = document.getElementById('cloud-status-text');
+        const cloudAuthDefault = document.getElementById('cloud-auth-default');
+        const cloudUserProfile = document.getElementById('cloud-user-profile');
+        const cloudUserAvatar = document.getElementById('cloud-user-avatar');
+        const cloudUserName = document.getElementById('cloud-user-name');
+        const cloudUserEmail = document.getElementById('cloud-user-email');
         const cloudConnectBtn = document.getElementById('cloud-connect-btn');
         const cloudLogoutBtn = document.getElementById('cloud-logout-btn');
         const cloudContentSection = document.getElementById('cloud-content-section');
@@ -1445,15 +1461,22 @@
 
         // Update UI based on auth state
         function updateCloudUI() {
-            if (googleAccessToken) {
-                cloudStatusText.textContent = 'Connected.';
+            if (googleAccessToken && googleUser) {
+                cloudAuthDefault.classList.add('hidden');
+                cloudUserProfile.classList.remove('hidden');
+                cloudUserAvatar.src = googleUser.photoLink;
+                cloudUserName.textContent = googleUser.displayName;
+                cloudUserEmail.textContent = googleUser.emailAddress;
+
                 cloudConnectBtn.classList.add('hidden');
                 cloudLogoutBtn.classList.remove('hidden');
                 cloudContentSection.classList.remove('hidden');
                 populateSaveVMSelector();
                 listCloudFiles();
             } else {
-                cloudStatusText.textContent = 'Not connected.';
+                cloudAuthDefault.classList.remove('hidden');
+                cloudUserProfile.classList.add('hidden');
+
                 cloudConnectBtn.classList.remove('hidden');
                 cloudLogoutBtn.classList.add('hidden');
                 cloudContentSection.classList.add('hidden');
@@ -1479,6 +1502,24 @@
         });
 
         // --- OAuth 2.0 Handlers ---
+        async function fetchAndDisplayUserProfile() {
+            if (!googleAccessToken) return;
+            try {
+                const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+                    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+                });
+                if (!response.ok) {
+                    throw new Error('Invalid token');
+                }
+                const data = await response.json();
+                googleUser = data.user;
+                updateCloudUI(); // Update UI with user info
+            } catch (error) {
+                console.error("Failed to fetch user profile", error);
+                handleCloudLogout(); // Token is likely invalid, so log out
+            }
+        }
+
         function checkTokenOnLoad() {
             if (window.location.hash.includes('access_token')) {
                 const params = new URLSearchParams(window.location.hash.substring(1));
@@ -1492,16 +1533,9 @@
             } else {
                 googleAccessToken = sessionStorage.getItem('google_drive_token');
             }
-            // Ping Google to see if token is still valid
+            
             if (googleAccessToken) {
-                fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
-                    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
-                }).then(response => {
-                    if (!response.ok) {
-                        // Token is invalid/expired
-                        handleCloudLogout();
-                    }
-                });
+                fetchAndDisplayUserProfile();
             }
         }
 
@@ -1512,6 +1546,7 @@
 
         function handleCloudLogout() {
             googleAccessToken = null;
+            googleUser = null;
             sessionStorage.removeItem('google_drive_token');
             updateCloudUI();
         }

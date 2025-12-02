@@ -153,17 +153,21 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <a href="text.html" class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
                         <i class="fas fa-desktop text-white text-sm"></i>
-                    </div>
-                    <span class="text-xl font-bold text-white">Web VM</span>
+                    </a>
+                    <a href="text.html" class="text-xl font-bold text-white">Web VM</a>
                 </div>
                 
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a>
                     <a href="#technology" class="text-gray-300 hover:text-white transition-colors">Technology</a>
                     <a href="#about" class="text-gray-300 hover:text-white transition-colors">About</a>
-                    <a href="text.html" class="btn-primary px-4 py-2 rounded-lg text-white font-medium">
+                    <div id="user-profile-nav" class="hidden items-center space-x-3">
+                        <img id="user-avatar-nav" src="" alt="User Avatar" class="w-9 h-9 rounded-full border-2 border-indigo-500">
+                        <a href="text.html" id="user-name-nav" class="text-white font-medium"></a>
+                    </div>
+                    <a id="launch-btn-nav" href="text.html" class="btn-primary px-4 py-2 rounded-lg text-white font-medium">
                         Launch App
                     </a>
                 </div>
@@ -182,7 +186,11 @@
                 <a href="#features" class="block text-gray-300 hover:text-white transition-colors py-2">Features</a>
                 <a href="#technology" class="block text-gray-300 hover:text-white transition-colors py-2">Technology</a>
                 <a href="#about" class="block text-gray-300 hover:text-white transition-colors py-2">About</a>
-                <a href="text.html" class="block btn-primary px-4 py-2 rounded-lg text-white font-medium text-center mt-4">
+                <div id="user-profile-nav-mobile" class="hidden items-center space-x-3 py-2">
+                    <img id="user-avatar-nav-mobile" src="" alt="User Avatar" class="w-9 h-9 rounded-full border-2 border-indigo-500">
+                    <a href="text.html" id="user-name-nav-mobile" class="text-white font-medium"></a>
+                </div>
+                <a id="launch-btn-nav-mobile" href="text.html" class="block btn-primary px-4 py-2 rounded-lg text-white font-medium text-center mt-4">
                     Launch App
                 </a>
             </div>
@@ -445,6 +453,51 @@
                     loadingScreen.style.display = 'none';
                 }, 500);
             }, 500);
+
+            // Check for active session
+            (async function() {
+                const token = sessionStorage.getItem('google_drive_token');
+                if (!token) return;
+
+                try {
+                    const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) { return; }
+
+                    const data = await response.json();
+                    const user = data.user;
+
+                    if (user && user.displayName && user.photoLink) {
+                        // Desktop Nav
+                        const userProfileNav = document.getElementById('user-profile-nav');
+                        const userAvatarNav = document.getElementById('user-avatar-nav');
+                        const userNameNav = document.getElementById('user-name-nav');
+                        const launchBtnNav = document.getElementById('launch-btn-nav');
+
+                        userAvatarNav.src = user.photoLink;
+                        userNameNav.textContent = `Welcome, ${user.displayName.split(' ')[0]}`;
+                        userProfileNav.classList.remove('hidden');
+                        userProfileNav.classList.add('flex');
+                        if (launchBtnNav) launchBtnNav.style.display = 'none';
+
+                        // Mobile Nav
+                        const userProfileNavMobile = document.getElementById('user-profile-nav-mobile');
+                        const userAvatarNavMobile = document.getElementById('user-avatar-nav-mobile');
+                        const userNameNavMobile = document.getElementById('user-name-nav-mobile');
+                        const launchBtnNavMobile = document.getElementById('launch-btn-nav-mobile');
+
+                        userAvatarNavMobile.src = user.photoLink;
+                        userNameNavMobile.textContent = `Welcome, ${user.displayName.split(' ')[0]}`;
+                        userProfileNavMobile.classList.remove('hidden');
+                        userProfileNavMobile.classList.add('flex');
+                        if (launchBtnNavMobile) launchBtnNavMobile.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch user profile for landing page:', error);
+                }
+            })();
         });
 
         // Mobile menu toggle
