@@ -780,9 +780,9 @@
         
         // --- Event Handlers ---
         document.addEventListener('DOMContentLoaded', () => {
-            checkTokenOnLoad(); // Check for Google Auth token first
             initDB().then(() => {
                 loadMachines();
+                checkTokenOnLoad(); // Check for Google Auth token
             }).catch(e => {
                 console.error("Failed to initialize DB:", e);
                 alert("Database could not be initialized. Some features may not work.");
@@ -1508,8 +1508,7 @@
         // --- OAuth 2.0 Handlers ---
         async function fetchAndDisplayUserProfile() {
             if (!googleAccessToken) return;
-            // Assume user is logged in because token exists.
-            // Try to fetch profile details for a better UI, but don't log out on failure.
+            
             let user = null;
             try {
                 const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
@@ -1517,37 +1516,56 @@
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data && data.user) {
-                        user = data.user;
-                    }
+                    user = data.user || {};
+                } else if (response.status === 401) { // Token expired/invalid
+                    handleCloudLogout(); // This will clear session and redirect
+                    return; 
+                } else {
+                    console.error('Failed to fetch user profile with status:', response.status);
+                    user = {}; // Fallback to empty user object
                 }
             } catch (error) {
                 console.error("Failed to fetch user profile, but token is present. Proceeding.", error);
+                user = {}; // Fallback to empty user object
             }
-            googleUser = user || {}; // Ensure googleUser is at least an empty object.
-            updateCloudUI(); // Update UI with whatever info we got.
+            
+            googleUser = user;
+            updateCloudUI();
         }
 
-        function checkTokenOnLoad() {
-            // Get token from cookie
-            const tokenFromCookie = document.cookie
-                .split('; ')
-                .find(row => row.startsWith('access_token='))
-                ?.split('=')[1];
+        async function checkTokenOnLoad() {
+             googleAccessToken = sessionStorage.getItem('google_drive_token');
 
-            if (tokenFromCookie) {
-                // Store it in session storage for consistency with the rest of the app
-                sessionStorage.setItem('google_drive_token', tokenFromCookie);
-                // Clean up the cookie
-                document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            if (!googleAccessToken) {
+                const tokenFromCookie = document.cookie
+                    .split('; ')
+                    .find(row => row.startsWith('access_token='))
+                    ?.split('=')[1];
+
+                if (tokenFromCookie) {
+                    googleAccessToken = tokenFromCookie;
+                    sessionStorage.setItem('google_drive_token', googleAccessToken);
+                    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                } else {
+                    try {
+                        const response = await fetch('https://worker.nafisfuhad26.workers.dev/auth/refresh');
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.access_token) {
+                                googleAccessToken = data.access_token;
+                                sessionStorage.setItem('google_drive_token', googleAccessToken);
+                            }
+                        }
+                    } catch(e) {
+                        console.info('Could not refresh token.');
+                    }
+                }
             }
             
-            // Now, get the token from session storage (either from the cookie just now, or from a previous session)
-            googleAccessToken = sessionStorage.getItem('google_drive_token');
-            
-            // If we have a token, fetch user profile to update the UI
             if (googleAccessToken) {
-                fetchAndDisplayUserProfile();
+                await fetchAndDisplayUserProfile();
+            } else {
+                updateCloudUI();
             }
         }
 
@@ -1561,7 +1579,8 @@
             googleAccessToken = null;
             googleUser = null;
             sessionStorage.removeItem('google_drive_token');
-            updateCloudUI();
+            // Redirect to clear HttpOnly cookies on the server
+            window.location.href = 'https://worker.nafisfuhad26.workers.dev/auth/logout';
         }
 
         // --- Google Drive API Functions ---
