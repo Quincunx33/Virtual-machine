@@ -1540,7 +1540,8 @@
         }
 
         function handleGoogleAuthClick() {
-            const authUrl = 'https://worker.nafisfuhad26.workers.dev/auth/start?post=/text.html';
+            const postUrl = window.location.origin + window.location.pathname;
+            const authUrl = `https://worker.nafisfuhad26.workers.dev/auth/start?post=${encodeURIComponent(postUrl)}`;
             window.location.href = authUrl;
         }
 
