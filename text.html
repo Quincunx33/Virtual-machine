@@ -510,6 +510,10 @@
     <script>
         // --- State Management ---
         let machines = [];
+        let googleUser = null;
+
+        // --- Constants ---
+        const AUTH_WORKER_URL = 'https://worker.nafisfuhad26.workers.dev';
 
         // --- DOM Elements ---
         const vmList = document.getElementById('vm-list');
@@ -527,7 +531,6 @@
         const modalNextBtn = document.getElementById('modal-next-btn');
         const modalCreateBtn = document.getElementById('modal-create-btn');
 
-        // New Step 1 elements
         const sourceTypeInstallCard = document.getElementById('source-type-install');
         const sourceTypeBootCard = document.getElementById('source-type-boot');
         const installInputs = document.getElementById('install-inputs');
@@ -576,11 +579,6 @@
         const exploreError = document.getElementById('explore-error');
         
         // --- Cloud Storage ---
-        const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
-        let googleAccessToken = null;
-        let googleUser = null;
-
-        // Cloud modal elements
         const cloudStorageBtn = document.getElementById('cloud-storage-btn');
         const cloudModal = document.getElementById('cloud-modal');
         const closeCloudModalBtn = document.getElementById('close-cloud-modal-btn');
@@ -653,7 +651,6 @@
         // --- Persistence ---
         function saveMachines() {
             try {
-                // Don't save cloud machines, they are session-specific references
                 const machinesToSave = machines.filter(m => !m.isLocal && !m.isCloud);
                 localStorage.setItem('web_emulator_machines', JSON.stringify(machinesToSave));
             } catch (e) { console.error("Failed to save machines to localStorage", e); }
@@ -664,30 +661,10 @@
                 const storedMachines = localStorage.getItem('web_emulator_machines');
                 if (storedMachines) {
                     machines = JSON.parse(storedMachines);
-                    // Migration for older data
                     machines.forEach(m => {
-                        if (m.isCloud) return; // Should not happen, but defensive
+                        if (m.isCloud) return;
                         if (!m.isLocal && !m.id) {
                             m.id = `url-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                        }
-                        if (m.network === undefined) {
-                            m.network = false;
-                        }
-                        if (m.hddReadonly === undefined) {
-                            m.hddReadonly = false;
-                        }
-                        if (m.bootOrder === undefined) {
-                            if (m.sourceType === 'snapshot') {
-                                m.bootOrder = 'hdd'; // not really used
-                            } else if (m.sourceType === 'install') {
-                                m.bootOrder = 'cdrom';
-                            } else if (m.sourceType === 'boot') {
-                                m.bootOrder = 'hdd';
-                            } else { // legacy
-                                const mainFileName = m.isLocal ? (m.file ? m.file.name : 'Local File') : m.url;
-                                const isIso = mainFileName.toLowerCase().endsWith('.iso');
-                                m.bootOrder = isIso ? 'cdrom' : 'hdd';
-                            }
                         }
                     });
                     renderAllMachineItems();
@@ -717,11 +694,9 @@
             } else if (machine.sourceType === 'boot') {
                 iconClass = 'fa-hdd';
                 description = `IMG: ${machine.hddFile.name}`;
-            } else { // Legacy support for old machines
-                const mainFileName = machine.isLocal ? (machine.file ? machine.file.name : 'Local File') : machine.url;
-                const isIso = mainFileName.toLowerCase().endsWith('.iso');
-                iconClass = isIso ? 'fa-compact-disc' : 'fa-hdd';
-                description = mainFileName;
+            } else { 
+                iconClass = 'fa-hdd';
+                description = 'Legacy Machine';
             }
             
             let bootDevice;
@@ -737,7 +712,7 @@
                 description += ` + Floppy`;
             }
 
-            const hasHdd = machine.hddFile && !machine.isCloud; // Cloud disks are not explorable locally
+            const hasHdd = machine.hddFile && !machine.isCloud;
 
             const itemHTML = `
                 <div class="vm-list-item group flex items-center p-3 rounded-lg text-sm font-medium hover:bg-gray-700/50 transition-colors relative" data-id="${machine.id}">
@@ -782,7 +757,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             initDB().then(() => {
                 loadMachines();
-                checkTokenOnLoad(); // Check for Google Auth token
+                checkAuthOnLoad();
             }).catch(e => {
                 console.error("Failed to initialize DB:", e);
                 alert("Database could not be initialized. Some features may not work.");
@@ -854,14 +829,12 @@
         floppyUpload.addEventListener('change', (e) => handleFloppySelect(e.target.files[0]));
 
         hddReadonlyInstall.addEventListener('change', () => {
-            const isChecked = hddReadonlyInstall.checked;
-            newVMCreationData.hddReadonly = isChecked;
-            hddReadonlyBoot.checked = isChecked;
+            newVMCreationData.hddReadonly = hddReadonlyInstall.checked;
+            hddReadonlyBoot.checked = hddReadonlyInstall.checked;
         });
         hddReadonlyBoot.addEventListener('change', () => {
-            const isChecked = hddReadonlyBoot.checked;
-            newVMCreationData.hddReadonly = isChecked;
-            hddReadonlyInstall.checked = isChecked;
+            newVMCreationData.hddReadonly = hddReadonlyBoot.checked;
+            hddReadonlyInstall.checked = hddReadonlyBoot.checked;
         });
         
         ramSlider.addEventListener('input', () => {
@@ -893,12 +866,12 @@
             if (name) {
                 const newMachine = {
                     name,
-                    ram: 0, // Not applicable for display
+                    ram: 0,
                     file: file,
                     isLocal: true,
                     id: `snapshot-${Date.now()}`,
                     sourceType: 'snapshot',
-                    network: false, // Snapshots don't inherently have network config preserved this way
+                    network: false,
                     bootOrder: 'hdd'
                 };
                 machines.push(newMachine);
@@ -906,7 +879,7 @@
                 updatePlaceholderVisibility();
             }
 
-            e.target.value = null; // Reset input to allow re-uploading the same file
+            e.target.value = null;
         }
 
         // --- Create Modal Logic ---
@@ -936,10 +909,8 @@
 
             installInputs.classList.add('hidden');
             bootInputs.classList.add('hidden');
-            sourceTypeInstallCard.classList.remove('border-indigo-500', 'border-gray-600');
-            sourceTypeInstallCard.classList.add('border-gray-600');
-            sourceTypeBootCard.classList.remove('border-indigo-500', 'border-gray-600');
-            sourceTypeBootCard.classList.add('border-gray-600');
+            sourceTypeInstallCard.classList.remove('border-indigo-500');
+            sourceTypeBootCard.classList.remove('border-indigo-500');
 
             updateModalUI();
         }
@@ -948,29 +919,16 @@
             newVMCreationData.sourceType = type;
             if (type === 'install') {
                 sourceTypeInstallCard.classList.add('border-indigo-500');
-                sourceTypeInstallCard.classList.remove('border-gray-600');
                 sourceTypeBootCard.classList.remove('border-indigo-500');
-                sourceTypeBootCard.classList.add('border-gray-600');
                 installInputs.classList.remove('hidden');
                 bootInputs.classList.add('hidden');
-                newVMCreationData.hddFile = null;
-                hddUploadBoot.value = null;
-                hddBootNameDisplay.textContent = 'Click to upload disk image';
                 newVMCreationData.bootOrder = 'cdrom';
                 bootOrderSelect.value = 'cdrom';
             } else { // boot
                 sourceTypeBootCard.classList.add('border-indigo-500');
-                sourceTypeBootCard.classList.remove('border-gray-600');
                 sourceTypeInstallCard.classList.remove('border-indigo-500');
-                sourceTypeInstallCard.classList.add('border-gray-600');
                 bootInputs.classList.remove('hidden');
                 installInputs.classList.add('hidden');
-                newVMCreationData.cdromFile = null;
-                newVMCreationData.hddFile = null;
-                cdUpload.value = null;
-                hddUploadInstall.value = null;
-                cdNameDisplay.textContent = 'Click to upload CD/DVD image';
-                hddInstallNameDisplay.textContent = 'Click to upload hard disk image';
                 newVMCreationData.bootOrder = 'hdd';
                 bootOrderSelect.value = 'hdd';
             }
@@ -990,28 +948,22 @@
 
             if (type === 'hdd-install' || type === 'hdd-boot') {
                 const isLarge = file.size > LARGE_FILE_THRESHOLD;
-                if (type === 'hdd-install') {
-                    warningInstall.classList.toggle('hidden', !isLarge);
-                } else { // 'hdd-boot'
-                    warningBoot.classList.toggle('hidden', !isLarge);
-                }
+                if (type === 'hdd-install') warningInstall.classList.toggle('hidden', !isLarge);
+                else warningBoot.classList.toggle('hidden', !isLarge);
             }
 
             if (type === 'cdrom') {
                 newVMCreationData.cdromFile = file;
                 cdNameDisplay.textContent = file.name;
-                if (!vmNameInput.value) {
-                    vmNameInput.value = file.name.split('.').slice(0, -1).join('.') || file.name;
-                }
             } else if (type === 'hdd-install') {
                 newVMCreationData.hddFile = file;
                 hddInstallNameDisplay.textContent = file.name;
             } else if (type === 'hdd-boot') {
                 newVMCreationData.hddFile = file;
                 hddBootNameDisplay.textContent = file.name;
-                 if (!vmNameInput.value) {
-                    vmNameInput.value = file.name.split('.').slice(0, -1).join('.') || file.name;
-                }
+            }
+            if (!vmNameInput.value) {
+                vmNameInput.value = file.name.split('.').slice(0, -1).join('.') || file.name;
             }
             updateModalUI();
         }
@@ -1037,8 +989,8 @@
                 indicator.classList.toggle('text-indigo-400', isActive);
                 indicator.classList.toggle('text-gray-500', !isActive);
                 stepNumDiv.classList.toggle('bg-indigo-600', isActive);
-                stepNumDiv.classList.toggle('bg-gray-700', !isActive);
                 stepNumDiv.classList.toggle('border-indigo-400', isActive);
+                stepNumDiv.classList.toggle('bg-gray-700', !isActive);
                 stepNumDiv.classList.toggle('border-gray-600', !isActive);
             });
 
@@ -1061,38 +1013,20 @@
             const name = vmNameInput.value.trim();
             if (!name) { alert('Please provide a name for the machine.'); return; }
             
-            let newMachine;
-            if (newVMCreationData.sourceType === 'install') {
-                newMachine = { 
-                    name, 
-                    ram: newVMCreationData.ram, 
-                    cdromFile: newVMCreationData.cdromFile,
-                    hddFile: newVMCreationData.hddFile, 
-                    hddReadonly: newVMCreationData.hddReadonly,
-                    floppyFile: newVMCreationData.floppyFile, 
-                    isLocal: true,
-                    id: `local-${Date.now()}`, 
-                    network: newVMCreationData.network,
-                    bootOrder: newVMCreationData.bootOrder,
-                    sourceType: 'install'
-                };
-                machines.push(newMachine);
-            } else if (newVMCreationData.sourceType === 'boot') {
-                newMachine = { 
-                    name, 
-                    ram: newVMCreationData.ram, 
-                    hddFile: newVMCreationData.hddFile,
-                    hddReadonly: newVMCreationData.hddReadonly,
-                    floppyFile: newVMCreationData.floppyFile, 
-                    isLocal: true,
-                    id: `local-${Date.now()}`, 
-                    network: newVMCreationData.network,
-                    bootOrder: newVMCreationData.bootOrder,
-                    sourceType: 'boot'
-                };
-                 machines.push(newMachine);
-            } else return;
-
+            const newMachine = { 
+                name, 
+                ram: newVMCreationData.ram, 
+                cdromFile: newVMCreationData.cdromFile,
+                hddFile: newVMCreationData.hddFile, 
+                hddReadonly: newVMCreationData.hddReadonly,
+                floppyFile: newVMCreationData.floppyFile, 
+                isLocal: true,
+                id: `local-${Date.now()}`, 
+                network: newVMCreationData.network,
+                bootOrder: newVMCreationData.bootOrder,
+                sourceType: newVMCreationData.sourceType
+            };
+            machines.push(newMachine);
             renderMachineItem(newMachine);
             updatePlaceholderVisibility();
             createVmModal.classList.add('hidden');
@@ -1107,11 +1041,7 @@
                 alert("Editing snapshot sessions is not supported.");
                 return;
             }
-             if(machine.isCloud) {
-                editHddReadonly.disabled = true;
-            } else {
-                editHddReadonly.disabled = false;
-            }
+            editHddReadonly.disabled = !!machine.isCloud;
 
             document.getElementById('edit-vm-id').value = machineId;
             document.getElementById('edit-vm-name-input').value = machine.name;
@@ -1134,11 +1064,6 @@
         saveChangesBtn.addEventListener('click', () => {
             const machineId = document.getElementById('edit-vm-id').value;
             const newName = document.getElementById('edit-vm-name-input').value.trim();
-            const newRam = parseInt(document.getElementById('edit-ram-slider').value, 10);
-            const newBootOrder = document.getElementById('edit-boot-order-select').value;
-            const newNetwork = document.getElementById('edit-network-toggle').checked;
-            const newHddReadonly = document.getElementById('edit-hdd-readonly').checked;
-
             if (!newName) {
                 alert('Machine name cannot be empty.');
                 return;
@@ -1147,16 +1072,14 @@
             const machineIndex = machines.findIndex(m => m.id === machineId);
             if (machineIndex > -1) {
                 machines[machineIndex].name = newName;
-                machines[machineIndex].ram = newRam;
-                machines[machineIndex].bootOrder = newBootOrder;
-                machines[machineIndex].network = newNetwork;
-                if (!machines[machineIndex].isCloud) { // Cloud machines are always read-only
-                    machines[machineIndex].hddReadonly = newHddReadonly;
+                machines[machineIndex].ram = parseInt(document.getElementById('edit-ram-slider').value, 10);
+                machines[machineIndex].bootOrder = document.getElementById('edit-boot-order-select').value;
+                machines[machineIndex].network = document.getElementById('edit-network-toggle').checked;
+                if (!machines[machineIndex].isCloud) {
+                    machines[machineIndex].hddReadonly = document.getElementById('edit-hdd-readonly').checked;
                 }
                 
-                if (!machines[machineIndex].isLocal) {
-                    saveMachines();
-                }
+                if (!machines[machineIndex].isLocal) saveMachines();
                 renderAllMachineItems();
             }
             
@@ -1170,7 +1093,7 @@
         // --- Explorer Modal Logic ---
         closeExploreModalBtn.addEventListener('click', () => {
             exploreModal.classList.add('hidden');
-            exploreTree.innerHTML = ''; // Clear content
+            exploreTree.innerHTML = '';
         });
 
         async function openExplorerModal(machineId) {
@@ -1204,29 +1127,15 @@
 
         function renderFileTree(nodes, container) {
             const ul = document.createElement('ul');
-            ul.className = 'space-y-1';
-            if (container.id === 'explore-tree') {
-                ul.className += ' pl-0';
-            } else {
-                ul.className += ' pl-6 border-l border-gray-700/50 ml-3';
-            }
+            ul.className = `space-y-1 ${container.id === 'explore-tree' ? 'pl-0' : 'pl-6 border-l border-gray-700/50 ml-3'}`;
 
-            nodes.sort((a, b) => {
-                if (a.type === b.type) return a.name.localeCompare(b.name);
-                return a.type === 'dir' ? -1 : 1;
-            });
+            nodes.sort((a, b) => a.type === 'dir' ? -1 : 1).sort((a,b) => a.name.localeCompare(b.name));
 
             for (const node of nodes) {
                 const li = document.createElement('li');
                 const isDir = node.type === 'dir';
                 
-                li.innerHTML = `
-                    <div class="flex items-center p-1 rounded-md hover:bg-gray-700/50 ${isDir ? 'cursor-pointer' : ''}">
-                        <i class="fas ${isDir ? 'fa-folder text-yellow-400' : 'fa-file text-gray-400'} w-6 text-center"></i>
-                        <span class="ml-2 text-gray-300">${node.name}</span>
-                        ${!isDir ? `<span class="ml-auto text-xs text-gray-500">${node.size} bytes</span>` : ''}
-                    </div>
-                `;
+                li.innerHTML = `<div class="flex items-center p-1 rounded-md hover:bg-gray-700/50 ${isDir ? 'cursor-pointer' : ''}"><i class="fas ${isDir ? 'fa-folder text-yellow-400' : 'fa-file text-gray-400'} w-6 text-center"></i><span class="ml-2 text-gray-300">${node.name}</span>${!isDir ? `<span class="ml-auto text-xs text-gray-500">${node.size} bytes</span>` : ''}</div>`;
                 
                 if (isDir) {
                     const childrenUl = document.createElement('ul');
@@ -1236,10 +1145,7 @@
                     li.querySelector('div').addEventListener('click', (e) => {
                         e.stopPropagation();
                         const isHidden = childrenUl.classList.toggle('hidden');
-                        const icon = li.querySelector('i.fas');
-                        icon.classList.toggle('fa-folder');
-                        icon.classList.toggle('fa-folder-open');
-                        
+                        li.querySelector('i.fas').classList.toggle('fa-folder-open', !isHidden);
                         if (!isHidden && !childrenUl.hasChildNodes() && node.children.length > 0) {
                              renderFileTree(node.children, childrenUl);
                         }
@@ -1251,123 +1157,12 @@
         }
 
         class ImgExplorer {
-            constructor(arrayBuffer) {
-                this.dv = new DataView(arrayBuffer);
-                this.buffer = new Uint8Array(arrayBuffer);
-            }
-
-            async parse() {
-                try {
-                    const partitionEntryOffset = 446;
-                    const bootable = this.dv.getUint8(partitionEntryOffset);
-                    const partitionType = this.dv.getUint8(partitionEntryOffset + 4);
-
-                    if (bootable === 0x80 || bootable === 0x00) {
-                        if ([0x01, 0x04, 0x06, 0x0B, 0x0C, 0x0E].includes(partitionType)) {
-                            const lbaStart = this.dv.getUint32(partitionEntryOffset + 8, true);
-                            const partitionStartOffset = lbaStart * 512;
-                            return this.parseVBR(partitionStartOffset);
-                        }
-                    }
-                } catch(e) {
-                    console.warn("Could not parse MBR, trying as floppy.", e);
-                }
-
-                return this.parseVBR(0);
-            }
-
-            parseVBR(offset) {
-                const bytesPerSector = this.dv.getUint16(offset + 11, true);
-                if (bytesPerSector === 0) throw new Error("Invalid bytesPerSector");
-                const sectorsPerCluster = this.dv.getUint8(offset + 13);
-                const reservedSectors = this.dv.getUint16(offset + 14, true);
-                const numFATs = this.dv.getUint8(offset + 16);
-                const rootEntryCount = this.dv.getUint16(offset + 17, true);
-                const totalSectors16 = this.dv.getUint16(offset + 19, true);
-                const sectorsPerFAT16 = this.dv.getUint16(offset + 22, true);
-                const totalSectors32 = this.dv.getUint32(offset + 32, true);
-
-                const totalSectors = totalSectors16 || totalSectors32;
-                const dataSectors = totalSectors - (reservedSectors + (numFATs * (sectorsPerFAT16 || this.dv.getUint32(offset + 36, true))));
-                const totalClusters = Math.floor(dataSectors / sectorsPerCluster);
-                
-                let fatType = (totalClusters < 4085) ? "FAT12" : (totalClusters < 65525) ? "FAT16" : "FAT32";
-
-                this.fsInfo = {
-                    fatType,
-                    offset,
-                    bytesPerSector,
-                    sectorsPerCluster,
-                    clusterSizeBytes: sectorsPerCluster * bytesPerSector,
-                    fatStart: offset + (reservedSectors * bytesPerSector),
-                    numFATs,
-                };
-
-                if (fatType === "FAT32") {
-                    this.fsInfo.sectorsPerFAT = this.dv.getUint32(offset + 36, true);
-                    const rootCluster = this.dv.getUint32(offset + 44, true);
-                    this.fsInfo.dataStart = this.fsInfo.fatStart + (numFATs * this.fsInfo.sectorsPerFAT * bytesPerSector);
-                    return this.readDirectoryByCluster(rootCluster);
-                } else {
-                    this.fsInfo.sectorsPerFAT = sectorsPerFAT16;
-                    const rootDirSectors = Math.ceil((rootEntryCount * 32) / bytesPerSector);
-                    this.fsInfo.rootDirStart = this.fsInfo.fatStart + (numFATs * this.fsInfo.sectorsPerFAT * bytesPerSector);
-                    this.fsInfo.dataStart = this.fsInfo.rootDirStart + (rootDirSectors * bytesPerSector);
-                    return this.readDirectoryByOffset(this.fsInfo.rootDirStart, rootEntryCount);
-                }
-            }
-
-            getClusterOffset(cluster) {
-                return this.fsInfo.dataStart + (cluster - 2) * this.fsInfo.clusterSizeBytes;
-            }
-
-            readDirectoryByCluster(startCluster) {
-                const dirOffset = this.getClusterOffset(startCluster);
-                const entriesPerCluster = this.fsInfo.clusterSizeBytes / 32;
-                return this.readDirectoryByOffset(dirOffset, entriesPerCluster);
-            }
-
-            readDirectoryByOffset(dirOffset, maxEntries) {
-                const entries = [];
-                for (let i = 0; i < maxEntries; i++) {
-                    const entryOffset = dirOffset + i * 32;
-                    const firstByte = this.dv.getUint8(entryOffset);
-
-                    if (firstByte === 0x00) break;
-                    if (firstByte === 0xE5) continue; 
-                    
-                    const attributes = this.dv.getUint8(entryOffset + 11);
-                    if (attributes === 0x0F) continue; // Skip Long File Names for simplicity
-
-                    const isDirectory = (attributes & 0x10) !== 0;
-                    const isHidden = (attributes & 0x02) !== 0;
-                    const isVolumeLabel = (attributes & 0x08) !== 0;
-                    if (isHidden || isVolumeLabel || firstByte === 0x2E /* '.' or '..' */) continue;
-
-                    let name = new TextDecoder().decode(this.buffer.subarray(entryOffset, entryOffset + 8)).trim();
-                    let ext = new TextDecoder().decode(this.buffer.subarray(entryOffset + 8, entryOffset + 11)).trim();
-                    const filename = ext ? `${name}.${ext}` : name;
-
-                    const startClusterHi = (this.fsInfo.fatType === "FAT32") ? this.dv.getUint16(entryOffset + 20, true) : 0;
-                    const startCluster = this.dv.getUint16(entryOffset + 26, true) | (startClusterHi << 16);
-                    const fileSize = this.dv.getUint32(entryOffset + 28, true);
-
-                    const node = { name: filename, type: isDirectory ? 'dir' : 'file', cluster: startCluster, size: fileSize };
-
-                    if (isDirectory && startCluster > 1) {
-                        try {
-                            node.children = this.readDirectoryByCluster(startCluster);
-                        } catch(e) {
-                            console.warn(`Could not read subdirectory ${filename}`, e);
-                            node.children = [];
-                        }
-                    }
-                    entries.push(node);
-                }
-                return entries;
-            }
+            constructor(ab) { this.dv = new DataView(ab); this.buffer = new Uint8Array(ab); }
+            async parse() { try { const po=446; if([0x80,0x00].includes(this.dv.getUint8(po))&&[1,4,6,11,12,14].includes(this.dv.getUint8(po+4))){return this.parseVBR(this.dv.getUint32(po+8,true)*512);} }catch(e){} return this.parseVBR(0); }
+            parseVBR(o){const bps=this.dv.getUint16(o+11,true);if(bps===0)throw new Error("Invalid bps");const spc=this.dv.getUint8(o+13),rs=this.dv.getUint16(o+14,true),nf=this.dv.getUint8(o+16),re=this.dv.getUint16(o+17,true),ts16=this.dv.getUint16(o+19,true),spf16=this.dv.getUint16(o+22,true),ts32=this.dv.getUint32(o+32,true),ts=ts16||ts32,ds=ts-(rs+(nf*(spf16||this.dv.getUint32(o+36,true)))),tc=Math.floor(ds/spc);this.fs={ft:(tc<4085)?"FAT12":(tc<65525)?"FAT16":"FAT32",o,bps,spc,csb:spc*bps,fs:o+(rs*bps),nf};if(this.fs.ft==="FAT32"){this.fs.spf=this.dv.getUint32(o+36,true);const rc=this.dv.getUint32(o+44,true);this.fs.ds=this.fs.fs+(nf*this.fs.spf*bps);return this.readDirByCluster(rc);}else{this.fs.spf=spf16;const rds=Math.ceil((re*32)/bps);this.fs.rs=this.fs.fs+(nf*this.fs.spf*bps);this.fs.ds=this.fs.rs+(rds*bps);return this.readDirByOffset(this.fs.rs,re);}}
+            getClusterOffset(c){return this.fs.ds+(c-2)*this.fs.csb;} readDirByCluster(sc){return this.readDirByOffset(this.getClusterOffset(sc),this.fs.csb/32);}
+            readDirByOffset(d,me){const e=[];for(let i=0;i<me;i++){const eo=d+i*32,fb=this.dv.getUint8(eo);if(fb===0)break;if(fb===229)continue;const a=this.dv.getUint8(eo+11);if(a===15)continue;const id=(a&16)!==0,ih=(a&2)!==0,iv=(a&8)!==0;if(ih||iv||fb===46)continue;let n=new TextDecoder().decode(this.buffer.subarray(eo,eo+8)).trim(),x=new TextDecoder().decode(this.buffer.subarray(eo+8,eo+11)).trim();const fn=x?`${n}.${x}`:n,scHi=(this.fs.ft==="FAT32")?this.dv.getUint16(eo+20,true):0,sc=this.dv.getUint16(eo+26,true)|(scHi<<16),fs=this.dv.getUint32(eo+28,true),node={name:fn,type:id?'dir':'file',cluster:sc,size:fs};if(id&&sc>1){try{node.children=this.readDirByCluster(sc);}catch(er){node.children=[];}}e.push(node);}return e;}
         }
-
 
         // --- VM Launch Logic ---
         async function startVM(machineId) {
@@ -1383,13 +1178,13 @@
             let osToStore = selectedOS;
 
             if (selectedOS.isCloud) {
-                const token = sessionStorage.getItem('google_drive_token');
-                if (!token) {
+                const accessToken = await getFreshAccessToken();
+                 if (!accessToken) {
                     alert("Your Google Drive session has expired. Please go to Cloud Storage and connect again.");
                     return;
                 }
                 osToStore = { ...selectedOS };
-                osToStore.cloudFileConfig.accessToken = token;
+                osToStore.cloudFileConfig.accessToken = accessToken;
             }
 
             try {
@@ -1412,7 +1207,7 @@
             const checkInterval = setInterval(() => {
                 if (!vmWindow || vmWindow.closed) {
                     clearInterval(checkInterval);
-                    if (runningVmId === machineId) { // Only update if it was the one we were tracking
+                    if (runningVmId === machineId) {
                         vmWindow = null;
                         updateUIAfterVMStop(machineId);
                         runningVmId = null;
@@ -1426,13 +1221,12 @@
             if(vmItem) {
                 vmItem.querySelector('.vm-actions').classList.add('opacity-0', 'pointer-events-none');
                 vmItem.querySelector('.vm-status-indicator').classList.remove('hidden');
-                const indicators = vmItem.querySelector('.absolute.right-32');
-                if (indicators) indicators.classList.add('hidden');
+                vmItem.querySelector('.absolute.right-32')?.classList.add('hidden');
             }
             createVmBtn.disabled = true;
             loadSnapshotBtn.disabled = true;
             helpBtn.disabled = true;
-            vmList.querySelectorAll('.edit-vm-btn, .remove-vm-btn, .start-vm-btn, .explore-vm-btn').forEach(b => b.disabled = true);
+            vmList.querySelectorAll('button').forEach(b => b.disabled = true);
         }
 
         function updateUIAfterVMStop(machineId) {
@@ -1440,18 +1234,16 @@
             if(vmItem) {
                 vmItem.querySelector('.vm-actions').classList.remove('opacity-0', 'pointer-events-none');
                 vmItem.querySelector('.vm-status-indicator').classList.add('hidden');
-                const indicators = vmItem.querySelector('.absolute.right-32');
-                if (indicators) indicators.classList.remove('hidden');
+                vmItem.querySelector('.absolute.right-32')?.classList.remove('hidden');
             }
             createVmBtn.disabled = false;
             loadSnapshotBtn.disabled = false;
             helpBtn.disabled = false;
-            vmList.querySelectorAll('.edit-vm-btn, .remove-vm-btn, .start-vm-btn, .explore-vm-btn').forEach(b => b.disabled = false);
+            vmList.querySelectorAll('button').forEach(b => b.disabled = false);
         }
 
-        // --- Cloud Storage Logic ---
+        // --- Auth & Cloud Storage Logic ---
 
-        // Show a message in the cloud modal
         function showCloudMessage(message, isError = false) {
             cloudMessageArea.textContent = message;
             cloudMessageArea.classList.toggle('text-red-400', isError);
@@ -1459,18 +1251,17 @@
             cloudMessageArea.classList.remove('hidden');
         }
 
-        // Update UI based on auth state
         function updateCloudUI() {
-            if (googleAccessToken && googleUser) {
+            if (googleUser) {
                 cloudAuthDefault.classList.add('hidden');
                 cloudUserProfile.classList.remove('hidden');
 
-                const displayName = googleUser.displayName || 'User';
-                const photoLink = googleUser.photoLink || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=4f46e5&color=fff&rounded=true`;
+                const displayName = googleUser.name || 'User';
+                const photoLink = googleUser.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=4f46e5&color=fff&rounded=true`;
 
                 cloudUserAvatar.src = photoLink;
                 cloudUserName.textContent = displayName;
-                cloudUserEmail.textContent = googleUser.emailAddress || '';
+                cloudUserEmail.textContent = googleUser.email || '';
 
                 cloudConnectBtn.classList.add('hidden');
                 cloudLogoutBtn.classList.remove('hidden');
@@ -1487,11 +1278,10 @@
             }
         }
 
-        // Populate the VM selector for saving
         function populateSaveVMSelector() {
             cloudSaveVmSelect.innerHTML = '<option value="">-- Select a local VM to save its disk --</option>';
             machines.forEach(machine => {
-                if (machine.hddFile && !machine.isCloud) { // Only allow saving local machines with a hard disk
+                if (machine.hddFile && !machine.isCloud) {
                     const option = document.createElement('option');
                     option.value = machine.id;
                     option.textContent = `${machine.name} (${machine.hddFile.name})`;
@@ -1505,87 +1295,51 @@
             cloudSaveBtn.disabled = !cloudSaveVmSelect.value;
         });
 
-        // --- OAuth 2.0 Handlers ---
-        async function fetchAndDisplayUserProfile() {
-            if (!googleAccessToken) return;
-            
-            let user = null;
+        async function getFreshAccessToken() {
             try {
-                const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
-                    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    user = data.user || {};
-                } else if (response.status === 401) { // Token expired/invalid
-                    handleCloudLogout(); // This will clear session and redirect
-                    return; 
-                } else {
-                    console.error('Failed to fetch user profile with status:', response.status);
-                    user = {}; // Fallback to empty user object
+                const response = await fetch(`${AUTH_WORKER_URL}/auth/refresh`);
+                if (!response.ok) {
+                    handleCloudLogout();
+                    return null;
                 }
+                const data = await response.json();
+                return data.access_token || null;
             } catch (error) {
-                console.error("Failed to fetch user profile, but token is present. Proceeding.", error);
-                user = {}; // Fallback to empty user object
+                console.error("Token refresh failed:", error);
+                handleCloudLogout();
+                return null;
             }
-            
-            googleUser = user;
-            updateCloudUI();
         }
 
-        async function checkTokenOnLoad() {
-             googleAccessToken = sessionStorage.getItem('google_drive_token');
-
-            if (!googleAccessToken) {
-                const tokenFromCookie = document.cookie
-                    .split('; ')
-                    .find(row => row.startsWith('access_token='))
-                    ?.split('=')[1];
-
-                if (tokenFromCookie) {
-                    googleAccessToken = tokenFromCookie;
-                    sessionStorage.setItem('google_drive_token', googleAccessToken);
-                    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        async function checkAuthOnLoad() {
+             try {
+                const response = await fetch(`${AUTH_WORKER_URL}/auth/me`);
+                if (response.ok) {
+                    googleUser = await response.json();
                 } else {
-                    try {
-                        const response = await fetch('https://worker.nafisfuhad26.workers.dev/auth/refresh');
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.access_token) {
-                                googleAccessToken = data.access_token;
-                                sessionStorage.setItem('google_drive_token', googleAccessToken);
-                            }
-                        }
-                    } catch(e) {
-                        console.info('Could not refresh token.');
-                    }
+                    googleUser = null;
                 }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                googleUser = null;
             }
-            
-            if (googleAccessToken) {
-                await fetchAndDisplayUserProfile();
-            } else {
-                updateCloudUI();
-            }
+            updateCloudUI();
         }
 
         function handleGoogleAuthClick() {
             const postUrl = window.location.origin + window.location.pathname;
-            const authUrl = `https://worker.nafisfuhad26.workers.dev/auth/start?post=${encodeURIComponent(postUrl)}`;
+            const authUrl = `${AUTH_WORKER_URL}/auth/start?post=${encodeURIComponent(postUrl)}`;
             window.location.href = authUrl;
         }
 
         function handleCloudLogout() {
-            googleAccessToken = null;
             googleUser = null;
-            sessionStorage.removeItem('google_drive_token');
-            // Redirect to clear HttpOnly cookies on the server
-            window.location.href = 'https://worker.nafisfuhad26.workers.dev/auth/logout';
+            window.location.href = `${AUTH_WORKER_URL}/auth/logout`;
         }
 
-        // --- Google Drive API Functions ---
         async function listCloudFiles() {
-            if (!googleAccessToken) return;
+            const accessToken = await getFreshAccessToken();
+            if (!accessToken) return;
             
             cloudFileList.innerHTML = '';
             showCloudMessage('Loading files from Google Drive...');
@@ -1595,17 +1349,10 @@
                 const response = await fetch(`https://www.googleapis.com/drive/v3/files?` +
                     `q=${encodeURIComponent("appProperties has { key='isWebVM' and value='true' } and trashed = false")}&` +
                     `fields=${encodeURIComponent("files(id, name, size)")}`, {
-                    headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
                 });
 
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        handleCloudLogout();
-                        showCloudMessage('Session expired. Please connect again.', true);
-                        return;
-                    }
-                    throw new Error(`Failed to list files: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Failed to list files: ${response.statusText}`);
 
                 const data = await response.json();
                 cloudMessageArea.classList.add('hidden');
@@ -1617,16 +1364,7 @@
                         fileItem.dataset.fileId = file.id;
                         fileItem.dataset.fileName = file.name;
                         fileItem.dataset.fileSize = file.size;
-                        fileItem.innerHTML = `
-                            <div class="flex items-center gap-3">
-                                <i class="fas fa-hdd text-indigo-400"></i>
-                                <div>
-                                    <p class="text-sm font-medium text-white">${file.name}</p>
-                                    <p class="text-xs text-gray-400">${fileSize}</p>
-                                </div>
-                            </div>
-                            <i class="fas fa-play-circle text-gray-500"></i>
-                        `;
+                        fileItem.innerHTML = `<div class="flex items-center gap-3"><i class="fas fa-hdd text-indigo-400"></i><div><p class="text-sm font-medium text-white">${file.name}</p><p class="text-xs text-gray-400">${fileSize}</p></div></div><i class="fas fa-play-circle text-gray-500"></i>`;
                         fileItem.addEventListener('click', () => loadFromCloud(file.id, file.name, parseInt(file.size, 10)));
                         cloudFileList.appendChild(fileItem);
                     });
@@ -1641,7 +1379,8 @@
         }
 
         async function saveToCloud() {
-            if (!googleAccessToken || !cloudSaveVmSelect.value) return;
+            const accessToken = await getFreshAccessToken();
+            if (!accessToken || !cloudSaveVmSelect.value) return;
 
             const machineId = cloudSaveVmSelect.value;
             const machine = machines.find(m => m.id === machineId);
@@ -1655,32 +1394,21 @@
             cloudSaveBtn.disabled = true;
 
             try {
-                const metadata = {
-                    name: file.name,
-                    mimeType: 'application/octet-stream',
-                    appProperties: {
-                        isWebVM: 'true',
-                        vmName: machine.name
-                    }
-                };
-
+                const metadata = { name: file.name, mimeType: 'application/octet-stream', appProperties: { isWebVM: 'true', vmName: machine.name } };
                 const form = new FormData();
                 form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
                 form.append('file', file);
 
                 const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${googleAccessToken}` },
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
                     body: form
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Upload failed: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Upload failed: ${response.statusText}`);
 
                 showCloudMessage(`Successfully uploaded ${file.name}.`, false);
-                listCloudFiles(); // Refresh file list
-
+                listCloudFiles();
             } catch (error) {
                 showCloudMessage(`Error: ${error.message}`, true);
                 console.error('Error saving to cloud:', error);
@@ -1690,8 +1418,6 @@
         }
 
         async function loadFromCloud(fileId, fileName, fileSize) {
-            if (!googleAccessToken) return;
-
             showCloudMessage(`Preparing ${fileName} to run from the cloud...`);
             try {
                 const defaultName = fileName.replace(/\.img$/i, "") || "Cloud VM";
@@ -1699,23 +1425,9 @@
 
                 if (name) {
                     const newMachine = {
-                        name,
-                        ram: 128, // Default RAM, user can edit later
-                        hddFile: null, // No local file, it will be streamed
-                        hddReadonly: true, // Cloud disks are read-only
-                        floppyFile: null,
-                        isLocal: true, // Treat as "local" to avoid localStorage persistence
-                        id: `cloud-${Date.now()}`,
-                        network: false, // Default network
-                        bootOrder: 'hdd',
-                        sourceType: 'boot',
-                        isCloud: true, // Flag to identify cloud-based VM
-                        cloudFileConfig: {
-                            type: 'googledrive',
-                            fileId: fileId,
-                            fileName: fileName,
-                            fileSize: fileSize,
-                        }
+                        name, ram: 128, hddFile: null, hddReadonly: true, floppyFile: null, isLocal: true, id: `cloud-${Date.now()}`,
+                        network: false, bootOrder: 'hdd', sourceType: 'boot', isCloud: true,
+                        cloudFileConfig: { type: 'googledrive', fileId, fileName, fileSize }
                     };
                     machines.push(newMachine);
                     renderMachineItem(newMachine);
@@ -1744,7 +1456,6 @@
         cloudLogoutBtn.addEventListener('click', handleCloudLogout);
         cloudSaveBtn.addEventListener('click', saveToCloud);
         cloudRefreshBtn.addEventListener('click', listCloudFiles);
-
     </script>
 </body>
 </html>
