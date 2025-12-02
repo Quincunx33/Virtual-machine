@@ -1,5 +1,0 @@
-{
-  "routes": [
-    { "pattern": "/auth/*", "function": "worker.[REDACTED]fuhad26.workers.dev" }
-  ]
-}
