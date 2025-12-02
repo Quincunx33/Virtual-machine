@@ -489,11 +489,8 @@
         
         // --- UI Update Logic ---
         function updateUIForLogin(user) {
-            if (!user) {
-                handleLogout();
-                return;
-            }
-
+            // Presence of a token (checked in checkAuthOnLoad) means logged in.
+            // This function just updates the UI with available info.
             const displayName = user.displayName || 'User';
             const photoLink = user.photoLink || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&rounded=true`;
             const firstName = displayName.split(' ')[0];
@@ -544,21 +541,26 @@
                 return;
             }
 
+            // Token exists, so user is logged in.
+            // Try to fetch profile for display purposes, but don't log out if it fails.
+            let user = null;
             try {
                 const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
-                if (!response.ok) {
-                    throw new Error('Invalid token');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.user) {
+                         user = data.user;
+                    }
                 }
-
-                const data = await response.json();
-                updateUIForLogin(data.user);
             } catch (error) {
-                console.error('Auth check failed:', error);
-                handleLogout();
+                console.error('Auth check failed to get user profile, but token is valid. Proceeding.', error);
             }
+            
+            // Proceed to update UI, using fallbacks if user info is missing.
+            updateUIForLogin(user || {});
         }
 
         // --- Event Listeners ---
