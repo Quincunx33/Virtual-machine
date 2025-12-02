@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web VM Emulator</title>
-    <meta name="google-site-verification" content="Jf80yKRSreI2F_DTf7F1jEpwM4OK4I4lB6-REyIh6so" />
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
@@ -446,20 +444,6 @@
             </div>
 
             <div class="p-6 space-y-6">
-                 <!-- Configuration Section -->
-                <div>
-                    <h4 class="text-md font-semibold mb-2 text-white">Configuration</h4>
-                    <div class="p-4 rounded-lg bg-gray-700/50 space-y-2">
-                        <label for="google-client-id-input" class="block text-sm font-medium text-gray-300">Google Client ID</label>
-                        <input type="text" id="google-client-id-input" placeholder="Enter your Google Client ID here"
-                            class="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 placeholder-gray-600">
-                        <p class="text-xs text-gray-500">
-                            Required for Google Drive integration. 
-                            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline">Get one from the Google Cloud Console</a>.
-                        </p>
-                    </div>
-                </div>
-
                 <!-- Auth Section -->
                 <div id="cloud-auth-section" class="flex items-center justify-between p-4 rounded-lg bg-gray-700/50">
                     <div class="flex items-center gap-4">
@@ -470,7 +454,7 @@
                         </div>
                     </div>
                     <div>
-                        <button id="cloud-connect-btn" disabled class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button id="cloud-connect-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                             <i class="fas fa-plug"></i> Connect
                         </button>
                         <button id="cloud-logout-btn" class="hidden px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2">
@@ -588,7 +572,6 @@
         const cloudStorageBtn = document.getElementById('cloud-storage-btn');
         const cloudModal = document.getElementById('cloud-modal');
         const closeCloudModalBtn = document.getElementById('close-cloud-modal-btn');
-        const googleClientIdInput = document.getElementById('google-client-id-input');
         const cloudStatusText = document.getElementById('cloud-status-text');
         const cloudConnectBtn = document.getElementById('cloud-connect-btn');
         const cloudLogoutBtn = document.getElementById('cloud-logout-btn');
@@ -788,8 +771,6 @@
                 console.error("Failed to initialize DB:", e);
                 alert("Database could not be initialized. Some features may not work.");
             });
-            googleClientIdInput.value = localStorage.getItem('google_client_id') || '';
-            googleClientIdInput.dispatchEvent(new Event('input')); // To trigger enable/disable logic
         });
 
         vmList.addEventListener('click', (e) => {
@@ -1525,19 +1506,7 @@
         }
 
         function handleGoogleAuthClick() {
-            const clientId = googleClientIdInput.value.trim();
-            if (!clientId) {
-                alert('Please provide your Google Client ID in the configuration section.');
-                return;
-            }
-            const redirectUri = window.location.origin + window.location.pathname;
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-                `scope=${encodeURIComponent(GOOGLE_SCOPES)}&` +
-                `include_granted_scopes=true&` +
-                `response_type=token&` +
-                `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-                `client_id=${encodeURIComponent(clientId)}`;
-
+            const authUrl = 'https://worker.nafisfuhad26.workers.dev/auth/start?post=/vm-screen.html';
             window.location.href = authUrl;
         }
 
@@ -1703,16 +1672,6 @@
             updateCloudUI();
         });
         closeCloudModalBtn.addEventListener('click', () => cloudModal.classList.add('hidden'));
-        
-        googleClientIdInput.addEventListener('input', () => {
-            const clientId = googleClientIdInput.value.trim();
-            cloudConnectBtn.disabled = !clientId;
-            if (clientId) {
-                localStorage.setItem('google_client_id', clientId);
-            } else {
-                localStorage.removeItem('google_client_id');
-            }
-        });
 
         cloudConnectBtn.addEventListener('click', handleGoogleAuthClick);
         cloudLogoutBtn.addEventListener('click', handleCloudLogout);
