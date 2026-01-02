@@ -66,6 +66,16 @@
 </head>
 <body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
 
+    <!-- Global Error Overlay -->
+    <div id="error-overlay" class="absolute inset-0 bg-red-900/95 z-[100] hidden flex flex-col items-center justify-center p-8 text-center">
+        <i class="fas fa-bug text-6xl text-white mb-6"></i>
+        <h2 class="text-2xl font-bold text-white mb-2">Something went wrong</h2>
+        <p id="error-message" class="text-red-200 mb-8 font-mono text-sm break-all max-w-lg">Unknown Error</p>
+        <button onclick="location.reload()" class="px-6 py-3 bg-white text-red-900 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg">
+            <i class="fas fa-redo mr-2"></i> Reload Page
+        </button>
+    </div>
+
     <div id="screen_container" class="w-full h-full flex items-center justify-center bg-black relative">
         <!-- libv86 elements -->
         <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
@@ -74,9 +84,6 @@
         <div id="loading-indicator" class="absolute inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-black/50">
             <div class="spinner"></div>
             <p id="loading-text" class="mt-4 text-white text-lg font-semibold">Initializing VM...</p>
-            <div class="w-64 bg-gray-600 rounded-full h-2 mt-2">
-                <div id="progress-bar" class="bg-indigo-500 h-2 rounded-full" style="width: 0%"></div>
-            </div>
         </div>
     </div>
 
@@ -116,8 +123,32 @@
 
         const loadingIndicator = document.getElementById('loading-indicator');
         const loadingText = document.getElementById('loading-text');
-        const progressBar = document.getElementById('progress-bar');
         const virtualKeyboard = document.getElementById('virtual-keyboard');
+        const errorOverlay = document.getElementById('error-overlay');
+        const errorMessage = document.getElementById('error-message');
+
+        // --- Global Error Handling ---
+        function showError(msg) {
+            console.error(msg);
+            if (errorMessage && errorOverlay) {
+                errorMessage.textContent = msg;
+                errorOverlay.classList.remove('hidden');
+                if (loadingIndicator) loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        window.onerror = function(msg, url, line, col, error) {
+            let errorText = msg;
+            if (error && error.message) errorText = error.message;
+            else if (typeof msg !== 'string') errorText = JSON.stringify(msg);
+            
+            showError(`Runtime Error: ${errorText}`);
+            return false;
+        };
+
+        window.onunhandledrejection = function(event) {
+            showError(`Promise Error: ${event.reason ? (event.reason.message || event.reason) : 'Unknown reason'}`);
+        };
         
         // --- IndexedDB ---
         const DB_NAME = 'WebEmulatorDB';
@@ -157,7 +188,6 @@
                     return config;
                 }
                 loadingText.textContent = `Waiting for VM configuration... (Attempt ${i})`;
-                progressBar.style.width = `${(i / retries) * 50}%`; // First half of progress
                 await new Promise(resolve => setTimeout(resolve, delay));
             }
             return null;
@@ -185,18 +215,8 @@
                         }
                     });
                 });
-                emulator.add_listener("download-progress", e => {
-                    const percentage = e.total ? (50 + (e.loaded / e.total * 50)) : 50; // Second half
-                    if (e && e.file_name) {
-                        loadingText.textContent = `Loading: ${e.file_name.split('/').pop()}`;
-                    }
-                    progressBar.style.width = `${percentage.toFixed(0)}%`;
-                });
-                emulator.add_listener("download-error", e => {
-                    const fileNameMessage = e && e.file_name ? `: ${e.file_name}` : ".";
-                    handleEmulatorError(`Failed to load a required file${fileNameMessage}`);
-                });
-            } catch(err) { handleEmulatorError(err.message); }
+                // REMOVED: download-progress and download-error listeners to prevent errors with local files
+            } catch(err) { showError(err.message); }
         }
 
         async function startEmulator() {
@@ -207,9 +227,7 @@
 
             if (sourceType === 'snapshot') {
                 loadingText.textContent = 'Loading from snapshot...';
-                progressBar.style.width = `25%`;
                 const snapshotBuffer = await file.arrayBuffer();
-                progressBar.style.width = `50%`;
                 v86Config = {
                     wasm_path: "v86.wasm",
                     initial_state: { buffer: snapshotBuffer },
@@ -262,17 +280,6 @@
             initializeEmulator(v86Config);
         }
 
-        function handleEmulatorError(message) {
-            console.error("Emulator Error:", message);
-            loadingText.textContent = `Error: ${message}`;
-            document.querySelector('.spinner').style.display = 'none';
-            progressBar.style.width = '100%';
-            progressBar.classList.remove('bg-indigo-500');
-            progressBar.classList.add('bg-red-500');
-            if (emulator) { try { emulator.destroy(); } catch(e) {} }
-            emulator = null;
-        }
-
         async function saveDiskImage() {
             if (!emulator || !emulator.is_running()) {
                 alert("VM is not running.");
@@ -286,7 +293,6 @@
             }
 
             loadingText.textContent = 'Saving disk image... This can take a while.';
-            progressBar.style.width = `50%`;
             document.querySelector('.spinner').style.display = 'block';
             loadingIndicator.classList.remove('hidden');
 
@@ -336,8 +342,7 @@
                     throw new Error(`VM configuration for ID "${vmId}" not found.`);
                 }
             } catch (err) {
-                handleEmulatorError(err.message || err.toString());
-                setTimeout(() => window.close(), 3000);
+                showError(err.message || err.toString());
             }
         });
 
