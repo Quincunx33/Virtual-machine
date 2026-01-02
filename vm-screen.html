@@ -94,7 +94,8 @@
                 <button id="vm-fullscreen-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Fullscreen"><i class="fas fa-expand"></i></button>
                 <button id="vm-keyboard-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Toggle Keyboard"><i class="far fa-keyboard"></i></button>
                 <button id="vm-cad-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Send Ctrl+Alt+Del"><i class="fas fa-bolt"></i></button>
-                <button id="vm-save-disk-btn" class="menu-item w-12 h-12 bg-green-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Save Disk Image"><i class="fas fa-save"></i></button>
+                <!-- Removed Save Disk button -->
+                <button class="menu-item w-12 h-12 bg-gray-500/80 rounded-full flex items-center justify-center text-gray-300 shadow-md cursor-not-allowed" title="No Disk"><i class="fas fa-hdd"></i></button>
                 <button id="vm-reset-btn" class="menu-item w-12 h-12 bg-orange-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Reset"><i class="fas fa-sync-alt"></i></button>
                 <button id="vm-power-btn" class="menu-item w-12 h-12 bg-red-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Shutdown"><i class="fas fa-power-off"></i></button>
             </div>
@@ -219,7 +220,8 @@
         }
 
         async function startEmulator() {
-            const { name, ram, sourceType, network, cdromFile, hddFile, hddReadonly, hddSize, bootOrder, file } = selectedOS;
+            // HDD RELATED VARIABLES REMOVED
+            const { name, ram, sourceType, network, cdromFile, file } = selectedOS;
             document.title = `${name} - Web VM`;
             
             let v86Config;
@@ -244,36 +246,15 @@
                 if (cdromFile) {
                     loadingText.textContent = 'Loading CD-ROM image...';
                     try {
-                        // EXPLICIT CONVERSION TO BUFFER TO PREVENT "r.url.endsWith" ERROR
                         const buffer = await cdromFile.arrayBuffer();
                         bootSource['cdrom'] = { buffer: buffer };
                     } catch (e) {
                         showError("Failed to load CD-ROM: " + e.message);
                         return;
                     }
-                }
-
-                if (hddSize) { 
-                    // New empty disk
-                    bootSource['hda'] = { size: hddSize * 1024 * 1024, async: false };
-                } else if (hddFile) { 
-                    // Existing disk image
-                    loadingText.textContent = 'Loading Hard Disk image...';
-                    try {
-                        // EXPLICIT CONVERSION TO BUFFER TO PREVENT "r.url.endsWith" ERROR
-                        const buffer = await hddFile.arrayBuffer();
-                        bootSource['hda'] = { buffer: buffer, "read-only": !!hddReadonly, async: false };
-                    } catch (e) {
-                         showError("Failed to load Hard Disk: " + e.message);
-                         return;
-                    }
-                }
-                
-                let boot_order;
-                switch(bootOrder) {
-                    case 'cdrom': boot_order = 0x21; break; // CD -> HDD 
-                    case 'hdd': boot_order = 0x12; break; // HDD -> CD
-                    default: boot_order = (sourceType === 'install' || sourceType === 'iso') ? 0x21 : 0x12;
+                } else {
+                     showError("No CD-ROM file provided for ISO boot.");
+                     return;
                 }
                 
                 loadingText.textContent = 'Starting Emulator...';
@@ -286,7 +267,8 @@
                     vga_bios: { url: "vgabios.bin" },
                     screen_container: document.getElementById("screen_container"),
                     autostart: true,
-                    boot_order: boot_order,
+                    // FORCE BOOT FROM CD (0x21 might try CD then HDD, but HDD is absent, so it's fine)
+                    boot_order: 0x21, 
                     ...bootSource
                 };
 
@@ -298,47 +280,6 @@
             initializeEmulator(v86Config);
         }
 
-        async function saveDiskImage() {
-            if (!emulator || !emulator.is_running()) {
-                alert("VM is not running.");
-                return;
-            }
-            
-            const hda_buffer = emulator.hda && emulator.hda.buffer;
-            if (!hda_buffer || typeof hda_buffer.get_as_file !== 'function') {
-                alert("No writable local disk image to save. This feature is for VMs created with a virtual hard disk.");
-                return;
-            }
-
-            loadingText.textContent = 'Saving disk image... This can take a while.';
-            document.querySelector('.spinner').style.display = 'block';
-            loadingIndicator.classList.remove('hidden');
-
-            try {
-                const baseFileName = (selectedOS.hddFile ? selectedOS.hddFile.name : selectedOS.name) || "disk";
-                const newFileName = prompt(
-                    "Enter file name for the saved disk image:",
-                     baseFileName.replace(/(\.img|\.iso|\.bin)$/i, "") + "-saved.img"
-                );
-
-                if (newFileName) {
-                    const file = hda_buffer.get_as_file(newFileName);
-                    const a = document.createElement("a");
-                    a.href = URL.createObjectURL(file);
-                    a.download = newFileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(a.href);
-                }
-            } catch (e) {
-                console.error("Failed to save disk image:", e);
-                alert("Could not save disk image. " + e.message);
-            } finally {
-                loadingIndicator.classList.add('hidden');
-            }
-        }
-        
         // --- Init ---
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -439,7 +380,6 @@
         document.getElementById('vm-reset-btn').addEventListener('click', () => emulator?.restart());
         document.getElementById('vm-fullscreen-btn').addEventListener('click', () => document.documentElement.requestFullscreen().catch(e => console.error(e)));
         document.getElementById('vm-keyboard-btn').addEventListener('click', () => virtualKeyboard.classList.toggle('hidden'));
-        document.getElementById('vm-save-disk-btn').addEventListener('click', saveDiskImage);
         document.getElementById('vm-cad-btn').addEventListener('click', () => {
             emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]);
         });
