@@ -212,7 +212,16 @@
                     loadingIndicator.classList.add('hidden');
                     document.getElementById('screen_container').addEventListener('click', () => {
                         if (emulator && emulator.is_running()) {
-                            emulator.lock_mouse();
+                            // SAFE CHECK FOR MOBILE: Only try to lock if the function exists
+                            const canvas = document.querySelector('canvas');
+                            // Check for standard or prefixed pointer lock methods
+                            if (canvas && (canvas.requestPointerLock || canvas.mozRequestPointerLock || canvas.webkitRequestPointerLock)) {
+                                try {
+                                    emulator.lock_mouse();
+                                } catch (e) {
+                                    console.warn("Pointer lock failed, possibly not supported on this device.", e);
+                                }
+                            }
                         }
                     });
                 });
