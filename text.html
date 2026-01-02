@@ -48,6 +48,10 @@
                 <i class="fas fa-history"></i>
                 Load from Snapshot
             </button>
+            <button id="reset-app-btn" class="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors mt-2">
+                <i class="fas fa-trash-alt"></i>
+                Reset App Data
+            </button>
         </div>
     </aside>
 
@@ -241,6 +245,7 @@
         const vmNameInput = document.getElementById('vm-name-input');
         const loadSnapshotBtn = document.getElementById('load-snapshot-btn');
         const snapshotUpload = document.getElementById('snapshot-upload');
+        const resetAppBtn = document.getElementById('reset-app-btn');
 
         // --- Edit Modal Elements ---
         const editVmModal = document.getElementById('edit-vm-modal');
@@ -429,6 +434,25 @@
                 const itemToStart = startBtn.closest('.vm-list-item');
                 startVM(itemToStart.dataset.id);
                 return;
+            }
+        });
+        
+        // --- Reset App Handler ---
+        resetAppBtn.addEventListener('click', async () => {
+            if(confirm("Are you sure? This will delete all saved VMs and reset the application.")) {
+                localStorage.clear();
+                if (db) {
+                    db.close();
+                }
+                const req = indexedDB.deleteDatabase(DB_NAME);
+                req.onsuccess = () => window.location.reload();
+                req.onerror = () => {
+                    alert("Could not delete DB. Please clear browser data manually.");
+                    window.location.reload();
+                };
+                req.onblocked = () => {
+                    alert("Database delete blocked. Please close all other tabs of this app and try again.");
+                };
             }
         });
 
