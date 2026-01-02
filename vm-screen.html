@@ -187,10 +187,15 @@
                 });
                 emulator.add_listener("download-progress", e => {
                     const percentage = e.total ? (50 + (e.loaded / e.total * 50)) : 50; // Second half
-                    loadingText.textContent = `Loading: ${e.file_name.split('/').pop()}`;
+                    if (e && e.file_name) {
+                        loadingText.textContent = `Loading: ${e.file_name.split('/').pop()}`;
+                    }
                     progressBar.style.width = `${percentage.toFixed(0)}%`;
                 });
-                emulator.add_listener("download-error", e => handleEmulatorError(`Failed to load: ${e.file_name}.`));
+                emulator.add_listener("download-error", e => {
+                    const fileNameMessage = e && e.file_name ? `: ${e.file_name}` : ".";
+                    handleEmulatorError(`Failed to load a required file${fileNameMessage}`);
+                });
             } catch(err) { handleEmulatorError(err.message); }
         }
 
