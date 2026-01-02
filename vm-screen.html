@@ -215,7 +215,6 @@
                         }
                     });
                 });
-                // REMOVED: download-progress and download-error listeners to prevent errors with local files
             } catch(err) { showError(err.message); }
         }
 
@@ -226,31 +225,48 @@
             let v86Config;
 
             if (sourceType === 'snapshot') {
-                loadingText.textContent = 'Loading from snapshot...';
-                const snapshotBuffer = await file.arrayBuffer();
-                v86Config = {
-                    wasm_path: "v86.wasm",
-                    initial_state: { buffer: snapshotBuffer },
-                    screen_container: document.getElementById("screen_container"),
-                    autostart: true,
-                };
+                loadingText.textContent = 'Loading snapshot file...';
+                try {
+                    const snapshotBuffer = await file.arrayBuffer();
+                    v86Config = {
+                        wasm_path: "v86.wasm",
+                        initial_state: { buffer: snapshotBuffer },
+                        screen_container: document.getElementById("screen_container"),
+                        autostart: true,
+                    };
+                } catch (e) {
+                    showError("Failed to load snapshot file: " + e.message);
+                    return;
+                }
             } else {
                 let bootSource = {};
 
-                const addSource = (key, fileInfo, options = {}) => {
-                    if (fileInfo) {
-                       bootSource[key] = { buffer: fileInfo, ...options };
-                    }
-                };
-
                 if (cdromFile) {
-                    addSource('cdrom', cdromFile);
+                    loadingText.textContent = 'Loading CD-ROM image...';
+                    try {
+                        // EXPLICIT CONVERSION TO BUFFER TO PREVENT "r.url.endsWith" ERROR
+                        const buffer = await cdromFile.arrayBuffer();
+                        bootSource['cdrom'] = { buffer: buffer };
+                    } catch (e) {
+                        showError("Failed to load CD-ROM: " + e.message);
+                        return;
+                    }
                 }
 
-                if (hddSize) { // New machines with virtual disk
-                    bootSource['hda'] = { size: hddSize * 1024 * 1024, async: true };
-                } else if (hddFile) { // Backwards compatibility for old machines
-                    addSource('hda', hddFile, { "read-only": !!hddReadonly, async: true });
+                if (hddSize) { 
+                    // New empty disk
+                    bootSource['hda'] = { size: hddSize * 1024 * 1024, async: false };
+                } else if (hddFile) { 
+                    // Existing disk image
+                    loadingText.textContent = 'Loading Hard Disk image...';
+                    try {
+                        // EXPLICIT CONVERSION TO BUFFER TO PREVENT "r.url.endsWith" ERROR
+                        const buffer = await hddFile.arrayBuffer();
+                        bootSource['hda'] = { buffer: buffer, "read-only": !!hddReadonly, async: false };
+                    } catch (e) {
+                         showError("Failed to load Hard Disk: " + e.message);
+                         return;
+                    }
                 }
                 
                 let boot_order;
@@ -259,6 +275,8 @@
                     case 'hdd': boot_order = 0x12; break; // HDD -> CD
                     default: boot_order = (sourceType === 'install' || sourceType === 'iso') ? 0x21 : 0x12;
                 }
+                
+                loadingText.textContent = 'Starting Emulator...';
                 
                 v86Config = {
                     wasm_path: "v86.wasm",
@@ -336,7 +354,7 @@
 
                 if (config) {
                     selectedOS = config;
-                    loadingText.textContent = 'Configuration loaded. Initializing VM...';
+                    loadingText.textContent = 'Configuration loaded. Reading files...';
                     await startEmulator();
                 } else {
                     throw new Error(`VM configuration for ID "${vmId}" not found.`);
