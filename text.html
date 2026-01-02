@@ -18,8 +18,10 @@
 </head>
 <body class="bg-gray-900 text-gray-300 flex h-screen overflow-hidden antialiased">
 
+    <div id="overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
+
     <!-- Left Sidebar -->
-    <aside class="w-72 bg-gray-800/50 border-r border-gray-700/50 flex flex-col">
+    <aside class="w-72 bg-gray-800/50 border-r border-gray-700/50 flex flex-col fixed lg:static inset-y-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
         <header class="p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0">
             <h1 class="text-lg font-bold text-white">Web Emulator</h1>
         </header>
@@ -49,16 +51,26 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col items-center justify-center bg-gray-900 p-8">
-         <div class="text-center text-gray-600">
-            <i class="fas fa-desktop text-8xl mb-4"></i>
-            <h2 class="text-3xl font-bold text-white mb-2">VM Manager</h2>
-            <p class="text-gray-400 max-w-md">
-                Create a new virtual machine using the button on the left, then click the play button on a machine to start it in a new window.
-            </p>
-        </div>
-    </main>
+    <!-- Main Content Wrapper -->
+    <div class="flex-1 flex flex-col min-w-0">
+        <!-- Mobile Header -->
+        <header class="lg:hidden p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-20">
+             <h1 class="text-lg font-bold text-white">VM Manager</h1>
+             <button id="menu-toggle-btn" class="text-gray-300 hover:text-white text-xl p-2 -mr-2">
+                <i class="fas fa-bars"></i>
+            </button>
+        </header>
+
+        <main class="flex-1 flex flex-col items-center justify-center bg-gray-900 p-4 sm:p-8 overflow-y-auto">
+             <div class="text-center text-gray-600">
+                <i class="fas fa-desktop text-6xl sm:text-8xl mb-4"></i>
+                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-2">VM Manager</h2>
+                <p class="text-gray-400 max-w-md">
+                    Create a new virtual machine using the button on the left, then click the play button on a machine to start it in a new window.
+                </p>
+            </div>
+        </main>
+    </div>
     
     <!-- Create VM Modal -->
     <div id="create-vm-modal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-50 hidden">
@@ -92,37 +104,13 @@
             <div class="p-6">
                 <!-- Step 1: File Selection -->
                 <div id="modal-step-1">
-                    <h4 class="text-md font-semibold mb-4 text-white">Select a Source Type</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <!-- Option 1: Install OS -->
-                        <div id="source-type-install" class="source-type-card p-4 border-2 border-gray-600 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors">
-                            <div class="flex items-center">
-                                <i class="fas fa-compact-disc text-2xl text-indigo-400 mr-4"></i>
-                                <div>
-                                    <h5 class="font-bold text-white">Install an OS</h5>
-                                    <p class="text-sm text-gray-400">Use an .iso and a disk image.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Option 2: Boot from Disk Image -->
-                        <div id="source-type-boot" class="source-type-card p-4 border-2 border-gray-600 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors">
-                            <div class="flex items-center">
-                                <i class="fas fa-hdd text-2xl text-indigo-400 mr-4"></i>
-                                <div>
-                                    <h5 class="font-bold text-white">Boot Disk Image</h5>
-                                    <p class="text-sm text-gray-400">Use a pre-installed .img file.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Inputs for Install OS -->
-                    <div id="install-inputs" class="hidden space-y-4">
+                    <h4 class="text-md font-semibold mb-4 text-white">Select Installation Media</h4>
+                    <div class="space-y-4">
                         <div class="mt-4 p-3 bg-yellow-900/50 border border-yellow-700 rounded-lg text-yellow-300 text-sm">
                             <div class="flex items-start">
                                 <i class="fas fa-exclamation-triangle mr-2 mt-1"></i>
                                 <div>
-                                    You must provide an installation file (e.g., a Windows 98 ISO) and a hard disk image (.img).
+                                    Provide an installation file (e.g., a Windows 98 ISO). A virtual hard disk will be created for the installation.
                                 </div>
                             </div>
                         </div>
@@ -134,64 +122,8 @@
                             </label>
                             <input id="cd-upload" type="file" class="hidden" accept=".iso"/>
                         </div>
-                        <div>
-                            <label for="hdd-upload-install" class="block mb-2 text-sm font-medium text-gray-300">Hard Disk Image (.img)</label>
-                             <label for="hdd-upload-install" class="flex items-center justify-center w-full px-4 py-3 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700/50 hover:bg-gray-700/80 transition-colors">
-                                <i class="fas fa-cloud-upload-alt text-gray-400 mr-3"></i>
-                                <span id="hdd-install-name-display" class="text-sm text-gray-400">Click to upload hard disk image</span>
-                            </label>
-                            <input id="hdd-upload-install" type="file" class="hidden" accept=".img"/>
-                            <div id="hdd-install-warning" class="hidden mt-2 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-                                <div class="flex items-start">
-                                    <i class="fas fa-exclamation-triangle mr-2 mt-1"></i>
-                                    <div>
-                                        <strong>Warning:</strong> Large disk images (&gt;4GB) may cause browser instability or very long load times.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center mt-2 space-x-2">
-                                <input id="hdd-readonly-install" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-offset-gray-800">
-                                <label for="hdd-readonly-install" class="text-sm font-medium text-gray-300">Mount as read-only</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Inputs for Boot Disk Image -->
-                    <div id="boot-inputs" class="hidden space-y-4">
-                         <div>
-                            <label for="hdd-upload-boot" class="block mb-2 text-sm font-medium text-gray-300">Disk Image (.img)</label>
-                            <label for="hdd-upload-boot" class="flex items-center justify-center w-full px-4 py-3 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700/50 hover:bg-gray-700/80 transition-colors">
-                                <i class="fas fa-cloud-upload-alt text-gray-400 mr-3"></i>
-                                <span id="hdd-boot-name-display" class="text-sm text-gray-400">Click to upload disk image</span>
-                            </label>
-                            <input id="hdd-upload-boot" type="file" class="hidden" accept=".img"/>
-                            <div id="hdd-boot-warning" class="hidden mt-2 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-                                <div class="flex items-start">
-                                    <i class="fas fa-exclamation-triangle mr-2 mt-1"></i>
-                                    <div>
-                                        <strong>Warning:</strong> Large disk images (&gt;4GB) may cause browser instability or very long load times.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="flex items-center mt-2 space-x-2">
-                                <input id="hdd-readonly-boot" type="checkbox" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-offset-gray-800">
-                                <label for="hdd-readonly-boot" class="text-sm font-medium text-gray-300">Mount as read-only</label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mt-6">
-                        <label for="floppy-upload" class="block mb-2 text-sm font-medium text-gray-300">Floppy Disk (Optional)</label>
-                        <div class="flex items-center">
-                            <label for="floppy-upload" class="flex-1 cursor-pointer bg-gray-700 hover:bg-gray-600 text-sm rounded-lg p-2.5 text-center text-gray-400 border border-gray-600">
-                                <i class="fas fa-save mr-2"></i> Choose Floppy Image (.img, .flp)
-                            </label>
-                            <input id="floppy-upload" type="file" class="hidden" />
-                        </div>
-                        <p id="floppy-name-display" class="mt-2 text-sm text-center text-gray-400"></p>
                     </div>
                 </div>
-
 
                 <!-- Step 2: Configuration -->
                 <div id="modal-step-2" class="hidden">
@@ -202,14 +134,11 @@
                         <span id="ram-value" class="font-mono text-indigo-300 w-20 text-center bg-gray-900/50 rounded-md py-1">128 MB</span>
                     </div>
 
-                    <h4 class="text-md font-semibold mb-2 mt-6 text-white">Boot Order</h4>
-                    <div class="p-4 rounded-lg bg-gray-700/50">
-                        <label for="boot-order-select" class="block mb-2 text-sm font-medium text-gray-300">First Boot Device</label>
-                        <select id="boot-order-select" class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
-                            <option value="cdrom">CD/DVD Drive</option>
-                            <option value="hdd">Hard Disk</option>
-                            <option value="floppy">Floppy Drive</option>
-                        </select>
+                    <h4 class="text-md font-semibold mb-4 mt-6 text-white">Virtual Hard Disk Size</h4>
+                    <div class="flex items-center space-x-4 p-4 rounded-lg bg-gray-700/50">
+                        <i class="fas fa-hdd text-indigo-400 text-xl"></i>
+                        <input id="hdd-slider" type="range" min="256" max="2048" value="512" step="256" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="hdd-value" class="font-mono text-indigo-300 w-20 text-center bg-gray-900/50 rounded-md py-1">512 MB</span>
                     </div>
 
                     <h4 class="text-md font-semibold mb-2 mt-6 text-white">Network</h4>
@@ -274,7 +203,6 @@
                     <select id="edit-boot-order-select" class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
                         <option value="cdrom">CD/DVD Drive</option>
                         <option value="hdd">Hard Disk</option>
-                        <option value="floppy">Floppy Drive</option>
                     </select>
                 </div>
                 <div class="space-y-2">
@@ -286,16 +214,6 @@
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="edit-network-toggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
-                    <div class="flex items-center justify-between p-4 rounded-lg bg-gray-700/50">
-                        <div class="flex items-center space-x-4">
-                            <i class="fas fa-lock text-yellow-400 text-xl"></i>
-                            <label for="edit-hdd-readonly" class="font-medium text-gray-300">Mount disk as read-only</label>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="edit-hdd-readonly" class="sr-only peer">
                             <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                         </label>
                     </div>
@@ -342,7 +260,7 @@
 
         // --- Create Modal Elements ---
         let currentStep = 1;
-        let newVMCreationData = { cdromFile: null, hddFile: null, floppyFile: null, sourceType: null, ram: 128, name: '', network: false, hddReadonly: false, bootOrder: 'cdrom' };
+        let newVMCreationData = { cdromFile: null, hddSize: 512, ram: 128, name: '', network: false, bootOrder: 'cdrom' };
         const createVmBtn = document.getElementById('create-vm-btn');
         const createVmModal = document.getElementById('create-vm-modal');
         const closeModalBtn = document.getElementById('close-modal-btn');
@@ -352,24 +270,13 @@
         const modalNextBtn = document.getElementById('modal-next-btn');
         const modalCreateBtn = document.getElementById('modal-create-btn');
 
-        const sourceTypeInstallCard = document.getElementById('source-type-install');
-        const sourceTypeBootCard = document.getElementById('source-type-boot');
-        const installInputs = document.getElementById('install-inputs');
-        const bootInputs = document.getElementById('boot-inputs');
         const cdUpload = document.getElementById('cd-upload');
-        const hddUploadInstall = document.getElementById('hdd-upload-install');
-        const hddUploadBoot = document.getElementById('hdd-upload-boot');
-        const hddReadonlyInstall = document.getElementById('hdd-readonly-install');
-        const hddReadonlyBoot = document.getElementById('hdd-readonly-boot');
         const cdNameDisplay = document.getElementById('cd-name-display');
-        const hddInstallNameDisplay = document.getElementById('hdd-install-name-display');
-        const hddBootNameDisplay = document.getElementById('hdd-boot-name-display');
 
-        const floppyUpload = document.getElementById('floppy-upload');
-        const floppyNameDisplay = document.getElementById('floppy-name-display');
         const ramSlider = document.getElementById('ram-slider');
         const ramValue = document.getElementById('ram-value');
-        const bootOrderSelect = document.getElementById('boot-order-select');
+        const hddSlider = document.getElementById('hdd-slider');
+        const hddValue = document.getElementById('hdd-value');
         const networkToggle = document.getElementById('network-toggle');
         const vmNameInput = document.getElementById('vm-name-input');
         const loadSnapshotBtn = document.getElementById('load-snapshot-btn');
@@ -384,7 +291,6 @@
         const editRamValue = document.getElementById('edit-ram-value');
         const editBootOrderSelect = document.getElementById('edit-boot-order-select');
         const editNetworkToggle = document.getElementById('edit-network-toggle');
-        const editHddReadonly = document.getElementById('edit-hdd-readonly');
 
         // --- Explorer Modal Elements ---
         const exploreModal = document.getElementById('explore-modal');
@@ -393,6 +299,11 @@
         const exploreLoading = document.getElementById('explore-loading');
         const exploreTree = document.getElementById('explore-tree');
         const exploreError = document.getElementById('explore-error');
+
+        // --- Mobile Menu Elements ---
+        const menuToggleBtn = document.getElementById('menu-toggle-btn');
+        const sidebar = document.querySelector('aside');
+        const overlay = document.getElementById('overlay');
 
         // --- IndexedDB ---
         const DB_NAME = 'WebEmulatorDB';
@@ -481,12 +392,12 @@
             if (machine.sourceType === 'snapshot') {
                 iconClass = 'fa-history';
                 description = 'Snapshot Session';
-            } else if (machine.sourceType === 'install') {
+            } else if (machine.sourceType === 'iso' || machine.sourceType === 'install') {
                 iconClass = 'fa-compact-disc';
-                description = `ISO: ${machine.cdromFile.name}`;
+                description = `ISO: ${machine.cdromFile.name} | HDD: ${machine.hddSize || '>1GB'} MB`;
             } else if (machine.sourceType === 'boot') {
-                iconClass = 'fa-hdd';
-                description = `IMG: ${machine.hddFile.name}`;
+                 iconClass = 'fa-hdd';
+                 description = `IMG: ${machine.hddFile.name}`;
             } else { 
                 iconClass = 'fa-hdd';
                 description = 'Legacy Machine';
@@ -496,14 +407,9 @@
             switch(machine.bootOrder) {
                 case 'cdrom': bootDevice = 'CD'; break;
                 case 'hdd': bootDevice = 'HDD'; break;
-                case 'floppy': bootDevice = 'Floppy'; break;
-                default: bootDevice = machine.sourceType === 'install' ? 'CD' : 'HDD';
+                default: bootDevice = (machine.sourceType === 'install' || machine.sourceType === 'iso') ? 'CD' : 'HDD';
             }
             description += ` | ${machine.ram} MB RAM | Boot: ${bootDevice}`;
-
-            if (machine.floppyFile) {
-                description += ` + Floppy`;
-            }
 
             const hasHdd = !!machine.hddFile;
 
@@ -515,14 +421,13 @@
                         <p class="text-xs text-gray-400 truncate">${description}</p>
                     </div>
                     <div class="absolute right-32 flex items-center space-x-3 opacity-50 group-hover:opacity-0 transition-opacity">
-                        ${machine.hddReadonly ? `<i class="fas fa-lock text-yellow-400" title="Read-only disk"></i>` : ''}
                         ${machine.network ? `<i class="fas fa-network-wired text-cyan-400" title="Network enabled"></i>` : ''}
                     </div>
                     <div class="vm-status-indicator hidden items-center gap-2 text-xs text-green-400 font-mono absolute right-4">
                         <span class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
                         Running
                     </div>
-                    <div class="vm-actions flex items-center ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="vm-actions flex items-center ml-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                          <button class="start-vm-btn text-gray-300 bg-gray-700 hover:bg-green-600 hover:text-white rounded-lg transition-colors w-8 h-8 flex items-center justify-center mr-2" title="Start Machine">
                             <i class="fas fa-play"></i>
                         </button>
@@ -600,6 +505,15 @@
             }
         });
 
+        // --- Mobile Menu Handler ---
+        function toggleMenu() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+        menuToggleBtn.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+
+
         // --- Create Modal Handlers ---
         createVmBtn.addEventListener('click', () => {
             resetModal();
@@ -610,30 +524,17 @@
         modalNextBtn.addEventListener('click', () => changeStep(currentStep + 1));
         modalCreateBtn.addEventListener('click', createVMFromModal);
         
-        sourceTypeInstallCard.addEventListener('click', () => selectSourceType('install'));
-        sourceTypeBootCard.addEventListener('click', () => selectSourceType('boot'));
-
         cdUpload.addEventListener('change', e => handleFileSelect(e, 'cdrom'));
-        hddUploadInstall.addEventListener('change', e => handleFileSelect(e, 'hdd-install'));
-        hddUploadBoot.addEventListener('change', e => handleFileSelect(e, 'hdd-boot'));
-        floppyUpload.addEventListener('change', (e) => handleFloppySelect(e.target.files[0]));
-
-        hddReadonlyInstall.addEventListener('change', () => {
-            newVMCreationData.hddReadonly = hddReadonlyInstall.checked;
-            hddReadonlyBoot.checked = hddReadonlyInstall.checked;
-        });
-        hddReadonlyBoot.addEventListener('change', () => {
-            newVMCreationData.hddReadonly = hddReadonlyBoot.checked;
-            hddReadonlyInstall.checked = hddReadonlyBoot.checked;
-        });
         
         ramSlider.addEventListener('input', () => {
             ramValue.textContent = `${ramSlider.value} MB`;
             newVMCreationData.ram = parseInt(ramSlider.value, 10);
         });
 
-        bootOrderSelect.addEventListener('change', () => {
-            newVMCreationData.bootOrder = bootOrderSelect.value;
+        hddSlider.addEventListener('input', () => {
+            const size = parseInt(hddSlider.value, 10);
+            hddValue.textContent = size >= 1024 ? `${size/1024} GB` : `${size} MB`;
+            newVMCreationData.hddSize = size;
         });
         
         networkToggle.addEventListener('change', (e) => {
@@ -675,53 +576,17 @@
         // --- Create Modal Logic ---
         function resetModal() {
             currentStep = 1;
-            newVMCreationData = { cdromFile: null, hddFile: null, floppyFile: null, sourceType: null, ram: 128, name: '', network: false, hddReadonly: false, bootOrder: 'cdrom' };
+            newVMCreationData = { cdromFile: null, hddSize: 512, ram: 128, name: '', network: false, bootOrder: 'cdrom' };
             ramSlider.value = 128;
             ramValue.textContent = '128 MB';
-            bootOrderSelect.value = 'cdrom';
+            hddSlider.value = 512;
+            hddValue.textContent = '512 MB';
             networkToggle.checked = false;
-            hddReadonlyInstall.checked = false;
-            hddReadonlyBoot.checked = false;
             vmNameInput.value = '';
             
             cdNameDisplay.textContent = 'Click to upload CD/DVD image';
-            hddInstallNameDisplay.textContent = 'Click to upload hard disk image';
-            hddBootNameDisplay.textContent = 'Click to upload disk image';
-            floppyNameDisplay.textContent = '';
-            
             cdUpload.value = null;
-            hddUploadInstall.value = null;
-            hddUploadBoot.value = null;
-            floppyUpload.value = null;
 
-            document.getElementById('hdd-install-warning').classList.add('hidden');
-            document.getElementById('hdd-boot-warning').classList.add('hidden');
-
-            installInputs.classList.add('hidden');
-            bootInputs.classList.add('hidden');
-            sourceTypeInstallCard.classList.remove('border-indigo-500');
-            sourceTypeBootCard.classList.remove('border-indigo-500');
-
-            updateModalUI();
-        }
-
-        function selectSourceType(type) {
-            newVMCreationData.sourceType = type;
-            if (type === 'install') {
-                sourceTypeInstallCard.classList.add('border-indigo-500');
-                sourceTypeBootCard.classList.remove('border-indigo-500');
-                installInputs.classList.remove('hidden');
-                bootInputs.classList.add('hidden');
-                newVMCreationData.bootOrder = 'cdrom';
-                bootOrderSelect.value = 'cdrom';
-            } else { // boot
-                sourceTypeBootCard.classList.add('border-indigo-500');
-                sourceTypeInstallCard.classList.remove('border-indigo-500');
-                bootInputs.classList.remove('hidden');
-                installInputs.classList.add('hidden');
-                newVMCreationData.bootOrder = 'hdd';
-                bootOrderSelect.value = 'hdd';
-            }
             updateModalUI();
         }
 
@@ -729,28 +594,9 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            const warningInstall = document.getElementById('hdd-install-warning');
-            const warningBoot = document.getElementById('hdd-boot-warning');
-            const LARGE_FILE_THRESHOLD = 4 * 1024 * 1024 * 1024; // 4 GB
-
-            warningInstall.classList.add('hidden');
-            warningBoot.classList.add('hidden');
-
-            if (type === 'hdd-install' || type === 'hdd-boot') {
-                const isLarge = file.size > LARGE_FILE_THRESHOLD;
-                if (type === 'hdd-install') warningInstall.classList.toggle('hidden', !isLarge);
-                else warningBoot.classList.toggle('hidden', !isLarge);
-            }
-
             if (type === 'cdrom') {
                 newVMCreationData.cdromFile = file;
                 cdNameDisplay.textContent = file.name;
-            } else if (type === 'hdd-install') {
-                newVMCreationData.hddFile = file;
-                hddInstallNameDisplay.textContent = file.name;
-            } else if (type === 'hdd-boot') {
-                newVMCreationData.hddFile = file;
-                hddBootNameDisplay.textContent = file.name;
             }
             if (!vmNameInput.value) {
                 vmNameInput.value = file.name.split('.').slice(0, -1).join('.') || file.name;
@@ -758,13 +604,6 @@
             updateModalUI();
         }
         
-        function handleFloppySelect(file) {
-            if (!file) return;
-            newVMCreationData.floppyFile = file;
-            floppyNameDisplay.textContent = `Selected: ${file.name}`;
-            updateModalUI();
-        }
-
         function changeStep(step) {
             if (step < 1 || step > 3) return;
             currentStep = step;
@@ -788,12 +627,7 @@
             modalNextBtn.classList.toggle('hidden', currentStep === 3);
             modalCreateBtn.classList.toggle('hidden', currentStep !== 3);
             
-            let step1Valid = false;
-            if (newVMCreationData.sourceType === 'install') {
-                step1Valid = newVMCreationData.cdromFile && newVMCreationData.hddFile;
-            } else if (newVMCreationData.sourceType === 'boot') {
-                step1Valid = newVMCreationData.hddFile;
-            }
+            const step1Valid = !!newVMCreationData.cdromFile;
 
             modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
             modalCreateBtn.disabled = (currentStep === 3 && !vmNameInput.value.trim());
@@ -807,14 +641,12 @@
                 name, 
                 ram: newVMCreationData.ram, 
                 cdromFile: newVMCreationData.cdromFile,
-                hddFile: newVMCreationData.hddFile, 
-                hddReadonly: newVMCreationData.hddReadonly,
-                floppyFile: newVMCreationData.floppyFile, 
+                hddSize: newVMCreationData.hddSize,
                 isLocal: true,
                 id: `local-${Date.now()}`, 
                 network: newVMCreationData.network,
                 bootOrder: newVMCreationData.bootOrder,
-                sourceType: newVMCreationData.sourceType
+                sourceType: 'iso'
             };
             machines.push(newMachine);
             renderMachineItem(newMachine);
@@ -838,7 +670,6 @@
             editRamValue.textContent = `${machine.ram} MB`;
             editBootOrderSelect.value = machine.bootOrder || 'hdd';
             editNetworkToggle.checked = machine.network || false;
-            editHddReadonly.checked = machine.hddReadonly || false;
             
             editVmModal.classList.remove('hidden');
         }
@@ -864,7 +695,6 @@
                 machines[machineIndex].ram = parseInt(document.getElementById('edit-ram-slider').value, 10);
                 machines[machineIndex].bootOrder = document.getElementById('edit-boot-order-select').value;
                 machines[machineIndex].network = document.getElementById('edit-network-toggle').checked;
-                machines[machineIndex].hddReadonly = document.getElementById('edit-hdd-readonly').checked;
                 
                 if (!machines[machineIndex].isLocal) saveMachines();
                 renderAllMachineItems();
