@@ -19,7 +19,6 @@ A modern, browser-based virtual machine emulator that allows you to run legacy o
 - **State Management**:
     - **Save Disk Image**: For VMs running from a `.img` file, this saves the modified disk image to your computer. Perfect for saving your OS installation.
     - **Persistent Configuration**: Your VM library is saved locally in your browser using IndexedDB and localStorage, so your machines are always there when you return.
-- **Modern Tech Stack**: Built with vanilla JavaScript (ES6+), Tailwind CSS for a sleek UI, and IndexedDB for robust client-side storage.
 
 ## 🚀 How to Use
 
