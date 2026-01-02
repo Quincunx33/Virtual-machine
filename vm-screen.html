@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Web VM Screen</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -11,6 +11,9 @@
         body {
             font-family: 'Inter', sans-serif;
             overflow: hidden; /* Prevent scrollbars */
+            background-color: #000;
+            margin: 0;
+            padding: 0;
         }
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
@@ -27,6 +30,36 @@
         #virtual-keyboard { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
         .key { transition: background-color 0.1s ease; }
         .key.pressed { background-color: #4f46e5; transform: scale(0.98); }
+
+        /* Responsive Canvas & Text Mode Fixes */
+        #screen_container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Force canvas to fit within viewport while maintaining aspect ratio */
+        #screen_container canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: contain;
+            display: block; 
+        }
+
+        /* Initial Text Mode (BIOS) container scaling */
+        /* v86 uses a div with white-space: pre for text mode. We need to ensure it doesn't overflow */
+        #screen_container > div:not(#loading-indicator):not(.spinner) {
+            transform-origin: center center;
+            max-width: 100vw;
+            max-height: 100vh;
+            overflow: hidden; 
+        }
 
         /* Assistive Touch Menu */
         .menu-container { position: relative; width: 56px; height: 56px; }
@@ -76,7 +109,7 @@
         </button>
     </div>
 
-    <div id="screen_container" class="w-full h-full flex items-center justify-center bg-black relative">
+    <div id="screen_container">
         <!-- libv86 elements -->
         <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
         <canvas></canvas>
