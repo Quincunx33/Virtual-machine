@@ -125,53 +125,6 @@
         const STORE_NAME = 'vm_configs';
         let db;
 
-        // --- Google Drive File Streamer ---
-        class GoogleDriveFile {
-            constructor(fileId, fileName, fileSize, accessToken) {
-                this.id = fileId;
-                this.name = fileName;
-                this.size = fileSize; 
-                this.accessToken = accessToken;
-                this.async = true; 
-                this.url = `googledrive://${fileId}/${fileName}`;
-            }
-
-            get(offset, length, callback) {
-                if (offset >= this.size) {
-                    callback(null, new ArrayBuffer(0));
-                    return;
-                }
-                const end = Math.min(offset + length - 1, this.size - 1);
-                
-                fetch(`https://www.googleapis.com/drive/v3/files/${this.id}?alt=media`, {
-                    headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
-                        'Range': `bytes=${offset}-${end}`
-                    }
-                }).then(response => {
-                    if (response.status === 206 || response.status === 200) {
-                        return response.arrayBuffer();
-                    } else {
-                        console.error('Google Drive range request failed:', response);
-                        throw new Error(`Google Drive API error: ${response.statusText}`);
-                    }
-                }).then(buffer => {
-                    callback(null, buffer);
-                }).catch(err => {
-                    console.error('Error in GoogleDriveFile.get:', err);
-                    callback(err, null); 
-                });
-            }
-
-            set(offset, data, callback) {
-                console.warn("Write operations on cloud disks are not supported.");
-                if (callback) {
-                    callback(null);
-                }
-            }
-        }
-
-
         function initDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -242,7 +195,7 @@
         }
 
         async function startEmulator() {
-            const { name, url, file, floppyFile, ram, isLocal, sourceType, network, cdromFile, hddFile, hddReadonly, bootOrder, isCloud, cloudFileConfig } = selectedOS;
+            const { name, url, file, floppyFile, ram, isLocal, sourceType, network, cdromFile, hddFile, hddReadonly, bootOrder } = selectedOS;
             document.title = `${name} - Web VM`;
             
             let v86Config;
@@ -272,16 +225,7 @@
                     }
                 };
 
-                if (isCloud && cloudFileConfig?.type === 'googledrive') {
-                    loadingText.textContent = 'Connecting to Google Drive...';
-                    const { fileId, fileName, fileSize, accessToken } = cloudFileConfig;
-                    const cloudFile = new GoogleDriveFile(fileId, fileName, fileSize, accessToken);
-                    bootSource['hda'] = {
-                        "buffer": cloudFile,
-                        "async": true,
-                        "read-only": true,
-                    };
-                } else if (sourceType === 'install') {
+                if (sourceType === 'install') {
                     addSource('cdrom', cdromFile);
                     addSource('hda', hddFile, { "read-only": !!hddReadonly, async: true });
                 } else if (sourceType === 'boot') {

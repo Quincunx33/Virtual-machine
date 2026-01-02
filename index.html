@@ -78,14 +78,6 @@
                     <a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a>
                     <a href="#technology" class="text-gray-300 hover:text-white transition-colors">Technology</a>
                     
-                    <!-- Auth state for desktop -->
-                    <div id="user-profile-nav" class="hidden items-center space-x-3">
-                        <img id="user-avatar-nav" src="" alt="User Avatar" class="w-9 h-9 rounded-full border-2 border-indigo-500">
-                        <span id="user-name-nav" class="text-white font-medium text-sm"></span>
-                        <button id="logout-btn-nav" class="text-gray-400 hover:text-white" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
-                    </div>
-                    <button id="login-btn-nav" class="px-4 py-2 rounded-md text-white text-sm font-medium bg-slate-700 hover:bg-slate-600 transition-colors">Login with Google</button>
-                    
                     <a id="launch-btn-nav" href="/text.html" class="btn-primary px-4 py-2 rounded-md text-white text-sm font-medium">
                         Launch App
                     </a>
@@ -106,16 +98,6 @@
                 <a href="#technology" class="block text-gray-300 hover:text-white transition-colors py-2">Technology</a>
                 
                 <div class="border-t border-slate-700/50 pt-4 mt-2 space-y-3">
-                    <!-- Mobile Auth State -->
-                    <div id="user-profile-nav-mobile" class="hidden items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <img id="user-avatar-nav-mobile" src="" alt="User Avatar" class="w-9 h-9 rounded-full border-2 border-indigo-500">
-                            <span id="user-name-nav-mobile" class="text-white font-medium"></span>
-                        </div>
-                        <button id="logout-btn-nav-mobile" class="px-3 py-1.5 rounded-md font-medium bg-red-600 hover:bg-red-700 text-white text-sm">Logout</button>
-                    </div>
-                    <button id="login-btn-nav-mobile" class="w-full text-center px-4 py-2 rounded-md font-medium bg-slate-700 hover:bg-slate-600 text-white">Login with Google</button>
-                    
                     <a id="launch-btn-nav-mobile" href="/text.html" class="block btn-primary px-4 py-2 rounded-md text-white font-medium text-center">
                         Launch App
                     </a>
@@ -180,11 +162,11 @@
                     
                     <div class="feature-card rounded-xl p-8">
                         <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
-                            <i class="fab fa-google-drive text-2xl"></i>
+                            <i class="fas fa-database text-2xl"></i>
                         </div>
-                        <h3 class="text-xl font-bold text-white mb-3">Cloud Storage</h3>
+                        <h3 class="text-xl font-bold text-white mb-3">Persistent Library</h3>
                         <p class="text-gray-400 leading-relaxed">
-                           Securely connect your Google Drive to save and load virtual machine disk images directly from the cloud.
+                           Your created virtual machines are saved in your browser, so they are always ready to launch when you return.
                         </p>
                     </div>
                 </div>
@@ -243,79 +225,6 @@
         // --- DOM Elements ---
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileMenu = document.getElementById('mobile-menu');
-        // Desktop Auth
-        const userProfileNav = document.getElementById('user-profile-nav');
-        const userAvatarNav = document.getElementById('user-avatar-nav');
-        const userNameNav = document.getElementById('user-name-nav');
-        const loginBtnNav = document.getElementById('login-btn-nav');
-        const logoutBtnNav = document.getElementById('logout-btn-nav');
-        // Mobile Auth
-        const userProfileNavMobile = document.getElementById('user-profile-nav-mobile');
-        const userAvatarNavMobile = document.getElementById('user-avatar-nav-mobile');
-        const userNameNavMobile = document.getElementById('user-name-nav-mobile');
-        const loginBtnNavMobile = document.getElementById('login-btn-nav-mobile');
-        const logoutBtnNavMobile = document.getElementById('logout-btn-nav-mobile');
-        
-        const AUTH_WORKER_URL = 'https://worker.nafisfuhad26.workers.dev';
-
-        // --- Auth Logic ---
-        function handleLogin() {
-            const postUrl = window.location.origin + window.location.pathname;
-            const authUrl = `${AUTH_WORKER_URL}/auth/start?post=${encodeURIComponent(postUrl)}`;
-            window.location.href = authUrl;
-        }
-
-        function handleLogout() {
-            window.location.href = `${AUTH_WORKER_URL}/auth/logout`;
-        }
-        
-        // --- UI Update Logic ---
-        function updateUIForLogin(user) {
-            const displayName = user.name || 'User';
-            const photoLink = user.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=4f46e5&color=fff&rounded=true`;
-            const firstName = displayName.split(' ')[0];
-
-            // Desktop UI
-            userAvatarNav.src = photoLink;
-            userNameNav.textContent = `Hi, ${firstName}`;
-            userProfileNav.classList.remove('hidden');
-            userProfileNav.classList.add('flex');
-            loginBtnNav.classList.add('hidden');
-            logoutBtnNav.classList.remove('hidden');
-            
-            // Mobile UI
-            userAvatarNavMobile.src = photoLink;
-            userNameNavMobile.textContent = `Hi, ${firstName}`;
-            userProfileNavMobile.classList.remove('hidden');
-            userProfileNavMobile.classList.add('flex');
-            loginBtnNavMobile.classList.add('hidden');
-        }
-
-        function updateUIForLogout() {
-            // Desktop UI
-            userProfileNav.classList.add('hidden');
-            loginBtnNav.classList.remove('hidden');
-            logoutBtnNav.classList.add('hidden');
-
-            // Mobile UI
-            userProfileNavMobile.classList.add('hidden');
-            loginBtnNavMobile.classList.remove('hidden');
-        }
-
-        async function checkAuthOnLoad() {
-            try {
-                const response = await fetch(`${AUTH_WORKER_URL}/auth/me`);
-                if (response.ok) {
-                    const user = await response.json();
-                    updateUIForLogin(user);
-                } else {
-                    updateUIForLogout();
-                }
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                updateUIForLogout();
-            }
-        }
 
         // --- Event Listeners & Effects ---
         window.addEventListener('load', function() {
@@ -325,15 +234,9 @@
                 loadingScreen.style.transition = 'opacity 0.5s ease-out';
                 setTimeout(() => loadingScreen.style.display = 'none', 500);
             }, 200);
-
-            checkAuthOnLoad();
         });
 
         mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
-        loginBtnNav.addEventListener('click', handleLogin);
-        loginBtnNavMobile.addEventListener('click', handleLogin);
-        logoutBtnNav.addEventListener('click', handleLogout);
-        logoutBtnNavMobile.addEventListener('click', handleLogout);
     </script>
 </body>
 </html>
