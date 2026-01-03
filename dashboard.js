@@ -19,6 +19,8 @@ const elements = {
     cdNameDisplay: document.getElementById('cd-name-display'),
     ramSlider: document.getElementById('ram-slider'),
     ramValue: document.getElementById('ram-value'),
+    ramRecText: document.getElementById('ram-recommendation-text'),
+    ramMaxLabel: document.getElementById('ram-max-label'),
     networkToggle: document.getElementById('network-toggle'),
     vmNameInput: document.getElementById('vm-name-input'),
     loadSnapshotBtn: document.getElementById('load-snapshot-btn'),
@@ -30,10 +32,15 @@ const elements = {
     saveChangesBtn: document.getElementById('save-changes-btn'),
     editRamSlider: document.getElementById('edit-ram-slider'),
     editRamValue: document.getElementById('edit-ram-value'),
+    editRamMaxLabel: document.getElementById('edit-ram-max-label'),
     editNetworkToggle: document.getElementById('edit-network-toggle'),
     menuToggleBtn: document.getElementById('menu-toggle-btn'),
     sidebar: document.querySelector('aside'),
     overlay: document.getElementById('overlay'),
+    systemRamDisplay: document.getElementById('system-ram-display'),
+    summarySource: document.getElementById('summary-source'),
+    summaryRam: document.getElementById('summary-ram'),
+    vmCountBadge: document.getElementById('vm-count-badge'),
     modalSteps: [
         document.getElementById('modal-step-1'),
         document.getElementById('modal-step-2'),
@@ -49,6 +56,53 @@ const elements = {
 // --- Modal State ---
 let currentStep = 1;
 let newVMCreationData = { cdromFile: null, ram: 128, name: '', network: false };
+let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 128, maxAllowed: 512 };
+
+// --- Smart Device Detection ---
+function detectSystemSpecs() {
+    // 1. Detect RAM (approximate in GB)
+    // navigator.deviceMemory is supported in Chrome/Edge, returns 0.25, 0.5, 1, 2, 4, 8...
+    const memory = navigator.deviceMemory || 4; // Default to 4GB if API not available
+    
+    // 2. Detect Device Type
+    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    
+    // 3. Calculate Recommended RAM and Max Safe RAM
+    // WASM memory must be contiguous. Browsers often fail allocation above 500MB-1GB on mobile.
+    // We set limits to prevent instant crashes.
+    let recommended = 128;
+    let maxAllowed = 512;
+
+    if (memory >= 8) {
+        maxAllowed = 2048; // High-end desktop: Allow up to 2GB
+        recommended = 512;
+    } else if (memory >= 4) {
+        maxAllowed = 1024; // Mid-range: Allow up to 1GB
+        recommended = 256;
+    } else if (memory >= 2) {
+        maxAllowed = 512; // Low-end: Cap at 512MB
+        recommended = 128;
+    } else {
+        maxAllowed = 256; // Very low-end: Cap at 256MB
+        recommended = 64;
+    }
+
+    if (isMobile && maxAllowed > 1024) {
+        maxAllowed = 1024; // Hard cap for mobile browsers
+    }
+
+    detectedSystemSpecs = {
+        ram: memory,
+        isMobile: isMobile,
+        recommendedRam: recommended,
+        maxAllowed: maxAllowed
+    };
+
+    // Update UI
+    if(elements.systemRamDisplay) {
+        elements.systemRamDisplay.textContent = `Host: ~${memory}GB RAM`;
+    }
+}
 
 // --- DB Init ---
 function initDB() {
@@ -87,7 +141,6 @@ let runningVmId = null;
 channel.onmessage = async (event) => {
     const { type, id } = event.data;
     
-    // Completely replaced polling with this event listener
     if (type === 'VM_WINDOW_CLOSED' || type === 'stopped') {
         if (runningVmId && (id === runningVmId || !id)) {
             console.log("VM Shutdown Signal Received via Channel");
@@ -95,7 +148,6 @@ channel.onmessage = async (event) => {
         }
     } 
     else if (type === 'REQUEST_CONFIG_SYNC') {
-        // Handshake: Child requesting data
         try {
             channel.postMessage({ type: 'CONFIG_SYNCED', id });
         } catch(e) {
@@ -106,7 +158,6 @@ channel.onmessage = async (event) => {
 
 function handleVMShutdown(id) {
     if (vmWindow) {
-        // Just in case it's still open (if signal came from inside VM logic)
         if (!vmWindow.closed) vmWindow.close();
         vmWindow = null;
     }
@@ -142,6 +193,7 @@ function loadMachines() {
 function renderAllMachineItems() {
     elements.vmList.innerHTML = '';
     machines.forEach(renderMachineItem);
+    if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
 }
 
 function renderMachineItem(machine) {
@@ -149,7 +201,7 @@ function renderMachineItem(machine) {
 
     if (machine.sourceType === 'snapshot') {
         iconClass = 'fa-history';
-        description = 'Snapshot Session';
+        description = 'Snapshot';
     } else if (machine.sourceType === 'iso') {
         iconClass = 'fa-compact-disc';
         description = `ISO: ${machine.cdromFile ? machine.cdromFile.name : 'Unknown'}`;
@@ -158,31 +210,32 @@ function renderMachineItem(machine) {
         description = 'Legacy Machine';
     }
     
-    description += ` | ${machine.ram} MB RAM`;
-
     const itemHTML = `
-        <div class="vm-list-item group flex items-center p-3 rounded-lg text-sm font-medium hover:bg-gray-700/50 transition-colors relative" data-id="${machine.id}">
-            <i class="fas ${iconClass} w-6 text-center text-lg text-indigo-400"></i>
+        <div class="vm-list-item group flex items-center p-3 rounded-xl text-sm font-medium hover:bg-gray-700/50 transition-colors relative cursor-pointer border border-transparent hover:border-gray-600 mb-2" data-id="${machine.id}">
+            <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+                <i class="fas ${iconClass} text-indigo-400 text-lg"></i>
+            </div>
             <div class="ml-3 flex-1 overflow-hidden">
                 <p class="truncate font-semibold text-white">${machine.name}</p>
-                <p class="text-xs text-gray-400 truncate">${description}</p>
+                <div class="flex items-center space-x-2 text-[10px] text-gray-400 mt-0.5">
+                    <span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">${machine.ram}MB</span>
+                    ${machine.network ? '<i class="fas fa-wifi text-green-400" title="Net ON"></i>' : ''}
+                </div>
             </div>
-            <div class="absolute right-32 flex items-center space-x-3 opacity-50 group-hover:opacity-0 transition-opacity">
-                ${machine.network ? `<i class="fas fa-network-wired text-cyan-400" title="Network enabled"></i>` : ''}
+            
+            <div class="vm-status-indicator hidden flex-col items-end gap-1 absolute right-3 top-3">
+                 <span class="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
             </div>
-            <div class="vm-status-indicator hidden items-center gap-2 text-xs text-green-400 font-mono absolute right-4">
-                <span class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                Running
-            </div>
-            <div class="vm-actions flex items-center ml-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                 <button class="start-vm-btn text-gray-300 bg-gray-700 hover:bg-green-600 hover:text-white rounded-lg transition-colors w-8 h-8 flex items-center justify-center mr-2" title="Start Machine">
-                    <i class="fas fa-play"></i>
+
+            <div class="vm-actions flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity absolute right-3">
+                 <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95" title="Start">
+                    <i class="fas fa-play text-xs"></i>
                 </button>
-                <button class="edit-vm-btn text-gray-400 hover:text-indigo-400 p-1" title="Edit Machine">
-                    <i class="fas fa-pencil-alt"></i>
+                <button class="edit-vm-btn text-gray-400 hover:text-white p-2 hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
+                    <i class="fas fa-cog"></i>
                 </button>
-                <button class="remove-vm-btn text-gray-500 hover:text-red-400 p-1 ml-1" title="Delete Machine">
-                    <i class="fas fa-times-circle"></i>
+                <button class="remove-vm-btn text-gray-500 hover:text-red-400 p-2 hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
+                    <i class="fas fa-trash-alt"></i>
                 </button>
             </div>
         </div>`;
@@ -197,7 +250,7 @@ function updatePlaceholderVisibility() {
 function setupEventListeners() {
     // Reset App
     elements.resetAppBtn.addEventListener('click', async () => {
-        if(confirm("Are you sure? This will delete all saved VMs and reset the application.")) {
+        if(confirm("Factory Reset: Delete all machines and data?")) {
             localStorage.clear();
             if (db) db.close();
             const req = indexedDB.deleteDatabase(DB_NAME);
@@ -217,10 +270,10 @@ function setupEventListeners() {
     elements.menuToggleBtn.addEventListener('click', toggleMenu);
     elements.overlay.addEventListener('click', toggleMenu);
 
-    // List Actions (Delegation)
+    // List Actions
     elements.vmList.addEventListener('click', (e) => {
         if (runningVmId) {
-            alert("Please shut down the running virtual machine before managing other machines.");
+            alert("Please stop the running VM first.");
             return;
         }
 
@@ -234,18 +287,22 @@ function setupEventListeners() {
         const removeBtn = e.target.closest('.remove-vm-btn');
         if (removeBtn) {
             e.preventDefault(); e.stopPropagation();
-            const item = removeBtn.closest('.vm-list-item');
-            machines = machines.filter(m => m.id !== item.dataset.id);
-            saveMachines();
-            item.remove();
-            updatePlaceholderVisibility();
+            if(confirm("Delete this machine?")) {
+                const item = removeBtn.closest('.vm-list-item');
+                machines = machines.filter(m => m.id !== item.dataset.id);
+                saveMachines();
+                item.remove();
+                if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
+                updatePlaceholderVisibility();
+            }
             return;
         }
         
         const startBtn = e.target.closest('.start-vm-btn');
-        if (startBtn) {
-            e.preventDefault(); e.stopPropagation();
-            startVM(startBtn.closest('.vm-list-item').dataset.id);
+        // Allow clicking the row to start if on mobile (easier touch target)
+        if (startBtn || (e.target.closest('.vm-list-item') && window.innerWidth < 1024)) {
+            const row = e.target.closest('.vm-list-item');
+            startVM(row.dataset.id);
             return;
         }
     });
@@ -254,6 +311,7 @@ function setupEventListeners() {
     elements.createVmBtn.addEventListener('click', () => {
         resetModal();
         elements.createVmModal.classList.remove('hidden');
+        if(window.innerWidth < 1024) toggleMenu(); // Close sidebar on mobile
     });
     elements.closeModalBtn.addEventListener('click', () => elements.createVmModal.classList.add('hidden'));
     elements.modalBackBtn.addEventListener('click', () => changeStep(currentStep - 1));
@@ -262,8 +320,18 @@ function setupEventListeners() {
     elements.cdUpload.addEventListener('change', e => handleFileSelect(e));
     
     elements.ramSlider.addEventListener('input', () => {
-        elements.ramValue.textContent = `${elements.ramSlider.value} MB`;
-        newVMCreationData.ram = parseInt(elements.ramSlider.value, 10);
+        const val = parseInt(elements.ramSlider.value, 10);
+        elements.ramValue.textContent = `${val} MB`;
+        newVMCreationData.ram = val;
+        
+        // Dynamic Recommendation Text
+        if (val > detectedSystemSpecs.recommendedRam) {
+            elements.ramRecText.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i> High usage for your device`;
+            elements.ramRecText.className = "text-xs text-yellow-500 mt-3 flex items-center";
+        } else {
+             elements.ramRecText.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Optimized for your device`;
+             elements.ramRecText.className = "text-xs text-green-400 mt-3 flex items-center";
+        }
     });
     
     elements.networkToggle.addEventListener('change', (e) => newVMCreationData.network = e.target.checked);
@@ -286,8 +354,8 @@ function setupEventListeners() {
 function handleSnapshotUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    const defaultName = file.name.replace(/\.(bin|v86state|86state)$/i, "") || "Snapshot Session";
-    const name = prompt("Enter a name for this snapshot session:", defaultName);
+    const defaultName = file.name.replace(/\.(bin|v86state|86state)$/i, "") || "Snapshot";
+    const name = prompt("Snapshot Name:", defaultName);
 
     if (name) {
         const newMachine = {
@@ -304,18 +372,32 @@ function handleSnapshotUpload(e) {
         updatePlaceholderVisibility();
     }
     e.target.value = null;
+    if(window.innerWidth < 1024) elements.sidebar.classList.add('-translate-x-full');
 }
 
 // --- Create Modal Logic ---
 function resetModal() {
     currentStep = 1;
-    newVMCreationData = { cdromFile: null, ram: 128, name: '', network: false };
-    elements.ramSlider.value = 128;
-    elements.ramValue.textContent = '128 MB';
+    // Set Default RAM based on detected specs
+    const defaultRam = detectedSystemSpecs.recommendedRam || 128;
+    
+    newVMCreationData = { cdromFile: null, ram: defaultRam, name: '', network: false };
+    
+    // Update Slider Limits based on device
+    elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
+    elements.ramMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
+    
+    elements.ramSlider.value = defaultRam;
+    elements.ramValue.textContent = `${defaultRam} MB`;
     elements.networkToggle.checked = false;
     elements.vmNameInput.value = '';
-    elements.cdNameDisplay.textContent = 'Click to upload ISO';
+    elements.cdNameDisplay.textContent = 'Tap to browse .iso file';
     elements.cdUpload.value = null;
+    
+    // Reset indicators
+    elements.ramRecText.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Optimized for your device`;
+    elements.ramRecText.className = "text-xs text-green-400 mt-3 flex items-center";
+    
     updateModalUI();
 }
 
@@ -325,7 +407,9 @@ function handleFileSelect(e) {
     newVMCreationData.cdromFile = file;
     elements.cdNameDisplay.textContent = file.name;
     if (!elements.vmNameInput.value) {
-        elements.vmNameInput.value = file.name.split('.').slice(0, -1).join('.') || file.name;
+        // Clean name
+        const cleanName = file.name.replace(/\.iso$/i, '').replace(/[-_]/g, ' ');
+        elements.vmNameInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
     }
     updateModalUI();
 }
@@ -356,6 +440,12 @@ function updateModalUI() {
     const step1Valid = !!newVMCreationData.cdromFile;
     elements.modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
     elements.modalCreateBtn.disabled = (currentStep === 3 && !elements.vmNameInput.value.trim());
+
+    // Update Summary on Step 3
+    if (currentStep === 3) {
+        if(elements.summarySource) elements.summarySource.textContent = newVMCreationData.cdromFile ? newVMCreationData.cdromFile.name : '-';
+        if(elements.summaryRam) elements.summaryRam.textContent = `${newVMCreationData.ram} MB`;
+    }
 }
 
 function createVMFromModal() {
@@ -383,6 +473,11 @@ function openEditModal(machineId) {
 
     document.getElementById('edit-vm-id').value = machineId;
     document.getElementById('edit-vm-name-input').value = machine.name;
+    
+    // Update Slider Limits
+    elements.editRamSlider.max = detectedSystemSpecs.maxAllowed;
+    if(elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
+
     elements.editRamSlider.value = machine.ram;
     elements.editRamValue.textContent = `${machine.ram} MB`;
     elements.editNetworkToggle.checked = machine.network || false;
@@ -408,7 +503,7 @@ function saveEditChanges() {
 // --- VM Launch Logic ---
 async function startVM(machineId) {
     if (runningVmId) {
-        alert("Another VM is already running.");
+        alert("Another VM is running.");
         if (vmWindow) vmWindow.focus();
         return;
     }
@@ -419,7 +514,7 @@ async function startVM(machineId) {
     try {
         await storeInDB(STORE_NAME, selectedOS);
     } catch(e) {
-        alert('Could not prepare VM data. Please try again.');
+        alert('Data prep failed.');
         return;
     }
 
@@ -427,10 +522,6 @@ async function startVM(machineId) {
     vmWindow = window.open(`vm-screen.html?id=${machineId}`, `vm_${machineId.replace(/[^a-zA-Z0-9]/g, '_')}`, 'width=1024,height=768,resizable=yes,scrollbars=yes');
     runningVmId = machineId;
     updateUIAfterVMStart(machineId);
-    
-    // Fallback: If BroadcastChannel fails (rare, but possible if process crashes hard), 
-    // we can add a simple "focus" check or similar later, but per requirement, 
-    // we rely on the channel event 'VM_WINDOW_CLOSED' which is cleaner.
 }
 
 function updateUIAfterVMStart(machineId) {
@@ -438,7 +529,7 @@ function updateUIAfterVMStart(machineId) {
     if(vmItem) {
         vmItem.querySelector('.vm-actions').classList.add('opacity-0', 'pointer-events-none');
         vmItem.querySelector('.vm-status-indicator').classList.remove('hidden');
-        vmItem.querySelector('.absolute.right-32')?.classList.add('hidden');
+        vmItem.classList.add('border-green-500/30', 'bg-green-900/10');
     }
     elements.createVmBtn.disabled = true;
     elements.loadSnapshotBtn.disabled = true;
@@ -450,7 +541,7 @@ function updateUIAfterVMStop(machineId) {
     if(vmItem) {
         vmItem.querySelector('.vm-actions').classList.remove('opacity-0', 'pointer-events-none');
         vmItem.querySelector('.vm-status-indicator').classList.add('hidden');
-        vmItem.querySelector('.absolute.right-32')?.classList.remove('hidden');
+        vmItem.classList.remove('border-green-500/30', 'bg-green-900/10');
     }
     elements.createVmBtn.disabled = false;
     elements.loadSnapshotBtn.disabled = false;
@@ -459,9 +550,9 @@ function updateUIAfterVMStop(machineId) {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+    detectSystemSpecs(); // Run detection first
     initDB().then(loadMachines).catch(e => {
         console.error("DB Init Error:", e);
-        alert("Database error. App may not function correctly.");
     });
     setupEventListeners();
 });
