@@ -41,6 +41,7 @@ let selectedOS = null;
 let isShuttingDown = false;
 let db = null;
 let channel = new BroadcastChannel('vm_channel');
+let activeBlobUrls = []; // Track Blob URLs to release memory
 
 // --- Elements ---
 const elements = {
@@ -90,17 +91,23 @@ function fullCleanup() {
         channel = null;
     }
 
-    // 4. Destroy Canvas
+    // 4. Revoke Blob URLs (Release Memory)
+    if (activeBlobUrls.length > 0) {
+        activeBlobUrls.forEach(url => URL.revokeObjectURL(url));
+        activeBlobUrls = [];
+    }
+
+    // 5. Destroy Canvas
     if (elements.screenContainer) {
         while (elements.screenContainer.firstChild) {
             elements.screenContainer.removeChild(elements.screenContainer.firstChild);
         }
     }
 
-    // 5. Release ALL Listeners
+    // 6. Release ALL Listeners
     eventManager.removeAll();
 
-    // 6. DB Connection
+    // 7. DB Connection
     if (db) {
         db.close();
         db = null;
@@ -252,12 +259,17 @@ async function startEmulator(config) {
     };
 
     try {
+        // FIX: Use URL.createObjectURL instead of arrayBuffer() to prevent OOM
         if (config.sourceType === 'snapshot') {
-            const buffer = await config.file.arrayBuffer();
-            v86Config.initial_state = { buffer };
+            const blobUrl = URL.createObjectURL(config.file);
+            activeBlobUrls.push(blobUrl);
+            v86Config.initial_state = { url: blobUrl };
         } else {
             if (!config.cdromFile) throw new Error("No Disk file.");
-            const buffer = await config.cdromFile.arrayBuffer();
+            
+            // FIX: Use Blob URL for disk images too
+            const diskUrl = URL.createObjectURL(config.cdromFile);
+            activeBlobUrls.push(diskUrl);
             
             v86Config.memory_size = config.ram * 1024 * 1024;
             v86Config.vga_memory_size = 8 * 1024 * 1024;
@@ -267,10 +279,10 @@ async function startEmulator(config) {
 
             // Handle Floppy vs CD logic
             if (config.sourceType === 'floppy') {
-                v86Config.fda = { buffer };
+                v86Config.fda = { url: diskUrl };
                 v86Config.boot_order = 0x12; // Try floppy then CD
             } else {
-                v86Config.cdrom = { buffer };
+                v86Config.cdrom = { url: diskUrl };
             }
 
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
