@@ -4,13 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Web VM Screen</title>
+    <!-- Stricter CSP: scripts only from self and trusted CDNs -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' wss: https://*; img-src 'self' data: https:; media-src 'self' blob:;">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            overflow: hidden; /* Prevent scrollbars */
+            overflow: hidden;
             background-color: #000;
             margin: 0;
             padding: 0;
@@ -23,15 +25,11 @@
             height: 50px;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin { 
-            0% { transform: rotate(0deg); } 
-            100% { transform: rotate(360deg); } 
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #virtual-keyboard { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
         .key { transition: background-color 0.1s ease; }
         .key.pressed { background-color: #4f46e5; transform: scale(0.98); }
 
-        /* Responsive Canvas & Text Mode Fixes */
         #screen_container {
             width: 100vw;
             height: 100vh;
@@ -41,8 +39,6 @@
             overflow: hidden;
             background: #000;
         }
-
-        /* Force canvas to fit within viewport while maintaining aspect ratio */
         #screen_container canvas {
             max-width: 100% !important;
             max-height: 100% !important;
@@ -51,9 +47,6 @@
             object-fit: contain;
             display: block; 
         }
-
-        /* Initial Text Mode (BIOS) container scaling */
-        /* v86 uses a div with white-space: pre for text mode. We need to ensure it doesn't overflow */
         #screen_container > div:not(#loading-indicator):not(.spinner) {
             transform-origin: center center;
             max-width: 100vw;
@@ -80,21 +73,14 @@
             pointer-events: auto;
         }
         .menu-container.expanded #main-assistive-btn { transform: rotate(135deg); }
-
-        .menu-container.expanded .menu-item:nth-child(1) { transform: translate(-70px, 0px) scale(1); } /* Left */
-        .menu-container.expanded .menu-item:nth-child(2) { transform: translate(-50px, -50px) scale(1); } /* Top-Left */
-        .menu-container.expanded .menu-item:nth-child(3) { transform: translate(0px, -70px) scale(1); } /* Top */
-        .menu-container.expanded .menu-item:nth-child(4) { transform: translate(50px, -50px) scale(1); } /* Top-Right */
-        .menu-container.expanded .menu-item:nth-child(5) { transform: translate(70px, 0px) scale(1); } /* Right */
-        .menu-container.expanded .menu-item:nth-child(6) { transform: translate(0px, 70px) scale(1); } /* Bottom */
-
-        #assistive-touch {
-            cursor: grab;
-        }
-        #assistive-touch:active {
-            cursor: grabbing;
-        }
-
+        .menu-container.expanded .menu-item:nth-child(1) { transform: translate(-70px, 0px) scale(1); }
+        .menu-container.expanded .menu-item:nth-child(2) { transform: translate(-50px, -50px) scale(1); }
+        .menu-container.expanded .menu-item:nth-child(3) { transform: translate(0px, -70px) scale(1); }
+        .menu-container.expanded .menu-item:nth-child(4) { transform: translate(50px, -50px) scale(1); }
+        .menu-container.expanded .menu-item:nth-child(5) { transform: translate(70px, 0px) scale(1); }
+        .menu-container.expanded .menu-item:nth-child(6) { transform: translate(0px, 70px) scale(1); }
+        #assistive-touch { cursor: grab; }
+        #assistive-touch:active { cursor: grabbing; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
@@ -104,7 +90,7 @@
         <i class="fas fa-bug text-6xl text-white mb-6"></i>
         <h2 class="text-2xl font-bold text-white mb-2">Something went wrong</h2>
         <p id="error-message" class="text-red-200 mb-8 font-mono text-sm break-all max-w-lg">Unknown Error</p>
-        <button onclick="location.reload()" class="px-6 py-3 bg-white text-red-900 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg">
+        <button id="reload-btn" class="px-6 py-3 bg-white text-red-900 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg">
             <i class="fas fa-redo mr-2"></i> Reload Page
         </button>
     </div>
@@ -127,7 +113,6 @@
                 <button id="vm-fullscreen-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Fullscreen"><i class="fas fa-expand"></i></button>
                 <button id="vm-keyboard-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Toggle Keyboard"><i class="far fa-keyboard"></i></button>
                 <button id="vm-cad-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Send Ctrl+Alt+Del"><i class="fas fa-bolt"></i></button>
-                <!-- Removed Save Disk button -->
                 <button class="menu-item w-12 h-12 bg-gray-500/80 rounded-full flex items-center justify-center text-gray-300 shadow-md cursor-not-allowed" title="No Disk"><i class="fas fa-hdd"></i></button>
                 <button id="vm-reset-btn" class="menu-item w-12 h-12 bg-orange-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Reset"><i class="fas fa-sync-alt"></i></button>
                 <button id="vm-power-btn" class="menu-item w-12 h-12 bg-red-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Shutdown"><i class="fas fa-power-off"></i></button>
@@ -151,313 +136,6 @@
     </div>
 
     <script src="libv86.js"></script>
-    <script>
-        let emulator = null;
-        let selectedOS = null;
-
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const loadingText = document.getElementById('loading-text');
-        const virtualKeyboard = document.getElementById('virtual-keyboard');
-        const errorOverlay = document.getElementById('error-overlay');
-        const errorMessage = document.getElementById('error-message');
-
-        // --- Global Error Handling ---
-        function showError(msg) {
-            console.error(msg);
-            if (errorMessage && errorOverlay) {
-                errorMessage.textContent = msg;
-                errorOverlay.classList.remove('hidden');
-                if (loadingIndicator) loadingIndicator.classList.add('hidden');
-            }
-        }
-
-        window.onerror = function(msg, url, line, col, error) {
-            let errorText = msg;
-            if (error && error.message) errorText = error.message;
-            else if (typeof msg !== 'string') errorText = JSON.stringify(msg);
-            
-            showError(`Runtime Error: ${errorText}`);
-            return false;
-        };
-
-        window.onunhandledrejection = function(event) {
-            showError(`Promise Error: ${event.reason ? (event.reason.message || event.reason) : 'Unknown reason'}`);
-        };
-        
-        // --- IndexedDB ---
-        const DB_NAME = 'WebEmulatorDB';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'vm_configs';
-        let db;
-
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = () => reject("Error opening DB");
-                request.onsuccess = (event) => { db = event.target.result; resolve(db); };
-                request.onupgradeneeded = (event) => {
-                    const db = event.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                    }
-                };
-            });
-        }
-        
-        function getFromDB(storeName, key) {
-             return new Promise((resolve, reject) => {
-                if (!db) { reject("DB not initialized"); return; }
-                const transaction = db.transaction([storeName], 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.get(key);
-                request.onsuccess = (event) => resolve(event.target.result);
-                request.onerror = () => reject("Error getting data");
-            });
-        }
-
-        async function getConfigWithRetry(key, retries = 50, delay = 200) { // 10 seconds total
-            for (let i = 1; i <= retries; i++) {
-                const config = await getFromDB(STORE_NAME, key);
-                if (config) {
-                    return config;
-                }
-                loadingText.textContent = `Waiting for VM configuration... (Attempt ${i})`;
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-            return null;
-        }
-        
-        // --- Communication ---
-        const channel = new BroadcastChannel('vm_channel');
-        
-        window.addEventListener('beforeunload', () => {
-            if (emulator) { emulator.stop(); }
-            if (selectedOS) {
-                channel.postMessage({ type: 'stopped', id: selectedOS.id });
-            }
-        });
-
-        // --- Emulator Logic ---
-        function initializeEmulator(config) {
-            try {
-                emulator = new V86(config);
-                emulator.add_listener("emulator-ready", () => {
-                    loadingIndicator.classList.add('hidden');
-                    document.getElementById('screen_container').addEventListener('click', () => {
-                        if (emulator && emulator.is_running()) {
-                            // SAFE CHECK FOR MOBILE: Only try to lock if the function exists
-                            const canvas = document.querySelector('canvas');
-                            // Check for standard or prefixed pointer lock methods
-                            if (canvas && (canvas.requestPointerLock || canvas.mozRequestPointerLock || canvas.webkitRequestPointerLock)) {
-                                try {
-                                    emulator.lock_mouse();
-                                } catch (e) {
-                                    console.warn("Pointer lock failed, possibly not supported on this device.", e);
-                                }
-                            }
-                        }
-                    });
-                });
-            } catch(err) { showError(err.message); }
-        }
-
-        async function startEmulator() {
-            // HDD RELATED VARIABLES REMOVED
-            const { name, ram, sourceType, network, cdromFile, file } = selectedOS;
-            document.title = `${name} - Web VM`;
-            
-            let v86Config;
-
-            if (sourceType === 'snapshot') {
-                loadingText.textContent = 'Loading snapshot file...';
-                try {
-                    const snapshotBuffer = await file.arrayBuffer();
-                    v86Config = {
-                        wasm_path: "v86.wasm",
-                        initial_state: { buffer: snapshotBuffer },
-                        screen_container: document.getElementById("screen_container"),
-                        autostart: true,
-                    };
-                } catch (e) {
-                    showError("Failed to load snapshot file: " + e.message);
-                    return;
-                }
-            } else {
-                let bootSource = {};
-
-                if (cdromFile) {
-                    loadingText.textContent = 'Loading CD-ROM image...';
-                    try {
-                        const buffer = await cdromFile.arrayBuffer();
-                        bootSource['cdrom'] = { buffer: buffer };
-                    } catch (e) {
-                        showError("Failed to load CD-ROM: " + e.message);
-                        return;
-                    }
-                } else {
-                     showError("No CD-ROM file provided for ISO boot.");
-                     return;
-                }
-                
-                loadingText.textContent = 'Starting Emulator...';
-                
-                v86Config = {
-                    wasm_path: "v86.wasm",
-                    memory_size: ram * 1024 * 1024,
-                    vga_memory_size: 8 * 1024 * 1024,
-                    bios: { url: "seabios.bin" },
-                    vga_bios: { url: "vgabios.bin" },
-                    screen_container: document.getElementById("screen_container"),
-                    autostart: true,
-                    // FORCE BOOT FROM CD (0x21 might try CD then HDD, but HDD is absent, so it's fine)
-                    boot_order: 0x21, 
-                    ...bootSource
-                };
-
-                if (network) {
-                    v86Config.network_relay_url = "wss://relay.widgetry.org/";
-                }
-            }
-            
-            initializeEmulator(v86Config);
-        }
-
-        // --- Init ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const vmId = urlParams.get('id');
-
-                if (!vmId) {
-                    throw new Error("No VM ID provided in the URL.");
-                }
-
-                await initDB();
-                const config = await getConfigWithRetry(vmId);
-
-                if (config) {
-                    selectedOS = config;
-                    loadingText.textContent = 'Configuration loaded. Reading files...';
-                    await startEmulator();
-                } else {
-                    throw new Error(`VM configuration for ID "${vmId}" not found.`);
-                }
-            } catch (err) {
-                showError(err.message || err.toString());
-            }
-        });
-
-        // --- Assistive Menu Logic ---
-        const menuContainer = document.querySelector('.menu-container');
-        const assistiveTouch = document.getElementById('assistive-touch');
-        const mainAssistiveBtn = document.getElementById('main-assistive-btn');
-
-        let isDragging = false;
-        let hasDragged = false;
-        let offsetX, offsetY;
-
-        function dragStart(e) {
-            if (e.target.closest('.menu-item')) return;
-            hasDragged = false;
-            isDragging = true;
-            const rect = assistiveTouch.getBoundingClientRect();
-            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-            offsetX = clientX - rect.left;
-            offsetY = clientY - rect.top;
-            assistiveTouch.style.transition = 'none';
-            window.addEventListener('mousemove', dragMove);
-            window.addEventListener('touchmove', dragMove, { passive: false });
-            window.addEventListener('mouseup', dragEnd);
-            window.addEventListener('touchend', dragEnd);
-            if (e.type === 'mousedown') e.preventDefault();
-        }
-
-        function dragMove(e) {
-            if (!isDragging) return;
-            e.preventDefault();
-            if (!hasDragged) {
-                hasDragged = true;
-                if (menuContainer.classList.contains('expanded')) {
-                    menuContainer.classList.remove('expanded');
-                }
-            }
-            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-            let newX = clientX - offsetX;
-            let newY = clientY - offsetY;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const elemWidth = assistiveTouch.offsetWidth;
-            const elemHeight = assistiveTouch.offsetHeight;
-            newX = Math.max(0, Math.min(newX, viewportWidth - elemWidth));
-            newY = Math.max(0, Math.min(newY, viewportHeight - elemHeight));
-            assistiveTouch.style.right = 'auto';
-            assistiveTouch.style.bottom = 'auto';
-            assistiveTouch.style.left = `${newX}px`;
-            assistiveTouch.style.top = `${newY}px`;
-        }
-
-        function dragEnd() {
-            isDragging = false;
-            assistiveTouch.style.transition = '';
-            window.removeEventListener('mousemove', dragMove);
-            window.removeEventListener('touchmove', dragMove);
-            window.removeEventListener('mouseup', dragEnd);
-            window.removeEventListener('touchend', dragEnd);
-        }
-
-        mainAssistiveBtn.addEventListener('mousedown', dragStart);
-        mainAssistiveBtn.addEventListener('touchstart', dragStart, { passive: false });
-
-        mainAssistiveBtn.addEventListener('click', (e) => {
-            if (hasDragged) {
-                e.preventDefault();
-                return;
-            }
-            menuContainer.classList.toggle('expanded');
-        });
-        
-        document.getElementById('vm-power-btn').addEventListener('click', () => window.close());
-        document.getElementById('vm-reset-btn').addEventListener('click', () => emulator?.restart());
-        document.getElementById('vm-fullscreen-btn').addEventListener('click', () => document.documentElement.requestFullscreen().catch(e => console.error(e)));
-        document.getElementById('vm-keyboard-btn').addEventListener('click', () => virtualKeyboard.classList.toggle('hidden'));
-        document.getElementById('vm-cad-btn').addEventListener('click', () => {
-            emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]);
-        });
-        
-        // --- Virtual Keyboard Handlers ---
-        function handleVirtualKeyPress(e) {
-            const key = e.target.closest('.key');
-            if (!key || !emulator) return;
-            e.preventDefault();
-            key.classList.add('pressed');
-            const scancodes = key.dataset.scancode.split(' ').map(s => parseInt(s, 16));
-            emulator.keyboard_send_scancodes(scancodes);
-        }
-
-        function handleVirtualKeyRelease(e) {
-            const key = e.target.closest('.key');
-            if (!key || !emulator) return;
-            key.classList.remove('pressed');
-            const pressCodes = key.dataset.scancode.split(' ').map(s => parseInt(s, 16));
-            const releaseCodes = pressCodes.map((code, index) => 
-                (index === pressCodes.length - 1 && code < 0xE0) ? code | 0x80 : code
-            );
-            // Handle multi-byte scancodes release properly
-            if (pressCodes.length > 1 && releaseCodes[0] >= 0xE0) {
-                 releaseCodes[releaseCodes.length - 1] |= 0x80;
-            }
-            emulator.keyboard_send_scancodes(releaseCodes);
-        }
-        
-        virtualKeyboard.addEventListener('mousedown', handleVirtualKeyPress);
-        virtualKeyboard.addEventListener('mouseup', handleVirtualKeyRelease);
-        virtualKeyboard.addEventListener('mouseleave', handleVirtualKeyRelease);
-        virtualKeyboard.addEventListener('touchstart', handleVirtualKeyPress, { passive: false });
-        virtualKeyboard.addEventListener('touchend', handleVirtualKeyRelease);
-        virtualKeyboard.addEventListener('touchcancel', handleVirtualKeyRelease);
-
-    </script>
+    <script src="vm-manager.js"></script>
 </body>
 </html>
