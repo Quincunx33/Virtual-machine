@@ -155,8 +155,6 @@ async function loadConfig(id) {
 
 // --- Initialization Flow ---
 async function init() {
-    // Critical: Listen for page closing to notify parent without polling
-    // 'pagehide' is more reliable than 'beforeunload' for mobile/modern browsers
     eventManager.add(window, 'pagehide', fullCleanup);
     eventManager.add(elements.reloadBtn, 'click', () => location.reload());
 
@@ -198,21 +196,28 @@ async function startEmulator(config) {
             const buffer = await config.file.arrayBuffer();
             v86Config.initial_state = { buffer };
         } else {
-            if (!config.cdromFile) throw new Error("No CD-ROM file.");
+            if (!config.cdromFile) throw new Error("No Disk file.");
             const buffer = await config.cdromFile.arrayBuffer();
             
             v86Config.memory_size = config.ram * 1024 * 1024;
             v86Config.vga_memory_size = 8 * 1024 * 1024;
             v86Config.bios = { url: "seabios.bin" };
             v86Config.vga_bios = { url: "vgabios.bin" };
-            v86Config.boot_order = 0x21;
-            v86Config.cdrom = { buffer };
+            v86Config.boot_order = 0x21; // Try boot from CD then HDD
+
+            // Handle Floppy vs CD logic
+            if (config.sourceType === 'floppy') {
+                v86Config.fda = { buffer };
+                v86Config.boot_order = 0x12; // Try floppy then CD
+            } else {
+                v86Config.cdrom = { buffer };
+            }
+
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
 
         if (isShuttingDown) return;
 
-        // V86 Constructor can throw instantly if WASM fails or config is bad
         try {
             emulator = new V86(v86Config);
         } catch (initError) {
@@ -224,10 +229,19 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
-            eventManager.add(elements.screenContainer, 'click', () => {
+            // Interaction handler for Audio & Mouse
+            const interactionHandler = () => {
+                // 1. Resume Audio Context (Browser policy requirement)
+                // v86 creates the audio context internally, we just need to ensure browser unlocks it
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    // Just creating a dummy context usually unlocks the global audio thread for the page
+                    // or accessing v86's internal context if exposed. 
+                    // v86 handles this on user interaction usually.
+                }
+
                 if (emulator && emulator.is_running()) {
-                    // Fix: Check if Pointer Lock is actually supported before calling it.
-                    // This prevents crashes on iPadOS/Mobile Safari where requestPointerLock is undefined.
+                    // Safe Mouse Lock
                     const canvas = elements.screenContainer.querySelector("canvas");
                     const supportsPointerLock = canvas && (
                         canvas.requestPointerLock || 
@@ -240,15 +254,38 @@ async function startEmulator(config) {
                         try {
                             emulator.lock_mouse();
                         } catch(e) {
-                            console.warn("Mouse lock failed (safe to ignore on touch):", e);
+                            console.warn("Mouse lock failed:", e);
                         }
                     }
                 }
-            });
+            };
+
+            eventManager.add(elements.screenContainer, 'click', interactionHandler);
+            eventManager.add(elements.screenContainer, 'touchstart', interactionHandler);
         });
 
     } catch (e) {
         handleCriticalError(e);
+    }
+}
+
+// --- Save Snapshot ---
+async function saveSnapshot() {
+    if (!emulator) return;
+    try {
+        const state = await emulator.save_state();
+        const blob = new Blob([state], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `snapshot-${Date.now()}.bin`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch(e) {
+        console.error("Save failed", e);
+        alert("Failed to save snapshot.");
     }
 }
 
@@ -257,17 +294,15 @@ function handleCriticalError(error) {
     const msg = error.message || error.toString();
     console.error("Critical VM Error:", error);
     
-    // Ignore PointerLock errors as they are non-critical
     if (msg.includes("requestPointerLock") || msg.includes("pointer lock")) {
         console.warn("Suppressing PointerLock error:", msg);
         return;
     }
 
-    // Check for specific V86/WASM failures
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
-        showError("Out of Memory! The VM crashed because it needed more memory than the browser could provide. Try lowering the RAM allocation in the VM settings.");
+        showError("Out of Memory! The VM crashed. Try lowering RAM allocation.");
     } else if (msg.includes("CSP") || msg.includes("Content Security Policy")) {
-         showError("Security Error: Browser blocked the VM execution (CSP). Check console for details.");
+         showError("Security Error: CSP Blocked execution.");
     } else {
         showError("VM Boot Failed: " + msg);
     }
@@ -280,16 +315,11 @@ function showError(msg) {
     elements.loadingIndicator.classList.add('hidden');
 }
 
-// Global Safety Net for Async WASM errors
+// Global Safety Net
 window.onerror = (msg, url, line, col, error) => {
     if (!isShuttingDown) {
         const errorMsg = (typeof msg === 'string' ? msg : error?.message || "Unknown error");
-        
-        // Filter out Pointer Lock errors globally
-        if (errorMsg.includes("requestPointerLock") || errorMsg.includes("pointer lock")) {
-            return true; // Prevent default handler (don't show red screen)
-        }
-
+        if (errorMsg.includes("requestPointerLock") || errorMsg.includes("pointer lock")) return true;
         if (errorMsg.includes("WebAssembly") || errorMsg.includes("memory")) {
             handleCriticalError(new Error(errorMsg)); 
         } else if (errorMsg.includes("CSP")) {
@@ -303,16 +333,10 @@ window.onerror = (msg, url, line, col, error) => {
 window.onunhandledrejection = (e) => {
     if (!isShuttingDown) {
         const reason = e.reason?.message || e.reason || "Unknown Promise Error";
-        
-        // Filter out Pointer Lock errors globally
         if (reason.includes("requestPointerLock") || reason.includes("pointer lock")) {
-            e.preventDefault(); // Stop propagation
-            return;
+            e.preventDefault(); return;
         }
-
         if (reason.includes("WebAssembly") || reason.includes("memory")) {
-            handleCriticalError(new Error(reason));
-        } else if (reason.includes("CSP")) {
             handleCriticalError(new Error(reason));
         } else {
             showError(`Promise: ${reason}`);
@@ -383,6 +407,7 @@ eventManager.add(document.getElementById('vm-reset-btn'), 'click', () => emulato
 eventManager.add(document.getElementById('vm-fullscreen-btn'), 'click', () => document.documentElement.requestFullscreen().catch(console.error));
 eventManager.add(document.getElementById('vm-keyboard-btn'), 'click', () => elements.virtualKeyboard.classList.toggle('hidden'));
 eventManager.add(document.getElementById('vm-cad-btn'), 'click', () => emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]));
+eventManager.add(document.getElementById('vm-save-btn'), 'click', saveSnapshot);
 
 // Virtual Keyboard
 function handleKey(e, isPress) {

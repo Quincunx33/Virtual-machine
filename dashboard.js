@@ -41,6 +41,7 @@ const elements = {
     summarySource: document.getElementById('summary-source'),
     summaryRam: document.getElementById('summary-ram'),
     vmCountBadge: document.getElementById('vm-count-badge'),
+    toastContainer: document.getElementById('toast-container'),
     modalSteps: [
         document.getElementById('modal-step-1'),
         document.getElementById('modal-step-2'),
@@ -53,42 +54,64 @@ const elements = {
     ]
 };
 
+// --- Toast Notification Logic ---
+function showToast(message, type = 'info') {
+    if (!elements.toastContainer) return;
+
+    const toast = document.createElement('div');
+    const colors = type === 'error' ? 'bg-red-900/90 border-red-700 text-red-100' :
+                   type === 'success' ? 'bg-green-900/90 border-green-700 text-green-100' :
+                   'bg-gray-800/90 border-gray-600 text-gray-200';
+    
+    const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-red-400"></i>' :
+                 type === 'success' ? '<i class="fas fa-check-circle text-green-400"></i>' :
+                 '<i class="fas fa-info-circle text-indigo-400"></i>';
+
+    toast.className = `toast flex items-center w-full max-w-xs p-4 mb-2 text-sm rounded-lg shadow-lg border backdrop-blur-sm pointer-events-auto ${colors}`;
+    toast.innerHTML = `
+        <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg bg-black/20 mr-3">
+            ${icon}
+        </div>
+        <div class="ml-auto text-xs font-medium">${message}</div>
+    `;
+
+    elements.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        toast.addEventListener('animationend', () => toast.remove());
+    }, 3000);
+}
+
 // --- Modal State ---
 let currentStep = 1;
-let newVMCreationData = { cdromFile: null, ram: 128, name: '', network: false };
+let newVMCreationData = { cdromFile: null, ram: 128, name: '', network: false, sourceType: 'iso' };
 let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 128, maxAllowed: 512 };
 
 // --- Smart Device Detection ---
 function detectSystemSpecs() {
-    // 1. Detect RAM (approximate in GB)
-    // navigator.deviceMemory is supported in Chrome/Edge, returns 0.25, 0.5, 1, 2, 4, 8...
-    const memory = navigator.deviceMemory || 4; // Default to 4GB if API not available
-    
-    // 2. Detect Device Type
+    const memory = navigator.deviceMemory || 4;
     const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
     
-    // 3. Calculate Recommended RAM and Max Safe RAM
-    // WASM memory must be contiguous. Browsers often fail allocation above 500MB-1GB on mobile.
-    // We set limits to prevent instant crashes.
     let recommended = 128;
     let maxAllowed = 512;
 
     if (memory >= 8) {
-        maxAllowed = 2048; // High-end desktop: Allow up to 2GB
+        maxAllowed = 2048;
         recommended = 512;
     } else if (memory >= 4) {
-        maxAllowed = 1024; // Mid-range: Allow up to 1GB
+        maxAllowed = 1024;
         recommended = 256;
     } else if (memory >= 2) {
-        maxAllowed = 512; // Low-end: Cap at 512MB
+        maxAllowed = 512;
         recommended = 128;
     } else {
-        maxAllowed = 256; // Very low-end: Cap at 256MB
+        maxAllowed = 256;
         recommended = 64;
     }
 
     if (isMobile && maxAllowed > 1024) {
-        maxAllowed = 1024; // Hard cap for mobile browsers
+        maxAllowed = 1024;
     }
 
     detectedSystemSpecs = {
@@ -98,7 +121,6 @@ function detectSystemSpecs() {
         maxAllowed: maxAllowed
     };
 
-    // Update UI
     if(elements.systemRamDisplay) {
         elements.systemRamDisplay.textContent = `Host: ~${memory}GB RAM`;
     }
@@ -133,7 +155,7 @@ function storeInDB(storeName, data) {
     });
 }
 
-// --- Communication (Event Driven Architecture) ---
+// --- Communication ---
 const channel = new BroadcastChannel('vm_channel');
 let vmWindow = null;
 let runningVmId = null;
@@ -143,7 +165,7 @@ channel.onmessage = async (event) => {
     
     if (type === 'VM_WINDOW_CLOSED' || type === 'stopped') {
         if (runningVmId && (id === runningVmId || !id)) {
-            console.log("VM Shutdown Signal Received via Channel");
+            showToast("Machine stopped", 'info');
             handleVMShutdown(runningVmId);
         }
     } 
@@ -197,23 +219,27 @@ function renderAllMachineItems() {
 }
 
 function renderMachineItem(machine) {
-    let iconClass, description;
+    let iconClass, description, typeLabel;
 
     if (machine.sourceType === 'snapshot') {
         iconClass = 'fa-history';
         description = 'Snapshot';
-    } else if (machine.sourceType === 'iso') {
+        typeLabel = 'State';
+    } else if (machine.sourceType === 'floppy') {
+        iconClass = 'fa-save';
+        description = `Floppy: ${machine.cdromFile ? machine.cdromFile.name : 'IMG'}`;
+        typeLabel = 'Floppy';
+    } else { 
         iconClass = 'fa-compact-disc';
         description = `ISO: ${machine.cdromFile ? machine.cdromFile.name : 'Unknown'}`;
-    } else { 
-        iconClass = 'fa-desktop';
-        description = 'Legacy Machine';
+        typeLabel = 'ISO';
     }
     
     const itemHTML = `
         <div class="vm-list-item group flex items-center p-3 rounded-xl text-sm font-medium hover:bg-gray-700/50 transition-colors relative cursor-pointer border border-transparent hover:border-gray-600 mb-2" data-id="${machine.id}">
-            <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 relative">
                 <i class="fas ${iconClass} text-indigo-400 text-lg"></i>
+                <span class="absolute -bottom-1 -right-1 bg-gray-700 text-[8px] px-1 rounded border border-gray-600">${typeLabel}</span>
             </div>
             <div class="ml-3 flex-1 overflow-hidden">
                 <p class="truncate font-semibold text-white">${machine.name}</p>
@@ -246,9 +272,8 @@ function updatePlaceholderVisibility() {
     elements.emptyListPlaceholder.classList.toggle('hidden', machines.length > 0);
 }
 
-// --- Event Handlers Setup ---
+// --- Event Handlers ---
 function setupEventListeners() {
-    // Reset App
     elements.resetAppBtn.addEventListener('click', async () => {
         if(confirm("Factory Reset: Delete all machines and data?")) {
             localStorage.clear();
@@ -262,7 +287,6 @@ function setupEventListeners() {
         }
     });
 
-    // Mobile Menu
     const toggleMenu = () => {
         elements.sidebar.classList.toggle('-translate-x-full');
         elements.overlay.classList.toggle('hidden');
@@ -270,10 +294,9 @@ function setupEventListeners() {
     elements.menuToggleBtn.addEventListener('click', toggleMenu);
     elements.overlay.addEventListener('click', toggleMenu);
 
-    // List Actions
     elements.vmList.addEventListener('click', (e) => {
         if (runningVmId) {
-            alert("Please stop the running VM first.");
+            showToast("Stop current VM first!", "error");
             return;
         }
 
@@ -292,6 +315,7 @@ function setupEventListeners() {
                 machines = machines.filter(m => m.id !== item.dataset.id);
                 saveMachines();
                 item.remove();
+                showToast("Machine deleted", "success");
                 if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
                 updatePlaceholderVisibility();
             }
@@ -299,7 +323,6 @@ function setupEventListeners() {
         }
         
         const startBtn = e.target.closest('.start-vm-btn');
-        // Allow clicking the row to start if on mobile (easier touch target)
         if (startBtn || (e.target.closest('.vm-list-item') && window.innerWidth < 1024)) {
             const row = e.target.closest('.vm-list-item');
             startVM(row.dataset.id);
@@ -307,11 +330,10 @@ function setupEventListeners() {
         }
     });
 
-    // Create Modal
     elements.createVmBtn.addEventListener('click', () => {
         resetModal();
         elements.createVmModal.classList.remove('hidden');
-        if(window.innerWidth < 1024) toggleMenu(); // Close sidebar on mobile
+        if(window.innerWidth < 1024) toggleMenu();
     });
     elements.closeModalBtn.addEventListener('click', () => elements.createVmModal.classList.add('hidden'));
     elements.modalBackBtn.addEventListener('click', () => changeStep(currentStep - 1));
@@ -324,7 +346,6 @@ function setupEventListeners() {
         elements.ramValue.textContent = `${val} MB`;
         newVMCreationData.ram = val;
         
-        // Dynamic Recommendation Text
         if (val > detectedSystemSpecs.recommendedRam) {
             elements.ramRecText.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i> High usage for your device`;
             elements.ramRecText.className = "text-xs text-yellow-500 mt-3 flex items-center";
@@ -337,11 +358,9 @@ function setupEventListeners() {
     elements.networkToggle.addEventListener('change', (e) => newVMCreationData.network = e.target.checked);
     elements.vmNameInput.addEventListener('input', updateModalUI);
 
-    // Snapshot
     elements.loadSnapshotBtn.addEventListener('click', () => elements.snapshotUpload.click());
     elements.snapshotUpload.addEventListener('change', handleSnapshotUpload);
 
-    // Edit Modal
     elements.closeEditModalBtn.addEventListener('click', () => elements.editVmModal.classList.add('hidden'));
     elements.cancelEditBtn.addEventListener('click', () => elements.editVmModal.classList.add('hidden'));
     elements.editRamSlider.addEventListener('input', () => {
@@ -350,7 +369,6 @@ function setupEventListeners() {
     elements.saveChangesBtn.addEventListener('click', saveEditChanges);
 }
 
-// --- Snapshot Logic ---
 function handleSnapshotUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -370,20 +388,18 @@ function handleSnapshotUpload(e) {
         machines.push(newMachine);
         renderMachineItem(newMachine);
         updatePlaceholderVisibility();
+        showToast("Snapshot loaded!", "success");
     }
     e.target.value = null;
     if(window.innerWidth < 1024) elements.sidebar.classList.add('-translate-x-full');
 }
 
-// --- Create Modal Logic ---
 function resetModal() {
     currentStep = 1;
-    // Set Default RAM based on detected specs
     const defaultRam = detectedSystemSpecs.recommendedRam || 128;
     
-    newVMCreationData = { cdromFile: null, ram: defaultRam, name: '', network: false };
+    newVMCreationData = { cdromFile: null, ram: defaultRam, name: '', network: false, sourceType: 'iso' };
     
-    // Update Slider Limits based on device
     elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
     elements.ramMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
     
@@ -391,10 +407,9 @@ function resetModal() {
     elements.ramValue.textContent = `${defaultRam} MB`;
     elements.networkToggle.checked = false;
     elements.vmNameInput.value = '';
-    elements.cdNameDisplay.textContent = 'Tap to browse .iso file';
+    elements.cdNameDisplay.textContent = 'Tap to browse files';
     elements.cdUpload.value = null;
     
-    // Reset indicators
     elements.ramRecText.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Optimized for your device`;
     elements.ramRecText.className = "text-xs text-green-400 mt-3 flex items-center";
     
@@ -406,9 +421,16 @@ function handleFileSelect(e) {
     if (!file) return;
     newVMCreationData.cdromFile = file;
     elements.cdNameDisplay.textContent = file.name;
+    
+    // Auto-detect type
+    if (file.name.toLowerCase().endsWith('.img')) {
+        newVMCreationData.sourceType = 'floppy';
+    } else {
+        newVMCreationData.sourceType = 'iso';
+    }
+
     if (!elements.vmNameInput.value) {
-        // Clean name
-        const cleanName = file.name.replace(/\.iso$/i, '').replace(/[-_]/g, ' ');
+        const cleanName = file.name.replace(/\.(iso|img)$/i, '').replace(/[-_]/g, ' ');
         elements.vmNameInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
     }
     updateModalUI();
@@ -441,7 +463,6 @@ function updateModalUI() {
     elements.modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
     elements.modalCreateBtn.disabled = (currentStep === 3 && !elements.vmNameInput.value.trim());
 
-    // Update Summary on Step 3
     if (currentStep === 3) {
         if(elements.summarySource) elements.summarySource.textContent = newVMCreationData.cdromFile ? newVMCreationData.cdromFile.name : '-';
         if(elements.summaryRam) elements.summaryRam.textContent = `${newVMCreationData.ram} MB`;
@@ -458,15 +479,15 @@ function createVMFromModal() {
         isLocal: true,
         id: `local-${Date.now()}`, 
         network: newVMCreationData.network,
-        sourceType: 'iso'
+        sourceType: newVMCreationData.sourceType
     };
     machines.push(newMachine);
     renderMachineItem(newMachine);
     updatePlaceholderVisibility();
     elements.createVmModal.classList.add('hidden');
+    showToast("Machine created!", "success");
 }
 
-// --- Edit Logic ---
 function openEditModal(machineId) {
     const machine = machines.find(m => m.id === machineId);
     if (!machine || machine.sourceType === 'snapshot') return;
@@ -474,7 +495,6 @@ function openEditModal(machineId) {
     document.getElementById('edit-vm-id').value = machineId;
     document.getElementById('edit-vm-name-input').value = machine.name;
     
-    // Update Slider Limits
     elements.editRamSlider.max = detectedSystemSpecs.maxAllowed;
     if(elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
 
@@ -496,14 +516,14 @@ function saveEditChanges() {
         machines[machineIndex].network = elements.editNetworkToggle.checked;
         if (!machines[machineIndex].isLocal) saveMachines();
         renderAllMachineItems();
+        showToast("Changes saved", "success");
     }
     elements.editVmModal.classList.add('hidden');
 }
 
-// --- VM Launch Logic ---
 async function startVM(machineId) {
     if (runningVmId) {
-        alert("Another VM is running.");
+        showToast("Close existing VM first", "error");
         if (vmWindow) vmWindow.focus();
         return;
     }
@@ -511,14 +531,15 @@ async function startVM(machineId) {
     const selectedOS = machines.find(m => m.id === machineId);
     if (!selectedOS) return;
 
+    showToast("Preparing VM...", "info");
+
     try {
         await storeInDB(STORE_NAME, selectedOS);
     } catch(e) {
-        alert('Data prep failed.');
+        showToast("Storage failed", "error");
         return;
     }
 
-    // Open window
     vmWindow = window.open(`vm-screen.html?id=${machineId}`, `vm_${machineId.replace(/[^a-zA-Z0-9]/g, '_')}`, 'width=1024,height=768,resizable=yes,scrollbars=yes');
     runningVmId = machineId;
     updateUIAfterVMStart(machineId);
@@ -548,9 +569,8 @@ function updateUIAfterVMStop(machineId) {
     elements.vmList.querySelectorAll('button').forEach(b => b.disabled = false);
 }
 
-// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    detectSystemSpecs(); // Run detection first
+    detectSystemSpecs();
     initDB().then(loadMachines).catch(e => {
         console.error("DB Init Error:", e);
     });
