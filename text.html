@@ -30,6 +30,12 @@
         }
         .toast { animation: slideIn 0.3s ease-out forwards; }
         .toast.hiding { animation: fadeOut 0.3s ease-out forwards; }
+
+        /* Accordion Styles */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary ~ * { animation: sweep .3s ease-in-out; }
+        @keyframes sweep { 0% {opacity: 0; transform: translateY(-10px)} 100% {opacity: 1; transform: translateY(0)} }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex h-screen overflow-hidden antialiased">
@@ -133,12 +139,12 @@
             <div class="px-5 py-4 bg-gray-800/50 flex justify-center items-center space-x-2 sm:space-x-4 flex-shrink-0">
                 <div id="step-indicator-1" class="flex items-center text-indigo-400 text-xs sm:text-sm font-medium">
                     <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-indigo-600 border-2 border-indigo-400 mr-2 text-white">1</div>
-                    Source
+                    Media
                 </div>
                 <div class="w-8 sm:w-16 h-px bg-gray-600"></div>
                 <div id="step-indicator-2" class="flex items-center text-gray-500 text-xs sm:text-sm font-medium">
                     <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600 mr-2">2</div>
-                    Config
+                    Hardware
                 </div>
                 <div class="w-8 sm:w-16 h-px bg-gray-600"></div>
                 <div id="step-indicator-3" class="flex items-center text-gray-500 text-xs sm:text-sm font-medium">
@@ -149,59 +155,115 @@
 
             <!-- Content (Scrollable) -->
             <div class="p-6 overflow-y-auto custom-scrollbar">
-                <!-- Step 1: File Selection -->
+                
+                <!-- Step 1: Storage & Media -->
                 <div id="modal-step-1">
-                    <div class="text-center mb-6">
-                        <div class="w-16 h-16 bg-blue-900/30 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                            <i class="fas fa-compact-disc"></i>
-                        </div>
-                        <h4 class="text-lg font-bold text-white">Select OS Image</h4>
-                        <p class="text-sm text-gray-400 mt-1">Upload .iso (CD) or .img (Floppy)</p>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-white mb-2">Primary Boot Drive</label>
+                        <select id="boot-drive-type" class="w-full bg-gray-700 border-gray-600 rounded-xl text-white text-sm p-3 mb-3 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="cd">CD-ROM (.iso)</option>
+                            <option value="floppy">Floppy Drive (.img)</option>
+                            <option value="hda">Hard Drive (.img/.bin)</option>
+                        </select>
+
+                        <label for="primary-upload" class="group flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-xl cursor-pointer bg-gray-700/30 hover:bg-gray-700/60 transition-all hover:border-indigo-500">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 group-hover:text-indigo-400 mb-3 transition-colors"></i>
+                                <p id="primary-name-display" class="text-sm text-gray-400 group-hover:text-white text-center px-4 break-all">Tap to browse files...</p>
+                            </div>
+                            <input id="primary-upload" type="file" class="hidden"/>
+                        </label>
                     </div>
 
-                    <label for="cd-upload" class="group flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-xl cursor-pointer bg-gray-700/30 hover:bg-gray-700/60 transition-all hover:border-indigo-500">
-                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 group-hover:text-indigo-400 mb-3 transition-colors"></i>
-                            <p id="cd-name-display" class="text-sm text-gray-400 group-hover:text-white text-center px-4 break-all">Tap to browse files...</p>
+                    <!-- Additional Drives Accordion -->
+                    <details class="bg-gray-700/30 rounded-xl border border-gray-700 mb-2">
+                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
+                            <span><i class="fas fa-hdd mr-2 text-indigo-400"></i>Additional Drives</span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Floppy B (fdb)</label>
+                                <input type="file" id="fdb-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Hard Disk B (hdb)</label>
+                                <input type="file" id="hdb-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
                         </div>
-                        <input id="cd-upload" type="file" class="hidden" accept=".iso, .img, .bin"/>
-                    </label>
-                    
-                    <div class="mt-4 flex items-center p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
-                        <i class="fas fa-lightbulb text-blue-400 mr-3 text-lg"></i>
-                        <p class="text-xs text-blue-200">Tip: Use lightweight distros like Alpine Linux or TinyCore for best mobile performance.</p>
-                    </div>
+                    </details>
+
+                    <!-- Linux Kernel Accordion -->
+                    <details class="bg-gray-700/30 rounded-xl border border-gray-700">
+                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
+                            <span><i class="fab fa-linux mr-2 text-yellow-500"></i>Linux Kernel Boot</span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">bzImage</label>
+                                <input type="file" id="bzimage-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Initrd</label>
+                                <input type="file" id="initrd-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Command Line (cmdline)</label>
+                                <input type="text" id="cmdline-input" placeholder="e.g. root=/dev/sda1" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2 text-xs text-white"/>
+                            </div>
+                        </div>
+                    </details>
                 </div>
 
-                <!-- Step 2: Configuration -->
+                <!-- Step 2: Configuration & Hardware -->
                 <div id="modal-step-2" class="hidden">
                     <h4 class="text-md font-semibold mb-4 text-white flex items-center">
-                        <i class="fas fa-microchip mr-2 text-indigo-400"></i> Memory (RAM)
+                        <i class="fas fa-microchip mr-2 text-indigo-400"></i> System Resources
                     </h4>
                     
-                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600">
+                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600 mb-4">
                         <div class="flex justify-between items-center mb-4">
-                            <span class="text-sm text-gray-400">Allocation</span>
+                            <span class="text-sm text-gray-400">System RAM</span>
                             <span id="ram-value" class="font-mono text-indigo-300 font-bold bg-gray-800 px-3 py-1 rounded-lg border border-gray-700">128 MB</span>
                         </div>
                         <input id="ram-slider" type="range" min="64" max="512" value="128" step="32" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
                         <div class="flex justify-between text-[10px] text-gray-500 mt-2 font-mono">
                             <span id="ram-min-label">64MB</span>
-                            <!-- Max will be set dynamically -->
                             <span id="ram-max-label">512MB</span>
                         </div>
-                        <p id="ram-recommendation-text" class="text-xs text-green-400 mt-3 flex items-center">
-                            <i class="fas fa-check-circle mr-1"></i> Optimized for your device
-                        </p>
                     </div>
 
-                    <h4 class="text-md font-semibold mb-3 mt-6 text-white flex items-center">
-                        <i class="fas fa-wifi mr-2 text-indigo-400"></i> Networking
-                    </h4>
+                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600 mb-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-sm text-gray-400">Video RAM (VRAM)</span>
+                            <span id="vram-value" class="font-mono text-pink-300 font-bold bg-gray-800 px-3 py-1 rounded-lg border border-gray-700">8 MB</span>
+                        </div>
+                        <input id="vram-slider" type="range" min="1" max="64" value="8" step="1" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-500">
+                    </div>
+
+                    <!-- System BIOS Accordion -->
+                    <details class="bg-gray-700/30 rounded-xl border border-gray-700 mb-4">
+                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
+                            <span><i class="fas fa-code mr-2 text-green-400"></i>Custom BIOS</span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">System BIOS</label>
+                                <input type="file" id="bios-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">VGA BIOS</label>
+                                <input type="file" id="vga-bios-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                        </div>
+                    </details>
+
                     <div class="flex items-center justify-between p-4 rounded-xl bg-gray-700/50 border border-gray-600">
                         <div class="flex flex-col">
-                            <span class="font-medium text-white text-sm">Internet Access</span>
-                            <span class="text-xs text-gray-400">Connect via WebSocket relay</span>
+                            <span class="font-medium text-white text-sm">Network Adapter</span>
+                            <span class="text-xs text-gray-400">Internet access</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="network-toggle" class="sr-only peer">
@@ -223,13 +285,13 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-laptop text-gray-500"></i>
                         </div>
-                        <input type="text" id="vm-name-input" placeholder="e.g., My Alpine Linux"
+                        <input type="text" id="vm-name-input" placeholder="e.g., My Linux VM"
                         class="w-full pl-10 bg-gray-900 border border-gray-600 text-white text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 placeholder-gray-600 transition-all">
                     </div>
                     
                     <div class="mt-6 p-4 bg-gray-700/30 rounded-xl border border-gray-700 text-sm space-y-2">
                         <div class="flex justify-between">
-                            <span class="text-gray-400">Source:</span>
+                            <span class="text-gray-400">Boot:</span>
                             <span class="text-white font-medium truncate max-w-[150px]" id="summary-source">-</span>
                         </div>
                         <div class="flex justify-between">

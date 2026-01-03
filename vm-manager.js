@@ -245,12 +245,17 @@ function fitScreen() {
 async function startEmulator(config) {
     if (isShuttingDown) return;
     
+    // Base configuration
     let v86Config = {
         wasm_path: "v86.wasm",
         screen_container: elements.screenContainer,
         autostart: true,
         disable_mouse: false,
-        disable_keyboard: false
+        disable_keyboard: false,
+        memory_size: (config.ram || 128) * 1024 * 1024,
+        vga_memory_size: (config.vram || 8) * 1024 * 1024,
+        bios: { url: "seabios.bin" },
+        vga_bios: { url: "vgabios.bin" }
     };
 
     try {
@@ -259,37 +264,48 @@ async function startEmulator(config) {
             activeBlobUrls.push(blobUrl);
             v86Config.initial_state = { url: blobUrl };
         } else {
-            if (!config.cdromFile) throw new Error("No Disk file.");
-            
-            const diskUrl = URL.createObjectURL(config.cdromFile);
-            activeBlobUrls.push(diskUrl);
-            
-            v86Config.memory_size = config.ram * 1024 * 1024;
-            // Lower VGA RAM to minimum for mobile stability
-            v86Config.vga_memory_size = 4 * 1024 * 1024; 
-            v86Config.bios = { url: "seabios.bin" };
-            v86Config.vga_bios = { url: "vgabios.bin" };
-            v86Config.boot_order = 0x21; 
+            // Helper to load file into config
+            const addFile = (fileObj, configKey) => {
+                if (fileObj) {
+                    const url = URL.createObjectURL(fileObj);
+                    activeBlobUrls.push(url);
+                    v86Config[configKey] = { url: url };
+                }
+            };
 
-            if (config.sourceType === 'floppy') {
-                v86Config.fda = { url: diskUrl };
-                v86Config.boot_order = 0x12;
-            } else {
-                v86Config.cdrom = { url: diskUrl };
+            // Custom BIOS support
+            addFile(config.biosFile, 'bios');
+            addFile(config.vgaBiosFile, 'vga_bios');
+
+            // Standard Drives
+            addFile(config.cdromFile, 'cdrom');
+            addFile(config.fdaFile, 'fda');
+            addFile(config.fdbFile, 'fdb');
+            addFile(config.hdaFile, 'hda');
+            addFile(config.hdbFile, 'hdb');
+            
+            // Linux Boot
+            addFile(config.bzimageFile, 'bzimage');
+            addFile(config.initrdFile, 'initrd');
+            if (config.cmdline) {
+                v86Config.cmdline = config.cmdline;
             }
+
+            // Set Boot Order based on available media
+            if (config.cdromFile) v86Config.boot_order = 0x213; // CD, Floppy, HDD
+            else if (config.fdaFile) v86Config.boot_order = 0x123; // Floppy, HDD, CD
+            else if (config.hdaFile) v86Config.boot_order = 0x312; // HDD, CD, Floppy
+            else v86Config.boot_order = 0x213;
 
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
 
         // --- CRITICAL MEMORY FIX ---
-        // Nullify the heavy file objects in both the config and the global reference
-        // IMMEDIATELY after creating the Blob URL.
-        if (config.file) config.file = null;
-        if (config.cdromFile) config.cdromFile = null;
-        if (selectedOS) {
-            selectedOS.file = null;
-            selectedOS.cdromFile = null;
-        }
+        // Release heavy file references immediately
+        ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'].forEach(k => {
+            if (config[k]) config[k] = null;
+            if (selectedOS && selectedOS[k]) selectedOS[k] = null;
+        });
         // ---------------------------
 
         if (isShuttingDown) return;
@@ -297,6 +313,7 @@ async function startEmulator(config) {
         try {
             emulator = new V86(v86Config);
         } catch (initError) {
+            cleanupBlobUrls(); // MEMORY FIX: Clean up blobs if boot fails immediately
             handleCriticalError(initError);
             return;
         }
@@ -305,7 +322,7 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
-            // Release Blob URL - Browser has likely buffered it by now
+            // Release Blob URLs - Browser has likely buffered it by now
             cleanupBlobUrls();
 
             const interactionHandler = () => {
@@ -349,6 +366,7 @@ async function startEmulator(config) {
         });
 
     } catch (e) {
+        cleanupBlobUrls();
         handleCriticalError(e);
     }
 }
@@ -359,20 +377,49 @@ eventManager.add(window, 'resize', fitScreen);
 // --- Save Snapshot ---
 async function saveSnapshot() {
     if (!emulator) return;
+    
+    // UI Feedback: Show loading indicator
+    const originalText = elements.loadingText.textContent;
+    elements.loadingIndicator.classList.remove('hidden');
+    elements.loadingText.textContent = "Saving State... (Do not close)";
+    
+    // Allow the browser to render the loading screen
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     try {
-        const state = await emulator.save_state();
+        let state = await emulator.save_state();
+        
+        // Safety Check for Mobile: Warn if state is huge
+        const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+        if (state.byteLength > 200 * 1024 * 1024 && isMobile) {
+             if(!confirm(`Warning: This snapshot is large (~${Math.round(state.byteLength/1024/1024)}MB). Saving may crash your browser due to memory limits. Continue?`)) {
+                 throw new Error("User cancelled save");
+             }
+        }
+
         const blob = new Blob([state], { type: 'application/octet-stream' });
+        state = null; // MEMORY FIX: Release original buffer immediately
+        
         const url = URL.createObjectURL(blob);
+        
         const a = document.createElement('a');
         a.href = url;
-        a.download = `snapshot-${Date.now()}.bin`;
+        a.download = `snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.bin`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        
+        // Cleanup immediately to free memory
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
     } catch(e) {
         console.error("Save failed", e);
-        alert("Failed to save snapshot.");
+        if (e.message !== "User cancelled save") {
+            alert("Failed to save snapshot. Your device might be out of memory.");
+        }
+    } finally {
+        elements.loadingIndicator.classList.add('hidden');
+        elements.loadingText.textContent = originalText;
     }
 }
 
@@ -387,7 +434,12 @@ function handleCriticalError(error) {
     }
 
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
-        showError("Out of Memory! The VM crashed. Try lowering RAM allocation.");
+        // Specific advice for Snapshot users
+        if (selectedOS && selectedOS.sourceType === 'snapshot') {
+             showError("Out of Memory! The snapshot requires more RAM than your device has. Try creating a new machine with less RAM (e.g., 64MB or 128MB).");
+        } else {
+             showError("Out of Memory! The VM crashed. Try lowering RAM allocation in the creation menu.");
+        }
     } else if (msg.includes("CSP") || msg.includes("Content Security Policy")) {
          showError("Security Error: CSP Blocked execution.");
     } else {

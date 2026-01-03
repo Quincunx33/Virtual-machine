@@ -15,17 +15,36 @@ const elements = {
     modalBackBtn: document.getElementById('modal-back-btn'),
     modalNextBtn: document.getElementById('modal-next-btn'),
     modalCreateBtn: document.getElementById('modal-create-btn'),
-    cdUpload: document.getElementById('cd-upload'),
-    cdNameDisplay: document.getElementById('cd-name-display'),
+    
+    // Primary Media inputs
+    bootDriveType: document.getElementById('boot-drive-type'),
+    primaryUpload: document.getElementById('primary-upload'),
+    primaryNameDisplay: document.getElementById('primary-name-display'),
+    
+    // Extra Media inputs
+    fdbUpload: document.getElementById('fdb-upload'),
+    hdbUpload: document.getElementById('hdb-upload'),
+    
+    // System/Kernel inputs
+    bzimageUpload: document.getElementById('bzimage-upload'),
+    initrdUpload: document.getElementById('initrd-upload'),
+    cmdlineInput: document.getElementById('cmdline-input'),
+    biosUpload: document.getElementById('bios-upload'),
+    vgaBiosUpload: document.getElementById('vga-bios-upload'),
+
+    // Hardware
     ramSlider: document.getElementById('ram-slider'),
     ramValue: document.getElementById('ram-value'),
-    ramRecText: document.getElementById('ram-recommendation-text'),
     ramMaxLabel: document.getElementById('ram-max-label'),
+    vramSlider: document.getElementById('vram-slider'),
+    vramValue: document.getElementById('vram-value'),
     networkToggle: document.getElementById('network-toggle'),
+    
     vmNameInput: document.getElementById('vm-name-input'),
     loadSnapshotBtn: document.getElementById('load-snapshot-btn'),
     snapshotUpload: document.getElementById('snapshot-upload'),
     resetAppBtn: document.getElementById('reset-app-btn'),
+    
     editVmModal: document.getElementById('edit-vm-modal'),
     closeEditModalBtn: document.getElementById('close-edit-modal-btn'),
     cancelEditBtn: document.getElementById('cancel-edit-btn'),
@@ -34,6 +53,7 @@ const elements = {
     editRamValue: document.getElementById('edit-ram-value'),
     editRamMaxLabel: document.getElementById('edit-ram-max-label'),
     editNetworkToggle: document.getElementById('edit-network-toggle'),
+    
     menuToggleBtn: document.getElementById('menu-toggle-btn'),
     sidebar: document.querySelector('aside'),
     overlay: document.getElementById('overlay'),
@@ -42,6 +62,7 @@ const elements = {
     summaryRam: document.getElementById('summary-ram'),
     vmCountBadge: document.getElementById('vm-count-badge'),
     toastContainer: document.getElementById('toast-container'),
+    
     modalSteps: [
         document.getElementById('modal-step-1'),
         document.getElementById('modal-step-2'),
@@ -85,7 +106,31 @@ function showToast(message, type = 'info') {
 
 // --- Modal State ---
 let currentStep = 1;
-let newVMCreationData = { cdromFile: null, ram: 128, name: '', network: false, sourceType: 'iso' };
+// Extended configuration object for all V86 possibilities
+let newVMCreationData = { 
+    // Primary Boot
+    primaryFile: null, 
+    sourceType: 'cd', // 'cd', 'floppy', 'hda'
+    
+    // Extra Drives
+    fdbFile: null,
+    hdbFile: null,
+    
+    // Kernel / System
+    bzimageFile: null,
+    initrdFile: null,
+    cmdline: '',
+    biosFile: null,
+    vgaBiosFile: null,
+    
+    // Hardware
+    ram: 128, 
+    vram: 8,
+    network: false, 
+    
+    name: '' 
+};
+
 let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 128, maxAllowed: 512 };
 
 // --- Smart Device Detection ---
@@ -219,26 +264,32 @@ function renderAllMachineItems() {
 }
 
 function renderMachineItem(machine) {
-    let iconClass, description, typeLabel;
+    let iconClass, typeLabel;
 
     if (machine.sourceType === 'snapshot') {
         iconClass = 'fa-history';
-        description = 'Snapshot';
         typeLabel = 'State';
     } else if (machine.sourceType === 'floppy') {
         iconClass = 'fa-save';
-        description = `Floppy: ${machine.cdromFile ? machine.cdromFile.name : 'IMG'}`;
         typeLabel = 'Floppy';
+    } else if (machine.sourceType === 'hda') {
+        iconClass = 'fa-hdd';
+        typeLabel = 'HDD';
     } else { 
         iconClass = 'fa-compact-disc';
-        description = `ISO: ${machine.cdromFile ? machine.cdromFile.name : 'Unknown'}`;
         typeLabel = 'ISO';
+    }
+    
+    // Check if it's a linux kernel boot
+    if (machine.bzimageFile) {
+        iconClass = 'fa-linux';
+        typeLabel = 'Linux';
     }
     
     const itemHTML = `
         <div class="vm-list-item group flex items-center p-3 rounded-xl text-sm font-medium hover:bg-gray-700/50 transition-colors relative cursor-pointer border border-transparent hover:border-gray-600 mb-2" data-id="${machine.id}">
             <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 relative">
-                <i class="fas ${iconClass} text-indigo-400 text-lg"></i>
+                <i class="fab ${iconClass} text-indigo-400 text-lg"></i>
                 <span class="absolute -bottom-1 -right-1 bg-gray-700 text-[8px] px-1 rounded border border-gray-600">${typeLabel}</span>
             </div>
             <div class="ml-3 flex-1 overflow-hidden">
@@ -339,20 +390,52 @@ function setupEventListeners() {
     elements.modalBackBtn.addEventListener('click', () => changeStep(currentStep - 1));
     elements.modalNextBtn.addEventListener('click', () => changeStep(currentStep + 1));
     elements.modalCreateBtn.addEventListener('click', createVMFromModal);
-    elements.cdUpload.addEventListener('change', e => handleFileSelect(e));
     
+    // Step 1 Inputs
+    elements.bootDriveType.addEventListener('change', (e) => {
+        newVMCreationData.sourceType = e.target.value;
+        // Visual feedback could be added here to change icon
+    });
+    elements.primaryUpload.addEventListener('change', e => {
+        if (e.target.files[0]) {
+            newVMCreationData.primaryFile = e.target.files[0];
+            elements.primaryNameDisplay.textContent = e.target.files[0].name;
+            
+            // Auto-fill name if empty
+            if (!elements.vmNameInput.value) {
+                const cleanName = e.target.files[0].name.replace(/\.(iso|img|bin|dsk)$/i, '').replace(/[-_]/g, ' ');
+                elements.vmNameInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+            }
+            updateModalUI();
+        }
+    });
+    
+    // Additional Drive Inputs
+    const handleGenericFileSelect = (element, key) => {
+        element.addEventListener('change', e => {
+            if(e.target.files[0]) newVMCreationData[key] = e.target.files[0];
+        });
+    };
+    handleGenericFileSelect(elements.fdbUpload, 'fdbFile');
+    handleGenericFileSelect(elements.hdbUpload, 'hdbFile');
+    handleGenericFileSelect(elements.bzimageUpload, 'bzimageFile');
+    handleGenericFileSelect(elements.initrdUpload, 'initrdFile');
+    handleGenericFileSelect(elements.biosUpload, 'biosFile');
+    handleGenericFileSelect(elements.vgaBiosUpload, 'vgaBiosFile');
+    
+    elements.cmdlineInput.addEventListener('input', e => newVMCreationData.cmdline = e.target.value);
+
+    // Step 2 Inputs
     elements.ramSlider.addEventListener('input', () => {
         const val = parseInt(elements.ramSlider.value, 10);
         elements.ramValue.textContent = `${val} MB`;
         newVMCreationData.ram = val;
-        
-        if (val > detectedSystemSpecs.recommendedRam) {
-            elements.ramRecText.innerHTML = `<i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i> High usage for your device`;
-            elements.ramRecText.className = "text-xs text-yellow-500 mt-3 flex items-center";
-        } else {
-             elements.ramRecText.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Optimized for your device`;
-             elements.ramRecText.className = "text-xs text-green-400 mt-3 flex items-center";
-        }
+    });
+    
+    elements.vramSlider.addEventListener('input', () => {
+        const val = parseInt(elements.vramSlider.value, 10);
+        elements.vramValue.textContent = `${val} MB`;
+        newVMCreationData.vram = val;
     });
     
     elements.networkToggle.addEventListener('change', (e) => newVMCreationData.network = e.target.checked);
@@ -378,7 +461,7 @@ function handleSnapshotUpload(e) {
     if (name) {
         const newMachine = {
             name,
-            ram: 0,
+            ram: 128, // Default to 128MB to prevent 0MB OOM crashes
             file: file,
             isLocal: true,
             id: `snapshot-${Date.now()}`,
@@ -398,41 +481,42 @@ function resetModal() {
     currentStep = 1;
     const defaultRam = detectedSystemSpecs.recommendedRam || 128;
     
-    newVMCreationData = { cdromFile: null, ram: defaultRam, name: '', network: false, sourceType: 'iso' };
+    // Reset Data Object
+    newVMCreationData = { 
+        primaryFile: null, sourceType: 'cd', 
+        fdbFile: null, hdbFile: null, 
+        bzimageFile: null, initrdFile: null, cmdline: '',
+        biosFile: null, vgaBiosFile: null,
+        ram: defaultRam, vram: 8, 
+        name: '', network: false
+    };
     
+    // Reset DOM
     elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
     elements.ramMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
-    
     elements.ramSlider.value = defaultRam;
     elements.ramValue.textContent = `${defaultRam} MB`;
+    
+    elements.vramSlider.value = 8;
+    elements.vramValue.textContent = '8 MB';
+    
     elements.networkToggle.checked = false;
     elements.vmNameInput.value = '';
-    elements.cdNameDisplay.textContent = 'Tap to browse files';
-    elements.cdUpload.value = null;
     
-    elements.ramRecText.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Optimized for your device`;
-    elements.ramRecText.className = "text-xs text-green-400 mt-3 flex items-center";
+    elements.bootDriveType.value = 'cd';
+    elements.primaryNameDisplay.textContent = 'Tap to browse files';
     
-    updateModalUI();
-}
-
-function handleFileSelect(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    newVMCreationData.cdromFile = file;
-    elements.cdNameDisplay.textContent = file.name;
+    // Clear all file inputs
+    const inputs = [
+        elements.primaryUpload, elements.fdbUpload, elements.hdbUpload, 
+        elements.bzimageUpload, elements.initrdUpload, elements.biosUpload, elements.vgaBiosUpload
+    ];
+    inputs.forEach(el => el.value = null);
+    elements.cmdlineInput.value = '';
     
-    // Auto-detect type
-    if (file.name.toLowerCase().endsWith('.img')) {
-        newVMCreationData.sourceType = 'floppy';
-    } else {
-        newVMCreationData.sourceType = 'iso';
-    }
-
-    if (!elements.vmNameInput.value) {
-        const cleanName = file.name.replace(/\.(iso|img)$/i, '').replace(/[-_]/g, ' ');
-        elements.vmNameInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-    }
+    // Close any open details
+    document.querySelectorAll('details').forEach(d => d.removeAttribute('open'));
+    
     updateModalUI();
 }
 
@@ -459,12 +543,19 @@ function updateModalUI() {
     elements.modalNextBtn.classList.toggle('hidden', currentStep === 3);
     elements.modalCreateBtn.classList.toggle('hidden', currentStep !== 3);
     
-    const step1Valid = !!newVMCreationData.cdromFile;
+    // Logic for enabling Next button
+    const step1Valid = !!newVMCreationData.primaryFile || !!newVMCreationData.bzimageFile;
     elements.modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
     elements.modalCreateBtn.disabled = (currentStep === 3 && !elements.vmNameInput.value.trim());
 
     if (currentStep === 3) {
-        if(elements.summarySource) elements.summarySource.textContent = newVMCreationData.cdromFile ? newVMCreationData.cdromFile.name : '-';
+        if(elements.summarySource) {
+            if (newVMCreationData.bzimageFile) {
+                elements.summarySource.textContent = "Linux Kernel";
+            } else {
+                elements.summarySource.textContent = newVMCreationData.primaryFile ? newVMCreationData.primaryFile.name : '-';
+            }
+        }
         if(elements.summaryRam) elements.summaryRam.textContent = `${newVMCreationData.ram} MB`;
     }
 }
@@ -472,15 +563,33 @@ function updateModalUI() {
 function createVMFromModal() {
     const name = elements.vmNameInput.value.trim();
     if (!name) return;
+    
     const newMachine = { 
-        name, 
-        ram: newVMCreationData.ram, 
-        cdromFile: newVMCreationData.cdromFile,
-        isLocal: true,
         id: `local-${Date.now()}`, 
+        isLocal: true,
+        name,
+        // Core Config
+        ram: newVMCreationData.ram,
+        vram: newVMCreationData.vram, 
         network: newVMCreationData.network,
-        sourceType: newVMCreationData.sourceType
+        sourceType: newVMCreationData.sourceType,
+        
+        // Files
+        cdromFile: newVMCreationData.sourceType === 'cd' ? newVMCreationData.primaryFile : null,
+        fdaFile: newVMCreationData.sourceType === 'floppy' ? newVMCreationData.primaryFile : null,
+        hdaFile: newVMCreationData.sourceType === 'hda' ? newVMCreationData.primaryFile : null,
+        
+        fdbFile: newVMCreationData.fdbFile,
+        hdbFile: newVMCreationData.hdbFile,
+        
+        biosFile: newVMCreationData.biosFile,
+        vgaBiosFile: newVMCreationData.vgaBiosFile,
+        
+        bzimageFile: newVMCreationData.bzimageFile,
+        initrdFile: newVMCreationData.initrdFile,
+        cmdline: newVMCreationData.cmdline
     };
+    
     machines.push(newMachine);
     renderMachineItem(newMachine);
     updatePlaceholderVisibility();
@@ -490,7 +599,7 @@ function createVMFromModal() {
 
 function openEditModal(machineId) {
     const machine = machines.find(m => m.id === machineId);
-    if (!machine || machine.sourceType === 'snapshot') return;
+    if (!machine) return; // Allow editing for all types now
 
     document.getElementById('edit-vm-id').value = machineId;
     document.getElementById('edit-vm-name-input').value = machine.name;
@@ -537,6 +646,7 @@ async function startVM(machineId) {
         await storeInDB(STORE_NAME, selectedOS);
     } catch(e) {
         showToast("Storage failed", "error");
+        console.error(e);
         return;
     }
 
