@@ -18,11 +18,26 @@
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
         .source-type-card.border-indigo-500 { box-shadow: 0 0 0 2px #6366f1; }
+        
+        /* Toast Notification Animation */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .toast { animation: slideIn 0.3s ease-out forwards; }
+        .toast.hiding { animation: fadeOut 0.3s ease-out forwards; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex h-screen overflow-hidden antialiased">
 
     <div id="overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm"></div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[60] flex flex-col space-y-2 pointer-events-none"></div>
 
     <!-- Left Sidebar -->
     <aside class="w-72 bg-gray-800/90 backdrop-blur-md border-r border-gray-700/50 flex flex-col fixed lg:static inset-y-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
@@ -141,7 +156,7 @@
                             <i class="fas fa-compact-disc"></i>
                         </div>
                         <h4 class="text-lg font-bold text-white">Select OS Image</h4>
-                        <p class="text-sm text-gray-400 mt-1">Upload a bootable .iso file</p>
+                        <p class="text-sm text-gray-400 mt-1">Upload .iso (CD) or .img (Floppy)</p>
                     </div>
 
                     <label for="cd-upload" class="group flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-xl cursor-pointer bg-gray-700/30 hover:bg-gray-700/60 transition-all hover:border-indigo-500">
@@ -149,7 +164,7 @@
                             <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 group-hover:text-indigo-400 mb-3 transition-colors"></i>
                             <p id="cd-name-display" class="text-sm text-gray-400 group-hover:text-white text-center px-4 break-all">Tap to browse files...</p>
                         </div>
-                        <input id="cd-upload" type="file" class="hidden" accept=".iso"/>
+                        <input id="cd-upload" type="file" class="hidden" accept=".iso, .img, .bin"/>
                     </label>
                     
                     <div class="mt-4 flex items-center p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
@@ -242,7 +257,7 @@
         </div>
     </div>
     
-    <input type="file" id="snapshot-upload" class="hidden" />
+    <input type="file" id="snapshot-upload" class="hidden" accept=".bin,.v86state,.86state" />
 
     <!-- Edit VM Modal (Similar Response Improvements) -->
     <div id="edit-vm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
