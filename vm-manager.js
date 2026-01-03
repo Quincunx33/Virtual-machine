@@ -92,10 +92,7 @@ function fullCleanup() {
     }
 
     // 4. Revoke Blob URLs (Release Memory)
-    if (activeBlobUrls.length > 0) {
-        activeBlobUrls.forEach(url => URL.revokeObjectURL(url));
-        activeBlobUrls = [];
-    }
+    cleanupBlobUrls();
 
     // 5. Destroy Canvas
     if (elements.screenContainer) {
@@ -111,6 +108,14 @@ function fullCleanup() {
     if (db) {
         db.close();
         db = null;
+    }
+}
+
+function cleanupBlobUrls() {
+    if (activeBlobUrls.length > 0) {
+        console.log(`Releasing ${activeBlobUrls.length} file blobs from memory...`);
+        activeBlobUrls.forEach(url => URL.revokeObjectURL(url));
+        activeBlobUrls = [];
     }
 }
 
@@ -194,9 +199,6 @@ function fitScreen() {
     const container = elements.screenContainer;
     if (!container || isShuttingDown) return;
 
-    // Find the active element (canvas or text div)
-    // libv86 creates a <div> for text mode and uses <canvas> for VGA/SVGA.
-    // We must find which one is currently visible/active.
     let target = null;
     
     // Fallback: iterate and find first visible relevant child
@@ -210,41 +212,29 @@ function fitScreen() {
         }
     }
     
-    // If nothing found, try the first canvas or div as a last resort
     if (!target) {
         target = container.querySelector('canvas') || container.querySelector('div');
     }
 
     if (!target) return;
 
-    // 1. Reset transform to get accurate natural dimensions
     target.style.transform = 'none';
     
-    // 2. Get Available Viewport Dimensions
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // 3. Get Content Dimensions
-    // Note: canvas.width is internal resolution, offsetWidth is CSS display width.
-    // We want the natural size v86 wants to display.
     let contentWidth = target.offsetWidth;
     let contentHeight = target.offsetHeight;
 
-    // Safety fallback for init state
     if (!contentWidth || contentWidth === 0) contentWidth = 640;
     if (!contentHeight || contentHeight === 0) contentHeight = 480;
 
-    // 4. Calculate Scale Ratio (CONTAIN Strategy)
     const scaleX = viewportWidth / contentWidth;
     const scaleY = viewportHeight / contentHeight;
     const scale = Math.min(scaleX, scaleY);
 
-    // 5. Apply Transform
-    // We use transform instead of width/height to avoid blurring the internal canvas resolution
     target.style.transformOrigin = 'center center';
     target.style.transform = `scale(${scale})`;
-    
-    // 6. Visual crispness
     target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
 }
 
@@ -259,7 +249,6 @@ async function startEmulator(config) {
     };
 
     try {
-        // FIX: Use URL.createObjectURL instead of arrayBuffer() to prevent OOM
         if (config.sourceType === 'snapshot') {
             const blobUrl = URL.createObjectURL(config.file);
             activeBlobUrls.push(blobUrl);
@@ -267,20 +256,19 @@ async function startEmulator(config) {
         } else {
             if (!config.cdromFile) throw new Error("No Disk file.");
             
-            // FIX: Use Blob URL for disk images too
             const diskUrl = URL.createObjectURL(config.cdromFile);
             activeBlobUrls.push(diskUrl);
             
             v86Config.memory_size = config.ram * 1024 * 1024;
-            v86Config.vga_memory_size = 8 * 1024 * 1024;
+            // OPTIMIZATION: Reduce VGA memory to 4MB (enough for 1024x768x32) to save RAM on mobile
+            v86Config.vga_memory_size = 4 * 1024 * 1024; 
             v86Config.bios = { url: "seabios.bin" };
             v86Config.vga_bios = { url: "vgabios.bin" };
-            v86Config.boot_order = 0x21; // Try boot from CD then HDD
+            v86Config.boot_order = 0x21; 
 
-            // Handle Floppy vs CD logic
             if (config.sourceType === 'floppy') {
                 v86Config.fda = { url: diskUrl };
-                v86Config.boot_order = 0x12; // Try floppy then CD
+                v86Config.boot_order = 0x12;
             } else {
                 v86Config.cdrom = { url: diskUrl };
             }
@@ -301,13 +289,17 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
+            // CRITICAL OPTIMIZATION: 
+            // Release the file Blob from browser memory immediately after VM loads it.
+            // This prevents "Double RAM usage" (File + VM RAM) which causes crashes on mobile.
+            cleanupBlobUrls();
+
             // Interaction handler for Audio & Mouse
             const interactionHandler = () => {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (AudioContext) {} // Unlock audio thread
+                if (AudioContext) {} 
 
                 if (emulator && emulator.is_running()) {
-                    // Safe Mouse Lock
                     const canvas = elements.screenContainer.querySelector("canvas");
                     const supportsPointerLock = canvas && (
                         canvas.requestPointerLock || 
@@ -329,23 +321,18 @@ async function startEmulator(config) {
             eventManager.add(elements.screenContainer, 'click', interactionHandler);
             eventManager.add(elements.screenContainer, 'touchstart', interactionHandler);
             
-            // Initial Screen Fit & Frequent Check for first few seconds
-            // This fixes issues where resolution changes rapidly during boot
             fitScreen();
             let checkCount = 0;
             const bootInterval = setInterval(() => {
                 fitScreen();
                 checkCount++;
-                if (checkCount > 20) clearInterval(bootInterval); // Check for 2 seconds
+                if (checkCount > 20) clearInterval(bootInterval); 
             }, 100);
         });
 
-        // Listen for resolution changes (Text Mode -> VGA -> SVGA etc)
-        // This ensures resizing happens whenever the OS changes resolution
         emulator.add_listener("screen-set-mode", () => {
-            // Slight delay to allow DOM to update dimensions
             setTimeout(fitScreen, 50);
-            setTimeout(fitScreen, 500); // Double check for slow DOM updates
+            setTimeout(fitScreen, 500);
         });
 
     } catch (e) {
@@ -412,7 +399,8 @@ window.onerror = (msg, url, line, col, error) => {
         } else if (errorMsg.includes("CSP")) {
             handleCriticalError(new Error("CSP Violation detected"));
         } else {
-            showError(`Runtime: ${errorMsg}`);
+            // Log but don't block unless it's a known fatal string
+            console.error("Runtime error caught:", errorMsg);
         }
     }
 };
@@ -426,7 +414,8 @@ window.onunhandledrejection = (e) => {
         if (reason.includes("WebAssembly") || reason.includes("memory")) {
             handleCriticalError(new Error(reason));
         } else {
-            showError(`Promise: ${reason}`);
+             // Log but don't block
+             console.error("Promise rejection:", reason);
         }
     }
 };
