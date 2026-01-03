@@ -109,6 +109,9 @@ function fullCleanup() {
         db.close();
         db = null;
     }
+    
+    // 8. Clear Global References
+    selectedOS = null;
 }
 
 function cleanupBlobUrls() {
@@ -196,46 +199,46 @@ async function init() {
 
 // --- Screen Scaling Logic (Improved) ---
 function fitScreen() {
-    const container = elements.screenContainer;
-    if (!container || isShuttingDown) return;
+    requestAnimationFrame(() => {
+        const container = elements.screenContainer;
+        if (!container || isShuttingDown) return;
 
-    let target = null;
-    
-    // Fallback: iterate and find first visible relevant child
-    for (let i = 0; i < container.children.length; i++) {
-        const child = container.children[i];
-        if (child.style.display === 'none') continue;
+        let target = null;
         
-        if (child.tagName === 'CANVAS' || (child.tagName === 'DIV' && child.style.whiteSpace === 'pre')) {
-            target = child;
-            break;
+        for (let i = 0; i < container.children.length; i++) {
+            const child = container.children[i];
+            if (child.style.display === 'none') continue;
+            if (child.tagName === 'CANVAS' || (child.tagName === 'DIV' && child.style.whiteSpace === 'pre')) {
+                target = child;
+                break;
+            }
         }
-    }
-    
-    if (!target) {
-        target = container.querySelector('canvas') || container.querySelector('div');
-    }
+        
+        if (!target) {
+            target = container.querySelector('canvas') || container.querySelector('div');
+        }
 
-    if (!target) return;
+        if (!target) return;
 
-    target.style.transform = 'none';
-    
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+        target.style.transform = 'none';
+        
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
 
-    let contentWidth = target.offsetWidth;
-    let contentHeight = target.offsetHeight;
+        let contentWidth = target.offsetWidth;
+        let contentHeight = target.offsetHeight;
 
-    if (!contentWidth || contentWidth === 0) contentWidth = 640;
-    if (!contentHeight || contentHeight === 0) contentHeight = 480;
+        if (!contentWidth || contentWidth === 0) contentWidth = 640;
+        if (!contentHeight || contentHeight === 0) contentHeight = 480;
 
-    const scaleX = viewportWidth / contentWidth;
-    const scaleY = viewportHeight / contentHeight;
-    const scale = Math.min(scaleX, scaleY);
+        const scaleX = viewportWidth / contentWidth;
+        const scaleY = viewportHeight / contentHeight;
+        const scale = Math.min(scaleX, scaleY);
 
-    target.style.transformOrigin = 'center center';
-    target.style.transform = `scale(${scale})`;
-    target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
+        target.style.transformOrigin = 'center center';
+        target.style.transform = `scale(${scale})`;
+        target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
+    });
 }
 
 // --- Emulator Startup with Robust Error Handling ---
@@ -246,6 +249,8 @@ async function startEmulator(config) {
         wasm_path: "v86.wasm",
         screen_container: elements.screenContainer,
         autostart: true,
+        disable_mouse: false,
+        disable_keyboard: false
     };
 
     try {
@@ -260,7 +265,7 @@ async function startEmulator(config) {
             activeBlobUrls.push(diskUrl);
             
             v86Config.memory_size = config.ram * 1024 * 1024;
-            // OPTIMIZATION: Reduce VGA memory to 4MB (enough for 1024x768x32) to save RAM on mobile
+            // Lower VGA RAM to minimum for mobile stability
             v86Config.vga_memory_size = 4 * 1024 * 1024; 
             v86Config.bios = { url: "seabios.bin" };
             v86Config.vga_bios = { url: "vgabios.bin" };
@@ -276,6 +281,17 @@ async function startEmulator(config) {
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
 
+        // --- CRITICAL MEMORY FIX ---
+        // Nullify the heavy file objects in both the config and the global reference
+        // IMMEDIATELY after creating the Blob URL.
+        if (config.file) config.file = null;
+        if (config.cdromFile) config.cdromFile = null;
+        if (selectedOS) {
+            selectedOS.file = null;
+            selectedOS.cdromFile = null;
+        }
+        // ---------------------------
+
         if (isShuttingDown) return;
 
         try {
@@ -289,12 +305,9 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
-            // CRITICAL OPTIMIZATION: 
-            // Release the file Blob from browser memory immediately after VM loads it.
-            // This prevents "Double RAM usage" (File + VM RAM) which causes crashes on mobile.
+            // Release Blob URL - Browser has likely buffered it by now
             cleanupBlobUrls();
 
-            // Interaction handler for Audio & Mouse
             const interactionHandler = () => {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 if (AudioContext) {} 
@@ -399,7 +412,6 @@ window.onerror = (msg, url, line, col, error) => {
         } else if (errorMsg.includes("CSP")) {
             handleCriticalError(new Error("CSP Violation detected"));
         } else {
-            // Log but don't block unless it's a known fatal string
             console.error("Runtime error caught:", errorMsg);
         }
     }
@@ -414,7 +426,6 @@ window.onunhandledrejection = (e) => {
         if (reason.includes("WebAssembly") || reason.includes("memory")) {
             handleCriticalError(new Error(reason));
         } else {
-             // Log but don't block
              console.error("Promise rejection:", reason);
         }
     }
