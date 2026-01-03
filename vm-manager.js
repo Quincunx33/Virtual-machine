@@ -244,6 +244,8 @@ function handleCriticalError(error) {
     // Check for specific V86/WASM failures
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
         showError("Out of Memory! The VM crashed because it needed more memory than the browser could provide. Try lowering the RAM allocation in the VM settings.");
+    } else if (msg.includes("CSP") || msg.includes("Content Security Policy")) {
+         showError("Security Error: Browser blocked the VM execution (CSP). Check console for details.");
     } else {
         showError("VM Boot Failed: " + msg);
     }
@@ -261,7 +263,9 @@ window.onerror = (msg, url, line, col, error) => {
     if (!isShuttingDown) {
         const errorMsg = (typeof msg === 'string' ? msg : error?.message || "Unknown error");
         if (errorMsg.includes("WebAssembly") || errorMsg.includes("memory")) {
-            handleCriticalError(new Error(errorMsg)); // Redirect to friendly message
+            handleCriticalError(new Error(errorMsg)); 
+        } else if (errorMsg.includes("CSP")) {
+            handleCriticalError(new Error("CSP Violation detected"));
         } else {
             showError(`Runtime: ${errorMsg}`);
         }
@@ -272,6 +276,8 @@ window.onunhandledrejection = (e) => {
     if (!isShuttingDown) {
         const reason = e.reason?.message || e.reason || "Unknown Promise Error";
         if (reason.includes("WebAssembly") || reason.includes("memory")) {
+            handleCriticalError(new Error(reason));
+        } else if (reason.includes("CSP")) {
             handleCriticalError(new Error(reason));
         } else {
             showError(`Promise: ${reason}`);
