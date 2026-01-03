@@ -226,7 +226,23 @@ async function startEmulator(config) {
             
             eventManager.add(elements.screenContainer, 'click', () => {
                 if (emulator && emulator.is_running()) {
-                    emulator.lock_mouse();
+                    // Fix: Check if Pointer Lock is actually supported before calling it.
+                    // This prevents crashes on iPadOS/Mobile Safari where requestPointerLock is undefined.
+                    const canvas = elements.screenContainer.querySelector("canvas");
+                    const supportsPointerLock = canvas && (
+                        canvas.requestPointerLock || 
+                        canvas.mozRequestPointerLock || 
+                        canvas.webkitRequestPointerLock || 
+                        document.pointerLockElement !== undefined
+                    );
+
+                    if (supportsPointerLock) {
+                        try {
+                            emulator.lock_mouse();
+                        } catch(e) {
+                            console.warn("Mouse lock failed (safe to ignore on touch):", e);
+                        }
+                    }
                 }
             });
         });
@@ -241,6 +257,12 @@ function handleCriticalError(error) {
     const msg = error.message || error.toString();
     console.error("Critical VM Error:", error);
     
+    // Ignore PointerLock errors as they are non-critical
+    if (msg.includes("requestPointerLock") || msg.includes("pointer lock")) {
+        console.warn("Suppressing PointerLock error:", msg);
+        return;
+    }
+
     // Check for specific V86/WASM failures
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
         showError("Out of Memory! The VM crashed because it needed more memory than the browser could provide. Try lowering the RAM allocation in the VM settings.");
@@ -262,6 +284,12 @@ function showError(msg) {
 window.onerror = (msg, url, line, col, error) => {
     if (!isShuttingDown) {
         const errorMsg = (typeof msg === 'string' ? msg : error?.message || "Unknown error");
+        
+        // Filter out Pointer Lock errors globally
+        if (errorMsg.includes("requestPointerLock") || errorMsg.includes("pointer lock")) {
+            return true; // Prevent default handler (don't show red screen)
+        }
+
         if (errorMsg.includes("WebAssembly") || errorMsg.includes("memory")) {
             handleCriticalError(new Error(errorMsg)); 
         } else if (errorMsg.includes("CSP")) {
@@ -275,6 +303,13 @@ window.onerror = (msg, url, line, col, error) => {
 window.onunhandledrejection = (e) => {
     if (!isShuttingDown) {
         const reason = e.reason?.message || e.reason || "Unknown Promise Error";
+        
+        // Filter out Pointer Lock errors globally
+        if (reason.includes("requestPointerLock") || reason.includes("pointer lock")) {
+            e.preventDefault(); // Stop propagation
+            return;
+        }
+
         if (reason.includes("WebAssembly") || reason.includes("memory")) {
             handleCriticalError(new Error(reason));
         } else if (reason.includes("CSP")) {
