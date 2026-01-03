@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Web VM Emulator - Browser-Based Virtual Machines</title>
-    <meta name="description" content="Run legacy operating systems and software directly in your web browser. Fast, secure, and no installation required."/>
-    <meta name="keywords" content="VM, Virtual Machine, Browser Emulator, libv86, DOS, Windows 98"/>
+    <title>Web VM Emulator - Run OS in Browser</title>
+    <meta name="description" content="High-performance, event-driven virtual machine emulator for the web. Run Linux, DOS, and Windows on mobile and desktop without installation."/>
     
     <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*; img-src 'self' data: https:; media-src 'self';"/>
     <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
     <meta http-equiv="X-Frame-Options" content="DENY"/>
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block"/>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -19,224 +17,166 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
     
-    <!-- Google Fonts -->
+    <!-- Google Fonts (Inter to match Dashboard) -->
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     
     <!-- Custom Styles -->
     <style>
-        html {
-            scroll-behavior: smooth;
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #f3f4f6; }
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        body {
-            font-family: 'Poppins', sans-serif;
-            background-color: #0f172a; /* slate-900 */
-            color: #f8fafc; /* slate-50 */
+        .gradient-text {
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        .btn-primary {
-            background-color: #4f46e5; /* indigo-600 */
-            transition: background-color 0.3s ease, transform 0.2s ease;
-        }
-        .btn-primary:hover {
-            background-color: #4338ca; /* indigo-700 */
-            transform: translateY(-2px);
-        }
-        .btn-secondary {
-            background-color: #334155; /* slate-700 */
-            border-color: #475569; /* slate-600 */
-            transition: background-color 0.3s ease, border-color 0.3s ease;
-        }
-        .btn-secondary:hover {
-            background-color: #475569; /* slate-600 */
-            border-color: #64748b; /* slate-500 */
-        }
-        .feature-card {
-            background-color: #1e293b; /* slate-800 */
-            border: 1px solid #334155; /* slate-700 */
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        .btn-glow:hover {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
         }
     </style>
 </head>
-<body class="antialiased">
-    <!-- Navigation -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
+<body class="antialiased overflow-x-hidden">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 w-full z-50 glass-panel border-b-0 border-b-gray-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-3">
-                    <a href="/text.html" class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-desktop text-white text-sm"></i>
-                    </a>
-                    <a href="/text.html" class="text-xl font-bold text-white">Web VM</a>
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                        <i class="fas fa-microchip text-white text-sm"></i>
+                    </div>
+                    <span class="text-xl font-bold text-white tracking-tight">Web<span class="text-indigo-400">VM</span></span>
                 </div>
                 
-                <div class="hidden md:flex items-center space-x-6">
-                    <a href="#features" class="text-gray-300 hover:text-white transition-colors">Features</a>
-                    <a href="#technology" class="text-gray-300 hover:text-white transition-colors">Technology</a>
-                    
-                    <a id="launch-btn-nav" href="/text.html" class="btn-primary px-4 py-2 rounded-md text-white text-sm font-medium">
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Features</a>
+                    <a href="#architecture" class="text-sm font-medium text-gray-300 hover:text-white transition-colors">Architecture</a>
+                    <a href="text.html" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-full font-medium transition-all btn-glow text-sm">
                         Launch App
                     </a>
                 </div>
-                
-                <div class="md:hidden">
-                    <button id="mobile-menu-btn" class="text-gray-300 hover:text-white">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                </div>
+
+                <button class="md:hidden text-gray-300 hover:text-white" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
             </div>
         </div>
         
         <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden md:hidden bg-slate-900 border-t border-slate-700/50">
-            <div class="px-4 pt-2 pb-4 space-y-2">
-                <a href="#features" class="block text-gray-300 hover:text-white transition-colors py-2">Features</a>
-                <a href="#technology" class="block text-gray-300 hover:text-white transition-colors py-2">Technology</a>
-                
-                <div class="border-t border-slate-700/50 pt-4 mt-2 space-y-3">
-                    <a id="launch-btn-nav-mobile" href="/text.html" class="block btn-primary px-4 py-2 rounded-md text-white font-medium text-center">
-                        Launch App
-                    </a>
-                </div>
+        <div id="mobile-menu" class="hidden md:hidden bg-gray-900 border-b border-gray-800 absolute w-full">
+            <div class="px-4 py-3 space-y-3">
+                <a href="#features" class="block text-gray-300 hover:text-white">Features</a>
+                <a href="#architecture" class="block text-gray-300 hover:text-white">Architecture</a>
+                <a href="text.html" class="block w-full text-center bg-indigo-600 text-white py-2 rounded-lg font-bold">Launch App</a>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
-    <main>
-        <section class="relative pt-32 pb-20 md:pt-48 md:pb-32 flex items-center justify-center">
-            <div class="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-900/80 backdrop-blur-sm"></div>
-            <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <h1 class="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-                    Legacy Systems, Modern Browser
-                </h1>
-                <p class="text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
-                    Experience classic operating systems and software directly in your web browser. Fast, secure, and no installation needed.
-                </p>
-                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                    <a href="/text.html" class="w-full sm:w-auto btn-primary px-8 py-3 rounded-lg text-lg font-semibold text-white inline-flex items-center justify-center gap-2">
-                        <i class="fas fa-play"></i>
-                        <span>Launch Emulator</span>
-                    </a>
-                    <a href="#features" class="w-full sm:w-auto btn-secondary border-2 px-8 py-3 rounded-lg text-lg font-semibold text-gray-300 inline-flex items-center justify-center gap-2">
-                        <span>Learn More</span>
-                    </a>
-                </div>
-            </div>
-        </section>
+    <main class="relative pt-32 pb-20 overflow-hidden">
+        <!-- Background Elements -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none">
+            <div class="absolute top-20 left-10 w-72 h-72 bg-indigo-600/20 rounded-full blur-3xl mix-blend-screen animate-pulse"></div>
+            <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl mix-blend-screen"></div>
+        </div>
 
-        <!-- Features Section -->
-        <section id="features" class="py-20 bg-slate-900">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Powerful Features, Simple Interface</h2>
-                    <p class="text-lg text-gray-400 max-w-3xl mx-auto">
-                        Everything you need for a seamless emulation experience, right in your browser.
-                    </p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div class="feature-card rounded-xl p-8">
-                        <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
-                            <i class="fas fa-hdd text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-white mb-3">Flexible Boot Options</h3>
-                        <p class="text-gray-400 leading-relaxed">
-                            Install from an OS installer `.iso` or boot a pre-configured `.img` disk. Full floppy disk support included.
-                        </p>
-                    </div>
-                    
-                    <div class="feature-card rounded-xl p-8">
-                        <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
-                            <i class="fas fa-sliders-h text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-white mb-3">In-VM Controls</h3>
-                        <p class="text-gray-400 leading-relaxed">
-                           An intuitive floating menu provides access to fullscreen, virtual keyboard, Ctrl+Alt+Del, and other essential functions.
-                        </p>
-                    </div>
-                    
-                    <div class="feature-card rounded-xl p-8">
-                        <div class="w-12 h-12 bg-indigo-600/20 text-indigo-400 rounded-lg flex items-center justify-center mb-6">
-                            <i class="fas fa-database text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-white mb-3">Persistent Library</h3>
-                        <p class="text-gray-400 leading-relaxed">
-                           Your created virtual machines are saved in your browser, so they are always ready to launch when you return.
-                        </p>
-                    </div>
-                </div>
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="inline-flex items-center px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-semibold mb-6">
+                <span class="flex h-2 w-2 rounded-full bg-indigo-400 mr-2 animate-pulse"></span>
+                v2.0: Now with Zero-Polling Architecture
             </div>
-        </section>
-
-        <!-- Technology Section -->
-        <section id="technology" class="py-20">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Powered by Modern Technology</h2>
-                    <p class="text-lg text-gray-400 max-w-3xl mx-auto">
-                        Built on a foundation of powerful, open web technologies for maximum performance and security.
-                    </p>
-                </div>
-                
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 max-w-4xl mx-auto">
-                    <div class="text-center p-4">
-                        <i class="fab fa-js-square text-yellow-400 text-5xl mb-3"></i>
-                        <p class="text-gray-300 font-medium">JavaScript (ES6+)</p>
-                    </div>
-                    <div class="text-center p-4">
-                         <i class="fas fa-cube text-indigo-400 text-5xl mb-3"></i>
-                        <p class="text-gray-300 font-medium">WebAssembly</p>
-                    </div>
-                    <div class="text-center p-4">
-                        <i class="fas fa-wind text-cyan-400 text-5xl mb-3"></i>
-                        <p class="text-gray-300 font-medium">Tailwind CSS</p>
-                    </div>
-                    <div class="text-center p-4">
-                        <i class="fas fa-database text-green-400 text-5xl mb-3"></i>
-                        <p class="text-gray-300 font-medium">IndexedDB</p>
-                    </div>
-                </div>
+            
+            <h1 class="text-5xl md:text-7xl font-extrabold text-white mb-6 tracking-tight leading-tight">
+                Run Legacy OS on <br />
+                <span class="gradient-text">Any Device</span>
+            </h1>
+            
+            <p class="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+                A high-performance x86 emulator running entirely in your browser using WebAssembly. Optimized for mobile touch controls and desktop power.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <a href="text.html" class="w-full sm:w-auto px-8 py-4 bg-white text-gray-900 rounded-lg font-bold hover:bg-gray-100 transition-colors shadow-xl flex items-center justify-center gap-2">
+                    <i class="fas fa-rocket"></i> Start Emulation
+                </a>
+                <a href="https://github.com/copy/v86" target="_blank" class="w-full sm:w-auto px-8 py-4 glass-panel text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2">
+                    <i class="fab fa-github"></i> View Engine
+                </a>
             </div>
-        </section>
+        </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-slate-900/50 border-t border-slate-700/50 py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500">
-            <p>&copy; 2024 Web VM Emulator. All Rights Reserved.</p>
+    <!-- Features Grid -->
+    <section id="features" class="py-20 bg-gray-900/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Card 1 -->
+                <div class="glass-panel p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div class="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center mb-6 text-2xl">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Mobile First</h3>
+                    <p class="text-gray-400">
+                        Designed for touchscreens. Includes an iOS-style assistive touch menu and a responsive virtual keyboard for full control on phones and tablets.
+                    </p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="glass-panel p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div class="w-12 h-12 bg-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center mb-6 text-2xl">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">High Performance</h3>
+                    <p class="text-gray-400">
+                        Powered by WebAssembly (WASM). Features an event-driven core that eliminates CPU-hogging polling loops for smoother emulation.
+                    </p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="glass-panel p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div class="w-12 h-12 bg-green-500/20 text-green-400 rounded-xl flex items-center justify-center mb-6 text-2xl">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-3">Crash Safe</h3>
+                    <p class="text-gray-400">
+                        Advanced memory management protects your browser tab. If the VM runs out of RAM, it fails gracefully without crashing the UI.
+                    </p>
+                </div>
+            </div>
         </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="py-20 border-t border-gray-800">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+            <h2 class="text-3xl font-bold text-white mb-12">Built with Modern Standards</h2>
+            <div class="flex flex-wrap justify-center gap-6">
+                <div class="px-6 py-3 rounded-full bg-gray-800 border border-gray-700 text-gray-300 font-mono text-sm flex items-center gap-2">
+                    <i class="fas fa-broadcast-tower text-red-400"></i> BroadcastChannel API
+                </div>
+                <div class="px-6 py-3 rounded-full bg-gray-800 border border-gray-700 text-gray-300 font-mono text-sm flex items-center gap-2">
+                    <i class="fas fa-database text-yellow-400"></i> IndexedDB Storage
+                </div>
+                <div class="px-6 py-3 rounded-full bg-gray-800 border border-gray-700 text-gray-300 font-mono text-sm flex items-center gap-2">
+                    <i class="fas fa-cube text-blue-400"></i> WebAssembly
+                </div>
+                <div class="px-6 py-3 rounded-full bg-gray-800 border border-gray-700 text-gray-300 font-mono text-sm flex items-center gap-2">
+                    <i class="fas fa-wind text-teal-400"></i> Tailwind CSS
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-8 text-center text-gray-600 text-sm border-t border-gray-800">
+        <p>Built with ❤️ using libv86 and Gemini.</p>
     </footer>
 
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center">
-        <div class="text-center">
-            <div class="w-12 h-12 mx-auto mb-4 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-            <p class="text-white">Initializing...</p>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script>
-        // --- DOM Elements ---
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const mobileMenu = document.getElementById('mobile-menu');
-
-        // --- Event Listeners & Effects ---
-        window.addEventListener('load', function() {
-            const loadingScreen = document.getElementById('loading-screen');
-            setTimeout(() => {
-                loadingScreen.style.opacity = '0';
-                loadingScreen.style.transition = 'opacity 0.5s ease-out';
-                setTimeout(() => loadingScreen.style.display = 'none', 500);
-            }, 200);
-        });
-
-        mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
-    </script>
 </body>
 </html>

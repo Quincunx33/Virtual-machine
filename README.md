@@ -1,67 +1,76 @@
-# Web VM Emulator
+# Web VM Emulator v2.0
 
-A modern, browser-based virtual machine emulator that allows you to run legacy operating systems directly in your web browser. Built with HTML5, Tailwind CSS, and the powerful [libv86.js](https://github.com/copy/v86) emulation engine.
+A high-performance, mobile-first virtual machine emulator running entirely in the browser. Built with **libv86**, **WebAssembly**, and a modern **Event-Driven Architecture**.
 
-  <!-- Replace with an actual screenshot -->
+![Status](https://img.shields.io/badge/Status-Stable-green) ![Tech](https://img.shields.io/badge/Tech-WASM%20%7C%20IndexedDB-blue)
+
+## 🚀 Key Improvements in v2.0
+
+### 1. Zero-Polling Architecture
+Unlike traditional browser emulators that use `setInterval` to check for status updates (killing CPU battery), this app uses the **BroadcastChannel API** for real-time, event-based communication between the Dashboard and the VM process.
+- **Benefit:** Saves battery on mobile devices.
+- **Benefit:** Smoother UI with no "jank".
+
+### 2. "Nuclear" Memory Cleanup
+Implements a strict `EventManager` class that acts as memory police. When a VM window is closed:
+- WebGL contexts are forcibly detached.
+- All DOM event listeners are tracked and removed.
+- Large ArrayBuffers are dereferenced immediately to prevent memory leaks.
+
+### 3. Crash-Safe WASM Handling
+The VM manager specifically listens for WebAssembly OOM (Out of Memory) errors. Instead of the browser tab crashing white, the app catches the error and provides a user-friendly overlay suggesting to lower RAM allocation.
+
+---
 
 ## ✨ Features
 
-- **Intuitive VM Management**: A clean sidebar interface to create, manage, and launch your virtual machines.
-- **Flexible VM Creation**:
-    - **Local Disk Images**: Run operating systems from local `.iso`, `.img`, and other disk image formats.
-    - **Floppy Support**: Attach `.img` or `.flp` floppy disk images.
-    - **Snapshot Restoration**: Quickly resume a session by loading a `.v86state` or `.86state` snapshot file.
-- **Powerful In-Browser Emulation**:
-    - **Full-Screen Mode**: Immerse yourself in the emulated OS.
-    - **Movable Controls**: A draggable, iOS-style assistive touch menu provides access to all essential controls without getting in the way.
-    - **Virtual Keyboard**: A built-in on-screen keyboard for touch devices or when you need special keys.
-    - **Essential Shortcuts**: Easily send `Ctrl+Alt+Del` or reset the machine.
-- **State Management**:
-    - **Save Disk Image**: For VMs running from a `.img` file, this saves the modified disk image to your computer. Perfect for saving your OS installation.
-    - **Persistent Configuration**: Your VM library is saved locally in your browser using IndexedDB and localStorage, so your machines are always there when you return.
+- **Mobile First Design**:
+    - **Assistive Touch**: A draggable, iOS-style floating menu for essential controls (Fullscreen, Keyboard, Ctrl+Alt+Del).
+    - **Virtual Keyboard**: Full PC keyboard implementation for touch devices.
+- **Universal Storage**:
+    - Uses **IndexedDB** to store large ISOs and VM states locally.
+    - Persists VM configurations across sessions.
+- **Flexible Media**:
+    - Boot from `.iso` (CD-ROM).
+    - Load/Save states via `.v86state` snapshots.
 
-## 🚀 How to Use
+## 🛠️ Tech Stack
 
-1.  Open `text.html` in your web browser.
-2.  **Create a New Machine**:
-    - Click **"Create New Machine"** in the sidebar.
-    - **Step 1 (Source)**: Drag and drop or upload a primary disk image (like an OS installer `.iso`). You can also optionally add a floppy disk image.
-    - **Step 2 (Configure)**: Use the slider to allocate RAM to your new VM.
-    - **Step 3 (Finalize)**: Give your machine a descriptive name.
-    - Click **"Create"**. Your new VM will appear in the sidebar.
-3.  **Load from Snapshot**:
-    - Click **"Load from Snapshot"**.
-    - Select a previously saved `.v86state` or `.86state` file.
-    - Provide a name for the session.
-4.  **Launch a VM**:
-    - Hover over a machine in the list and click the **Play** button (<i class="fas fa-play"></i>).
-    - The VM will launch in a new browser window.
+- **Core**: [libv86](https://github.com/copy/v86) (x86 emulation via WASM)
+- **Frontend**: Vanilla JS (ES6+), HTML5
+- **Styling**: Tailwind CSS (via CDN)
+- **State**: BroadcastChannel API, IndexedDB, LocalStorage
+- **Font**: Inter (Google Fonts)
 
-## 🛠️ In-VM Controls (Assistive Menu)
+## 🚀 How to Run
 
-The floating menu button gives you quick access to all controls:
+1. **Launch the Dashboard**:
+   Open `text.html` in your browser.
+   *(Note: `index.html` is the landing page, `text.html` is the app entry point).*
 
-- <i class="fas fa-expand"></i> **Fullscreen**: Toggle fullscreen mode.
-- <i class="far fa-keyboard"></i> **Keyboard**: Show or hide the virtual keyboard.
-- <i class="fas fa-bolt"></i> **Ctrl+Alt+Del**: Send the Ctrl+Alt+Del key combination.
-- <i class="fas fa-save"></i> **Save Disk Image**: Saves the modified disk image (.img) to a file.
-- <i class="fas fa-sync-alt"></i> **Reset**: Hard reset the virtual machine.
-- <i class="fas fa-power-off"></i> **Shutdown**: Close the VM window and shut down the emulator.
+2. **Create a Machine**:
+   - Click **Create New Machine**.
+   - Upload a bootable ISO (e.g., a lightweight Linux distro like Alpine or TinyCore).
+   - Set RAM (Recommended: 128MB for browser stability).
+   - Click **Create**.
 
-## 💻 Tech Stack
+3. **Start Emulation**:
+   - Click the **Play** button on the machine card.
+   - A new popup window will open with the VM.
+   - **Tip**: If on mobile, use the floating button to toggle the keyboard.
 
-- **Emulation Core**: [libv86.js](https://github.com/copy/v86)
-- **Frontend**: HTML5, Vanilla JavaScript (ES6+)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Icons**: [Font Awesome](https://fontawesome.com/)
-- **Storage**: Browser IndexedDB & localStorage
+## ⚠️ Browser Requirements
+
+- **WASM Support**: Required.
+- **Popups**: You must allow popups for this site (VMs open in separate windows for better resource isolation).
+- **Modern Browser**: Chrome 80+, Firefox 90+, Safari 15+ (for BroadcastChannel support).
 
 ## 🤝 Contributing
 
-Contributions are welcome! Whether it's bug reports, feature suggestions, or code contributions, please feel free to open an issue or submit a pull request.
-
-Please read our [CONTRIBUTING.md](./CONTRIBUTING.md) for more details.
+1. Fork the repo.
+2. Optimize `vm-manager.js` logic.
+3. Submit a PR.
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+MIT License. Based on the incredible work of the [v86 project](https://github.com/copy/v86).
