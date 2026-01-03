@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Web VM Screen</title>
     <!-- Stricter CSP: scripts only from self and trusted CDNs -->
-    <!-- FIX: Added 'wasm-unsafe-eval', 'blob:' to script-src and added worker-src to allow libv86 to run WASM and Workers -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' wss: https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -34,10 +33,14 @@
         .key { transition: background-color 0.1s ease; }
         .key.pressed { background-color: #4f46e5; transform: scale(0.98); }
 
+        /* 
+           FIX: Use Flexbox for robust centering. 
+           This ensures the VM screen is always in the middle, regardless of aspect ratio.
+        */
         #screen_container {
-            position: absolute;
-            top: 0;
-            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
             height: 100%;
             background: #000;
@@ -45,20 +48,16 @@
         }
         
         /* 
-           Crucial for Mobile Scaling:
-           We target the direct children injected by libv86 (canvas and text divs).
-           We disable default browser scaling logic here because we handle it via JS Transforms 
-           in vm-manager.js to ensure exact aspect ratio fit.
+           Target the canvas and text div injected by libv86.
+           We prevent them from shrinking so JS can scale them down accurately.
         */
+        #screen_container > canvas,
         #screen_container > div {
+            flex-shrink: 0;
             transform-origin: center center;
-            /* Will be set by JS: transform: translate(-50%, -50%) scale(...) */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Nice glow for the screen */
         }
         
-        canvas {
-            display: block;
-        }
-
         /* Assistive Touch Menu */
         .menu-container { position: relative; width: 56px; height: 56px; }
         .menu-items .menu-item {
@@ -102,9 +101,8 @@
 
     <div id="screen_container">
         <!-- libv86 elements will be injected here -->
-        <!-- We use a wrapper div to ensure the text pre-wrap from v86 is caught by our scaler -->
-        <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
-        <canvas style="display: none;"></canvas>
+        <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative; background: black;"></div>
+        <canvas style="display: none; background: black;"></canvas>
     </div>
 
     <div id="loading-indicator" class="fixed inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-black/80 backdrop-blur-sm">

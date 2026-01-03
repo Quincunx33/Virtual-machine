@@ -182,44 +182,63 @@ async function init() {
     }
 }
 
-// --- Screen Scaling Logic ---
+// --- Screen Scaling Logic (Improved) ---
 function fitScreen() {
-    if (!elements.screenContainer || isShuttingDown) return;
+    const container = elements.screenContainer;
+    if (!container || isShuttingDown) return;
 
-    // The emulator content is typically the first child (div or canvas) injected by libv86
-    // If it's text mode, it's a div. If it's graphical, it's a canvas.
-    // v86 typically puts a div wrapper around things in the screen container.
-    const content = elements.screenContainer.children[0];
-    if (!content) return;
+    // Find the active element (canvas or text div)
+    // libv86 creates a <div> for text mode and uses <canvas> for VGA/SVGA.
+    // We must find which one is currently visible/active.
+    let target = null;
+    
+    // Fallback: iterate and find first visible relevant child
+    for (let i = 0; i < container.children.length; i++) {
+        const child = container.children[i];
+        if (child.style.display === 'none') continue;
+        
+        if (child.tagName === 'CANVAS' || (child.tagName === 'DIV' && child.style.whiteSpace === 'pre')) {
+            target = child;
+            break;
+        }
+    }
+    
+    // If nothing found, try the first canvas or div as a last resort
+    if (!target) {
+        target = container.querySelector('canvas') || container.querySelector('div');
+    }
 
-    // Get the window dimensions
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
+    if (!target) return;
 
-    // Get the emulator's natural dimensions. 
-    // libv86 often sets inline styles (width: 720px...) on the container div
-    let contentWidth = content.offsetWidth;
-    let contentHeight = content.offsetHeight;
+    // 1. Reset transform to get accurate natural dimensions
+    target.style.transform = 'none';
+    
+    // 2. Get Available Viewport Dimensions
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
 
-    // Fallback if offsets are 0 (hidden or not rendered yet)
-    if (contentWidth === 0) contentWidth = 640;
-    if (contentHeight === 0) contentHeight = 480;
+    // 3. Get Content Dimensions
+    // Note: canvas.width is internal resolution, offsetWidth is CSS display width.
+    // We want the natural size v86 wants to display.
+    let contentWidth = target.offsetWidth;
+    let contentHeight = target.offsetHeight;
 
-    // Calculate scale ratio to fit containment
-    const scaleX = windowWidth / contentWidth;
-    const scaleY = windowHeight / contentHeight;
+    // Safety fallback for init state
+    if (!contentWidth || contentWidth === 0) contentWidth = 640;
+    if (!contentHeight || contentHeight === 0) contentHeight = 480;
+
+    // 4. Calculate Scale Ratio (CONTAIN Strategy)
+    const scaleX = viewportWidth / contentWidth;
+    const scaleY = viewportHeight / contentHeight;
     const scale = Math.min(scaleX, scaleY);
 
-    // Apply strict centering and scaling
-    content.style.position = 'absolute';
-    content.style.left = '50%';
-    content.style.top = '50%';
-    // Use translate to center, then scale to fit
-    content.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    // 5. Apply Transform
+    // We use transform instead of width/height to avoid blurring the internal canvas resolution
+    target.style.transformOrigin = 'center center';
+    target.style.transform = `scale(${scale})`;
     
-    // Optional: force pixelated rendering for crispness if scale > 1, 
-    // or smooth if scale < 1 (downsampling)
-    content.style.imageRendering = scale > 1 ? 'pixelated' : 'auto';
+    // 6. Visual crispness
+    target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
 }
 
 // --- Emulator Startup with Robust Error Handling ---
@@ -298,8 +317,15 @@ async function startEmulator(config) {
             eventManager.add(elements.screenContainer, 'click', interactionHandler);
             eventManager.add(elements.screenContainer, 'touchstart', interactionHandler);
             
-            // Initial Screen Fit
+            // Initial Screen Fit & Frequent Check for first few seconds
+            // This fixes issues where resolution changes rapidly during boot
             fitScreen();
+            let checkCount = 0;
+            const bootInterval = setInterval(() => {
+                fitScreen();
+                checkCount++;
+                if (checkCount > 20) clearInterval(bootInterval); // Check for 2 seconds
+            }, 100);
         });
 
         // Listen for resolution changes (Text Mode -> VGA -> SVGA etc)
@@ -307,6 +333,7 @@ async function startEmulator(config) {
         emulator.add_listener("screen-set-mode", () => {
             // Slight delay to allow DOM to update dimensions
             setTimeout(fitScreen, 50);
+            setTimeout(fitScreen, 500); // Double check for slow DOM updates
         });
 
     } catch (e) {
