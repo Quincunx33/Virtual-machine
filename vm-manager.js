@@ -29,6 +29,7 @@ class EventManager {
         window.onload = null;
         window.onerror = null;
         window.onunhandledrejection = null;
+        window.onresize = null;
     }
 }
 
@@ -181,6 +182,46 @@ async function init() {
     }
 }
 
+// --- Screen Scaling Logic ---
+function fitScreen() {
+    if (!elements.screenContainer || isShuttingDown) return;
+
+    // The emulator content is typically the first child (div or canvas) injected by libv86
+    // If it's text mode, it's a div. If it's graphical, it's a canvas.
+    // v86 typically puts a div wrapper around things in the screen container.
+    const content = elements.screenContainer.children[0];
+    if (!content) return;
+
+    // Get the window dimensions
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    // Get the emulator's natural dimensions. 
+    // libv86 often sets inline styles (width: 720px...) on the container div
+    let contentWidth = content.offsetWidth;
+    let contentHeight = content.offsetHeight;
+
+    // Fallback if offsets are 0 (hidden or not rendered yet)
+    if (contentWidth === 0) contentWidth = 640;
+    if (contentHeight === 0) contentHeight = 480;
+
+    // Calculate scale ratio to fit containment
+    const scaleX = windowWidth / contentWidth;
+    const scaleY = windowHeight / contentHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    // Apply strict centering and scaling
+    content.style.position = 'absolute';
+    content.style.left = '50%';
+    content.style.top = '50%';
+    // Use translate to center, then scale to fit
+    content.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    
+    // Optional: force pixelated rendering for crispness if scale > 1, 
+    // or smooth if scale < 1 (downsampling)
+    content.style.imageRendering = scale > 1 ? 'pixelated' : 'auto';
+}
+
 // --- Emulator Startup with Robust Error Handling ---
 async function startEmulator(config) {
     if (isShuttingDown) return;
@@ -231,14 +272,8 @@ async function startEmulator(config) {
             
             // Interaction handler for Audio & Mouse
             const interactionHandler = () => {
-                // 1. Resume Audio Context (Browser policy requirement)
-                // v86 creates the audio context internally, we just need to ensure browser unlocks it
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (AudioContext) {
-                    // Just creating a dummy context usually unlocks the global audio thread for the page
-                    // or accessing v86's internal context if exposed. 
-                    // v86 handles this on user interaction usually.
-                }
+                if (AudioContext) {} // Unlock audio thread
 
                 if (emulator && emulator.is_running()) {
                     // Safe Mouse Lock
@@ -262,12 +297,25 @@ async function startEmulator(config) {
 
             eventManager.add(elements.screenContainer, 'click', interactionHandler);
             eventManager.add(elements.screenContainer, 'touchstart', interactionHandler);
+            
+            // Initial Screen Fit
+            fitScreen();
+        });
+
+        // Listen for resolution changes (Text Mode -> VGA -> SVGA etc)
+        // This ensures resizing happens whenever the OS changes resolution
+        emulator.add_listener("screen-set-mode", () => {
+            // Slight delay to allow DOM to update dimensions
+            setTimeout(fitScreen, 50);
         });
 
     } catch (e) {
         handleCriticalError(e);
     }
 }
+
+// Add Global Resize Listener
+eventManager.add(window, 'resize', fitScreen);
 
 // --- Save Snapshot ---
 async function saveSnapshot() {

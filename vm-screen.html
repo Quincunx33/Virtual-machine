@@ -19,6 +19,7 @@
             padding: 0;
             height: 100vh;
             width: 100vw;
+            touch-action: none; /* Prevent browser zooming/panning */
         }
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
@@ -34,31 +35,28 @@
         .key.pressed { background-color: #4f46e5; transform: scale(0.98); }
 
         #screen_container {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             background: #000;
-            position: relative;
+            overflow: hidden;
         }
         
-        /* Strict Responsive Canvas Rules */
-        #screen_container canvas {
-            max-width: 100% !important;
-            max-height: 100% !important;
-            width: auto !important;
-            height: auto !important;
-            object-fit: contain; /* The magic property */
-            display: block; 
-        }
-        
-        /* Ensure v86's text divs don't break layout */
-        #screen_container > div:not(#loading-indicator):not(.spinner) {
+        /* 
+           Crucial for Mobile Scaling:
+           We target the direct children injected by libv86 (canvas and text divs).
+           We disable default browser scaling logic here because we handle it via JS Transforms 
+           in vm-manager.js to ensure exact aspect ratio fit.
+        */
+        #screen_container > div {
             transform-origin: center center;
-            max-width: 100vw;
-            max-height: 100vh;
-            overflow: hidden; 
+            /* Will be set by JS: transform: translate(-50%, -50%) scale(...) */
+        }
+        
+        canvas {
+            display: block;
         }
 
         /* Assistive Touch Menu */
@@ -103,15 +101,16 @@
     </div>
 
     <div id="screen_container">
-        <!-- libv86 elements -->
+        <!-- libv86 elements will be injected here -->
+        <!-- We use a wrapper div to ensure the text pre-wrap from v86 is caught by our scaler -->
         <div style="white-space: pre; font: 14px monospace; line-height: 14px; position: relative;"></div>
-        <canvas></canvas>
+        <canvas style="display: none;"></canvas>
+    </div>
 
-        <div id="loading-indicator" class="absolute inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-black/50">
-            <div class="spinner"></div>
-            <p id="loading-text" class="mt-4 text-white text-lg font-semibold">Initializing VM...</p>
-            <p class="text-gray-400 text-xs mt-2">Tap screen to enable sound</p>
-        </div>
+    <div id="loading-indicator" class="fixed inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-black/80 backdrop-blur-sm">
+        <div class="spinner"></div>
+        <p id="loading-text" class="mt-4 text-white text-lg font-semibold">Initializing VM...</p>
+        <p class="text-gray-400 text-xs mt-2">Tap screen to enable sound</p>
     </div>
 
     <!-- iOS-style Assistive Touch Menu -->
