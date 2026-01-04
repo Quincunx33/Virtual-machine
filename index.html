@@ -388,21 +388,24 @@
 </dict>
 </plist>`;
 
-                        // Force navigation to Blob URI to trigger iOS Profile Handler (The only working method on iOS 17+)
+                        // Force navigation to Data URI using FileReader
+                        // This bypasses the 'Save to Files' dialog on iOS 17+ and forces the profile handler
                         try {
                             const blob = new Blob([mobileConfig], { type: 'application/x-apple-aspen-config' });
-                            const blobUrl = URL.createObjectURL(blob);
+                            const reader = new FileReader();
                             
-                            // Important: Use window.location.href directly to the Blob URL.
-                            // Do NOT use a download attribute or <a> tag click.
-                            window.location.href = blobUrl;
+                            reader.onloadend = () => {
+                                const dataUrl = reader.result;
+                                window.location.href = dataUrl;
+                                
+                                setTimeout(() => {
+                                    btn.innerHTML = originalText;
+                                    alert("Profile Generated!\n\n1. Tap 'Allow' if prompted.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near top.\n4. Tap 'Install'.");
+                                }, 1000);
+                            };
                             
-                            // Clean up after 10 seconds (giving Safari time to handle it)
-                            setTimeout(() => {
-                                URL.revokeObjectURL(blobUrl);
-                                btn.innerHTML = originalText;
-                                alert("1. If prompted, tap 'Allow'.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near the top.\n4. Tap 'Install'.");
-                            }, 500);
+                            reader.readAsDataURL(blob);
+
                         } catch(e) {
                             console.error(e);
                             alert("Error generating profile. Please try again.");
