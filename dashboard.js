@@ -104,6 +104,11 @@ const elements = {
     storageItemsList: getEl('storage-items-list'),
     storageManagerSummary: getEl('storage-manager-summary'),
 
+    // Help Modal
+    helpBtn: getEl('help-btn'),
+    helpModal: getEl('help-modal'),
+    closeHelpBtn: getEl('close-help-btn'),
+
     menuOpenBtn: getEl('menu-open-btn'),
     menuCloseBtn: getEl('menu-close-btn'),
     sidebar: getEl('sidebar'),
@@ -449,6 +454,87 @@ async function updateStorageDisplay() {
     }
 }
 
+async function renderStorageManager() {
+    if (!db) await initDB();
+    
+    const snapshots = await getAllSnapshotsMetadata();
+    const configs = machines;
+    const snapshotMap = new Map(snapshots.map(s => [s.id, s]));
+    
+    let totalSize = 0;
+    let html = '';
+    
+    // Process Configs + Snapshots
+    configs.forEach(config => {
+        const snap = snapshotMap.get(config.id);
+        const configSize = 250; // Estimate for JSON overhead
+        const snapSize = snap ? snap.size : 0;
+        const totalItemSize = configSize + snapSize;
+        
+        totalSize += totalItemSize;
+        
+        // Remove from snapshot map to track orphans
+        if (snap) snapshotMap.delete(config.id);
+        
+        html += `
+            <tr class="hover:bg-gray-700/30 transition-colors">
+                <td class="p-4 text-sm font-medium text-white flex items-center gap-2">
+                    <i class="fas fa-desktop text-gray-500"></i> ${config.name}
+                </td>
+                <td class="p-4 text-sm text-gray-400">Machine Config</td>
+                <td class="p-4 text-sm text-gray-400 font-mono">${formatBytes(totalItemSize)}</td>
+                <td class="p-4 text-right">
+                    <button onclick="deleteFromDB('${STORE_CONFIGS}', '${config.id}').then(() => { machines = machines.filter(m => m.id !== '${config.id}'); renderStorageManager(); loadMachinesFromDB(); })" class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/20">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    // Orphans (Snapshots without Configs)
+    snapshotMap.forEach((snap, id) => {
+        totalSize += snap.size;
+        html += `
+             <tr class="hover:bg-gray-700/30 transition-colors bg-red-900/10">
+                <td class="p-4 text-sm font-medium text-red-300 flex items-center gap-2">
+                    <i class="fas fa-ghost text-red-400"></i> Orphaned Snapshot
+                </td>
+                <td class="p-4 text-sm text-gray-400">Snapshot File</td>
+                <td class="p-4 text-sm text-gray-400 font-mono">${formatBytes(snap.size)}</td>
+                <td class="p-4 text-right">
+                    <button onclick="deleteFromDB('${STORE_SNAPSHOTS}', '${snap.id}').then(() => renderStorageManager())" class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/20">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    if (html === '') {
+        html = '<tr><td colspan="4" class="p-8 text-center text-gray-500">Storage is empty</td></tr>';
+    }
+    
+    elements.storageItemsList.innerHTML = html;
+    
+    // Update summary
+    if (navigator.storage && navigator.storage.estimate) {
+        try {
+            const { usage, quota } = await navigator.storage.estimate();
+            const percent = ((usage / quota) * 100).toFixed(1);
+            elements.storageManagerSummary.innerHTML = `
+                <div class="flex justify-between text-sm mb-2 text-gray-300">
+                    <span>${formatBytes(usage)} used of ${formatBytes(quota)}</span>
+                    <span class="font-bold ${percent > 80 ? 'text-red-400' : 'text-indigo-400'}">${percent}%</span>
+                </div>
+                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="h-full bg-indigo-500 transition-all duration-500" style="width: ${percent}%"></div>
+                </div>
+            `;
+        } catch(e) {}
+    }
+}
+
 async function checkForGhosts() {
     // Ghost detection logic placeholder
 }
@@ -604,6 +690,25 @@ function setupEventListeners() {
     safeAdd(elements.modalBackBtn, 'click', () => changeStep(currentStep - 1));
     safeAdd(elements.modalNextBtn, 'click', () => changeStep(currentStep + 1));
     safeAdd(elements.modalCreateBtn, 'click', createVMFromModal);
+
+    // Help Modal Logic
+    safeAdd(elements.helpBtn, 'click', (e) => {
+        e.preventDefault();
+        if(elements.helpModal) elements.helpModal.classList.remove('hidden');
+    });
+    safeAdd(elements.closeHelpBtn, 'click', () => {
+        if(elements.helpModal) elements.helpModal.classList.add('hidden');
+    });
+
+    // Storage Manager Logic
+    safeAdd(elements.storageManagerBtn, 'click', () => {
+        renderStorageManager();
+        if(elements.storageManagerModal) elements.storageManagerModal.classList.remove('hidden');
+    });
+    safeAdd(elements.closeStorageManagerBtn, 'click', () => {
+        if(elements.storageManagerModal) elements.storageManagerModal.classList.add('hidden');
+    });
+
 
     safeAdd(elements.bootDriveType, 'change', (e) => newVMCreationData.sourceType = e.target.value);
     
