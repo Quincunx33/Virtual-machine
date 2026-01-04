@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>Web VM - The Browser Computer</title>
     <meta name="description" content="Run Linux, Windows, and DOS directly in your browser with WebAssembly. No install required."/>
     
+    <!-- iOS PWA Compatibility -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Web VM">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2645/2645897.png">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -60,6 +66,10 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
+
+        /* iOS Install Modal Animation */
+        #ios-install-modal { transition: opacity 0.3s ease, transform 0.3s ease; }
+        #ios-install-modal.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
     </style>
 </head>
 <body class="antialiased selection:bg-indigo-500 selection:text-white">
@@ -128,6 +138,12 @@
                         <a href="text.html" class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/40 transition-all flex items-center justify-center gap-2 group">
                             <i class="fas fa-power-off group-hover:animate-pulse"></i> Boot Machine
                         </a>
+                        
+                        <!-- iOS Install Button (Hidden by default, shown via JS) -->
+                        <button id="ios-install-btn" class="hidden px-8 py-4 bg-gray-800/80 backdrop-blur-md border border-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-download text-xl"></i> Install Profile
+                        </button>
+
                         <a href="https://github.com/copy/v86" target="_blank" class="px-8 py-4 glass text-white rounded-xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2">
                             <i class="fab fa-github"></i> Source Code
                         </a>
@@ -269,5 +285,98 @@
         </p>
     </footer>
 
+    <!-- iOS Direct Profile Downloader -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Detect iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            // Check if not already in standalone mode (installed)
+            const isStandalone = ('standalone' in window.navigator) && (window.navigator.standalone);
+
+            if (isIOS && !isStandalone) {
+                const btn = document.getElementById('ios-install-btn');
+                
+                if (btn) {
+                    btn.classList.remove('hidden');
+                    
+                    // Simple UUID generator
+                    const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+
+                    btn.addEventListener('click', () => {
+                        // Point to the actual app dashboard
+                        const appUrl = new URL('text.html', window.location.href).href;
+                        const profileUUID = uuid();
+                        const payloadUUID = uuid();
+                        const iconUrl = 'https://cdn-icons-png.flaticon.com/512/2645/2645897.png';
+
+                        // Configuration Profile XML with WebClip Payload
+                        const mobileConfig = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>FullScreen</key>
+            <true/>
+            <key>IsRemovable</key>
+            <true/>
+            <key>Label</key>
+            <string>Web VM</string>
+            <key>PayloadDescription</key>
+            <string>Adds Web VM to your Home Screen</string>
+            <key>PayloadDisplayName</key>
+            <string>Web VM (Web Clip)</string>
+            <key>PayloadIdentifier</key>
+            <string>com.webvm.webclip</string>
+            <key>PayloadType</key>
+            <string>com.apple.webClip</string>
+            <key>PayloadUUID</key>
+            <string>${payloadUUID}</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>Precomposed</key>
+            <true/>
+            <key>URL</key>
+            <string>${appUrl}</string>
+            <key>IconURL</key>
+            <string>${iconUrl}</string>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>Web VM Installer</string>
+    <key>PayloadIdentifier</key>
+    <string>com.webvm.profile</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>${profileUUID}</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+</dict>
+</plist>`;
+
+                        // Trigger Download
+                        const blob = new Blob([mobileConfig], { type: 'application/x-apple-aspen-config' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'WebVM_Installer.mobileconfig';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        
+                        alert("Profile downloaded! \n\n1. Go to Settings > Profile Downloaded.\n2. Tap Install.\n3. The app icon will appear on your Home Screen.");
+                    });
+                }
+            }
+        });
+    </script>
 </body>
 </html>
