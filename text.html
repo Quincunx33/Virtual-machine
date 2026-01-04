@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -215,8 +214,8 @@
                 <button id="load-snapshot-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
                     <i class="fas fa-upload"></i> Load
                 </button>
-                <button id="clean-storage-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
-                    <i class="fas fa-stethoscope"></i> Scan
+                <button id="storage-manager-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
+                    <i class="fas fa-hdd"></i> Storage
                 </button>
             </div>
             
@@ -553,6 +552,41 @@
             <div class="p-5 bg-gray-800 border-t border-gray-700 flex justify-end rounded-b-2xl">
                 <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 mr-2 text-sm">Cancel</button>
                 <button id="save-changes-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-bold">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Manager Modal -->
+    <div id="storage-manager-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-gray-700 flex flex-col max-h-[90vh]">
+            <!-- Header -->
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+                <h3 class="text-lg font-bold text-white"><i class="fas fa-hdd mr-2"></i> Storage Manager</h3>
+                <button id="close-storage-manager-btn" class="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <!-- Content -->
+            <div class="p-6 overflow-y-auto">
+                <div id="storage-manager-summary" class="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 text-center">
+                     <!-- Populated by JS -->
+                </div>
+                <!-- Table -->
+                <div class="overflow-x-auto relative rounded-lg border border-gray-700">
+                    <table class="min-w-full text-sm text-left text-gray-400">
+                        <thead class="text-xs text-gray-400 uppercase bg-gray-700/50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3">Machine Name</th>
+                                <th scope="col" class="px-4 py-3">Base Size</th>
+                                <th scope="col" class="px-4 py-3">Snapshot Size</th>
+                                <th scope="col" class="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="storage-items-list" class="bg-gray-800">
+                            <!-- JS will populate this -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

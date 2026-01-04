@@ -28,8 +28,9 @@ if (!window.BroadcastChannel) {
 // --- State Management ---
 let machines = [];
 const DB_NAME = 'WebEmulatorDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'vm_configs';
+const DB_VERSION = 2; // Incremented for new snapshot store
+const STORE_CONFIGS = 'vm_configs';
+const STORE_SNAPSHOTS = 'vm_snapshots';
 let db;
 
 // --- DOM Elements ---
@@ -80,7 +81,7 @@ const elements = {
     loadSnapshotBtn: getEl('load-snapshot-btn'),
     snapshotUpload: getEl('snapshot-upload'),
     resetAppBtn: getEl('reset-app-btn'),
-    cleanStorageBtn: getEl('clean-storage-btn'),
+    storageManagerBtn: getEl('storage-manager-btn'),
     storageDisplay: getEl('storage-display'),
     
     // Storage Doctor
@@ -88,6 +89,7 @@ const elements = {
     ghostFileCount: getEl('ghost-file-count'),
     nukeGhostsBtn: getEl('nuke-ghosts-btn'),
     
+    // Edit Modal
     editVmModal: getEl('edit-vm-modal'),
     closeEditModalBtn: getEl('close-edit-modal-btn'),
     cancelEditBtn: getEl('cancel-edit-btn'),
@@ -97,6 +99,12 @@ const elements = {
     editRamMaxLabel: getEl('edit-ram-max-label'),
     editNetworkToggle: getEl('edit-network-toggle'),
     
+    // Storage Manager Modal
+    storageManagerModal: getEl('storage-manager-modal'),
+    closeStorageManagerBtn: getEl('close-storage-manager-btn'),
+    storageItemsList: getEl('storage-items-list'),
+    storageManagerSummary: getEl('storage-manager-summary'),
+
     menuToggleBtn: getEl('menu-toggle-btn'),
     sidebar: document.querySelector('aside'),
     overlay: getEl('overlay'),
@@ -320,11 +328,29 @@ function initDB() {
 
         request.onupgradeneeded = (event) => {
             const database = event.target.result;
-            if (!database.objectStoreNames.contains(STORE_NAME)) {
-                database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            if (!database.objectStoreNames.contains(STORE_CONFIGS)) {
+                database.createObjectStore(STORE_CONFIGS, { keyPath: 'id' });
+            }
+            if (!database.objectStoreNames.contains(STORE_SNAPSHOTS)) {
+                database.createObjectStore(STORE_SNAPSHOTS, { keyPath: 'id' });
             }
         };
     });
+}
+
+async function requestPersistentStorage() {
+    if (navigator.storage && navigator.storage.persist) {
+        try {
+            if (!(await navigator.storage.persisted())) {
+                const persisted = await navigator.storage.persist();
+                if (persisted) {
+                    showToast("Storage is now persistent.", "info");
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to request persistent storage", e);
+        }
+    }
 }
 
 function storeInDB(storeName, data) {
@@ -366,17 +392,31 @@ function storeInDB(storeName, data) {
     });
 }
 
-function deleteFromDB(id) {
+function deleteFromDB(store, id) {
     return new Promise((resolve, reject) => {
         if (!db) { resolve(); return; }
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(id);
+        const transaction = db.transaction([store], 'readwrite');
+        const objectStore = transaction.objectStore(store);
+        const request = objectStore.delete(id);
         request.onsuccess = () => {
             resolve();
             updateStorageDisplay();
         };
         request.onerror = () => resolve(); 
+    });
+}
+
+function getAllFromDB(storeName) {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            reject("DB not ready");
+            return;
+        }
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = (event) => resolve(event.target.result || []);
+        request.onerror = (event) => reject(event.target.error);
     });
 }
 
@@ -397,16 +437,12 @@ async function updateStorageDisplay() {
 async function checkForGhosts() {
     if (!db) return;
     
-    let validIDs = new Set();
-    try {
-        const stored = JSON.parse(localStorage.getItem('web_emulator_machines') || '[]');
-        stored.forEach(m => {
-            if(m.id) validIDs.add(String(m.id));
-        });
-    } catch(e) { console.error("LS Error", e); }
+    // This check is now simpler: any file in DB storage should have a corresponding
+    // entry in our 'machines' array after loading.
+    const validIDs = new Set(machines.map(m => m.id));
 
-    const transaction = db.transaction([STORE_NAME], 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
+    const transaction = db.transaction([STORE_CONFIGS], 'readonly');
+    const store = transaction.objectStore(STORE_CONFIGS);
     const request = store.getAllKeys();
 
     request.onsuccess = (event) => {
@@ -432,29 +468,27 @@ async function nukeGhostFiles() {
     if (!db) return;
     elements.nukeGhostsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning...';
     
-    let validIDs = new Set();
-    try {
-        const stored = JSON.parse(localStorage.getItem('web_emulator_machines') || '[]');
-        stored.forEach(m => { if(m.id) validIDs.add(String(m.id)); });
-    } catch(e) {}
-
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.openCursor();
+    const validIDs = new Set(machines.map(m => m.id));
+    
+    const transaction = db.transaction([STORE_CONFIGS, STORE_SNAPSHOTS], 'readwrite');
+    const configStore = transaction.objectStore(STORE_CONFIGS);
+    const snapshotStore = transaction.objectStore(STORE_SNAPSHOTS);
     let deletedCount = 0;
 
+    const request = configStore.openCursor();
     request.onsuccess = (event) => {
         const cursor = event.target.result;
         if (cursor) {
-            const key = String(cursor.key);
-            if (!validIDs.has(key)) {
+            if (!validIDs.has(String(cursor.key))) {
                 cursor.delete();
+                snapshotStore.delete(cursor.key); // Also delete associated snapshot
                 deletedCount++;
             }
             cursor.continue();
         } else {
+            // Finished
             setTimeout(() => {
-                showToast(`Deleted ${deletedCount} files.`, "success");
+                showToast(`Deleted ${deletedCount} ghost machines.`, "success");
                 elements.nukeGhostsBtn.innerHTML = 'Delete Ghost Files';
                 elements.storageDoctorPanel.classList.add('hidden');
                 updateStorageDisplay();
@@ -462,6 +496,7 @@ async function nukeGhostFiles() {
         }
     };
 }
+
 
 // --- Communication ---
 // Safely init channel
@@ -476,13 +511,9 @@ let vmWindow = null;
 let runningVmId = null;
 
 channel.onmessage = async (event) => {
-    const { type, id, shouldDelete } = event.data;
+    const { type, id } = event.data;
     
     if (type === 'VM_WINDOW_CLOSED' || type === 'stopped') {
-        if (shouldDelete && id) {
-            deleteFromDB(id).catch(console.error);
-        }
-        
         if (runningVmId && (id === runningVmId || !id)) {
             showToast("Machine stopped", 'info');
             handleVMShutdown(runningVmId);
@@ -492,6 +523,9 @@ channel.onmessage = async (event) => {
         try {
             channel.postMessage({ type: 'CONFIG_SYNCED', id });
         } catch(e) {}
+    } else if (type === 'SNAPSHOT_SAVED') {
+        showToast("Snapshot saved successfully!", "success");
+        renderAllMachineItems();
     }
 };
 
@@ -504,45 +538,129 @@ function handleVMShutdown(id) {
     runningVmId = null;
 }
 
-// --- Persistence ---
-function saveMachines() {
-    try {
-        const machinesToSave = machines.filter(m => !m.isLocal);
-        localStorage.setItem('web_emulator_machines', JSON.stringify(machinesToSave));
-    } catch (e) { console.error("Failed to save machines", e); }
-}
-
-function loadMachines() {
-    try {
-        const storedMachines = localStorage.getItem('web_emulator_machines');
-        if (storedMachines) {
-            machines = JSON.parse(storedMachines);
-            machines.forEach(m => {
-                if (!m.isLocal && !m.id) {
-                    m.id = `url-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                }
-            });
-            renderAllMachineItems();
+// --- Persistence (Now IndexedDB) ---
+async function loadMachinesFromDB() {
+    return new Promise((resolve, reject) => {
+        if (!db) {
+            reject("DB not ready");
+            return;
         }
-    } catch (e) { machines = []; }
-    updatePlaceholderVisibility();
+        const transaction = db.transaction([STORE_CONFIGS], 'readonly');
+        const store = transaction.objectStore(STORE_CONFIGS);
+        const request = store.getAll();
+
+        request.onsuccess = (event) => {
+            machines = event.target.result || [];
+            renderAllMachineItems();
+            updatePlaceholderVisibility();
+            resolve();
+        };
+        request.onerror = (event) => {
+            console.error("Failed to load machines from DB", event.target.error);
+            machines = [];
+            updatePlaceholderVisibility();
+            reject(event.target.error);
+        };
+    });
 }
 
-// --- UI Rendering ---
-function renderAllMachineItems() {
+// --- UI Rendering & Helpers ---
+
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+function calculateConfigSize(config) {
+    let totalSize = 0;
+    const fileKeys = ['cdromFile', 'fdaFile', 'hdaFile', 'fdbFile', 'hdbFile', 'biosFile', 'vgaBiosFile', 'bzimageFile', 'initrdFile', 'initialStateFile'];
+    fileKeys.forEach(key => {
+        if (config[key] && typeof config[key].size === 'number') {
+            totalSize += config[key].size;
+        }
+    });
+    return totalSize;
+}
+
+async function getAllSnapshotsMetadata() {
+    return new Promise((resolve) => {
+        if (!db) { resolve([]); return; }
+        try {
+            const transaction = db.transaction([STORE_SNAPSHOTS], 'readonly');
+            const store = transaction.objectStore(STORE_SNAPSHOTS);
+            const request = store.getAll();
+            request.onsuccess = (event) => {
+                const metadata = event.target.result.map(({ id, timestamp, size }) => ({ id, timestamp, size }));
+                resolve(metadata);
+            };
+            request.onerror = () => resolve([]);
+        } catch (e) {
+            resolve([]);
+        }
+    });
+}
+
+function timeAgo(timestamp) {
+    if (!timestamp) return '';
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - new Date(timestamp).getTime()) / 1000);
+
+    if (seconds < 60) return "Just now";
+    
+    let interval = seconds / 31536000;
+    if (interval > 1) {
+        const years = Math.floor(interval);
+        return years + (years > 1 ? " years ago" : " year ago");
+    }
+    interval = seconds / 2592000;
+    if (interval > 1) {
+        const months = Math.floor(interval);
+        return months + (months > 1 ? " months ago" : " month ago");
+    }
+    interval = seconds / 86400;
+    if (interval > 1) {
+        const days = Math.floor(interval);
+        return days + (days > 1 ? " days ago" : " day ago");
+    }
+    interval = seconds / 3600;
+    if (interval > 1) {
+        const hours = Math.floor(interval);
+        return hours + (hours > 1 ? " hours ago" : " hour ago");
+    }
+    interval = seconds / 60;
+    if (interval > 1) {
+        const minutes = Math.floor(interval);
+        return minutes + (minutes > 1 ? " minutes ago" : " minute ago");
+    }
+    return "Just now";
+}
+
+async function renderAllMachineItems() {
     if(!elements.vmList) return;
     elements.vmList.innerHTML = '';
-    machines.forEach(renderMachineItem);
+    
+    const snapshots = await getAllSnapshotsMetadata();
+    const snapshotMap = new Map(snapshots.map(s => [s.id, s]));
+
+    machines.forEach(machine => {
+        const snapshotInfo = snapshotMap.get(machine.id);
+        renderMachineItem(machine, snapshotInfo);
+    });
+    
     if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
 }
 
-function renderMachineItem(machine) {
+function renderMachineItem(machine, snapshotInfo) {
     let iconClass = 'fa-compact-disc';
     let typeLabel = 'ISO';
     let iconColorClass = 'text-indigo-400';
 
     if (machine.sourceType === 'snapshot') {
-        iconClass = 'fa-clock-rotate-left'; // Modern icon for history/snapshot
+        iconClass = 'fa-clock-rotate-left';
         typeLabel = 'State';
         iconColorClass = 'text-purple-400';
     } else if (machine.sourceType === 'floppy') {
@@ -560,6 +678,25 @@ function renderMachineItem(machine) {
         typeLabel = 'Linux';
         iconColorClass = 'text-orange-400';
     }
+
+    const hasSnapshot = !!snapshotInfo;
+    const startButtonTitle = hasSnapshot ? "Resume from Snapshot" : "Start Machine";
+    const startButtonIcon = hasSnapshot ? "fa-play-circle" : "fa-play";
+
+    const snapshotDetailsHTML = hasSnapshot ? `
+        <span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 flex items-center gap-1" title="Snapshot size: ${(snapshotInfo.size / 1024 / 1024).toFixed(2)} MB">
+            <i class="fas fa-save text-purple-400 text-[9px]"></i> ${formatBytes(snapshotInfo.size, 1)}
+        </span>
+        <span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 flex items-center gap-1" title="Saved on: ${new Date(snapshotInfo.timestamp).toLocaleString()}">
+            <i class="fas fa-clock text-purple-400 text-[9px]"></i> ${timeAgo(snapshotInfo.timestamp)}
+        </span>
+    ` : '';
+
+    const deleteSnapshotButtonHTML = hasSnapshot ? `
+        <button class="delete-snapshot-btn bg-gray-700 hover:bg-red-900/50 text-gray-300 hover:text-red-400 rounded-lg transition-all w-8 h-8 flex items-center justify-center hover:scale-110" title="Delete Snapshot">
+            <i class="fas fa-eraser text-xs"></i>
+        </button>
+    ` : '';
     
     const itemHTML = `
         <div class="vm-list-item group flex items-center p-3 rounded-xl text-sm font-medium hover:bg-gray-700/50 transition-colors relative cursor-pointer border border-transparent hover:border-gray-600 mb-2" data-id="${machine.id}">
@@ -570,26 +707,26 @@ function renderMachineItem(machine) {
             
             <div class="ml-3 flex-1 overflow-hidden">
                 <p class="truncate font-semibold text-white group-hover:text-indigo-300 transition-colors">${machine.name}</p>
-                <div class="flex items-center space-x-2 text-[10px] text-gray-400 mt-1">
+                <div class="flex items-center space-x-2 text-[10px] text-gray-400 mt-1 flex-wrap gap-1">
                     <span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 flex items-center gap-1"><i class="fas fa-memory text-[9px]"></i> ${machine.ram}MB</span>
                     ${machine.network ? '<span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 flex items-center gap-1"><i class="fas fa-globe text-blue-400 text-[9px]"></i> Net</span>' : ''}
+                    ${snapshotDetailsHTML}
                 </div>
             </div>
             
-            <!-- Status Indicator (Hidden by default, shown when running) -->
             <div class="vm-status-indicator hidden flex items-center gap-1.5 absolute right-3 top-3 bg-green-900/30 px-2 py-1 rounded-full border border-green-500/30 backdrop-blur-sm">
                  <span class="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
                  <span class="text-[9px] font-bold text-green-400 uppercase tracking-wide">Running</span>
             </div>
 
-            <!-- Actions (Visible on hover on desktop, always visible on mobile, hidden when running) -->
             <div class="vm-actions flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-200 absolute right-3 z-10">
-                 <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 hover:scale-110" title="Start Machine">
-                    <i class="fas fa-play text-xs pl-0.5"></i>
+                 <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 hover:scale-110" title="${startButtonTitle}">
+                    <i class="fas ${startButtonIcon} text-xs pl-0.5"></i>
                 </button>
                 <button class="edit-vm-btn bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center hover:scale-110" title="Edit Configuration">
                     <i class="fas fa-pen text-xs"></i>
                 </button>
+                ${deleteSnapshotButtonHTML}
                 <button class="remove-vm-btn bg-gray-700 hover:bg-red-900/50 text-gray-300 hover:text-red-400 rounded-lg transition-all w-8 h-8 flex items-center justify-center hover:scale-110" title="Delete Machine">
                     <i class="fas fa-trash text-xs"></i>
                 </button>
@@ -604,37 +741,22 @@ function updatePlaceholderVisibility() {
 
 // --- Event Handlers ---
 function setupEventListeners() {
-    // Safe wrappers to prevent crashing if elements are missing
     const safeAdd = (el, event, handler) => {
         if(el) el.addEventListener(event, handler);
     };
 
     safeAdd(elements.resetAppBtn, 'click', async () => {
         if(confirm("Factory Reset: Delete ALL machines and clear storage?\n\nThis will refresh the page.")) {
-            if (db) {
-                try { db.close(); } catch(e) {}
-                db = null;
-            }
+            if (db) { try { db.close(); } catch(e) {} db = null; }
             const req = indexedDB.deleteDatabase(DB_NAME);
-            req.onblocked = () => {
-                alert("Database blocked. Please close open VM tabs.");
-                window.location.reload();
-            };
-            req.onsuccess = () => {
-                localStorage.clear();
-                window.location.reload();
-            };
-            req.onerror = () => {
-                window.location.reload();
-            };
+            req.onblocked = () => { alert("Database blocked. Please close open VM tabs."); window.location.reload(); };
+            req.onsuccess = () => { localStorage.clear(); window.location.reload(); };
+            req.onerror = () => window.location.reload();
         }
     });
     
-    safeAdd(elements.cleanStorageBtn, 'click', async () => {
-        showToast("Checking storage...", "info");
-        checkForGhosts();
-    });
-    
+    safeAdd(elements.storageManagerBtn, 'click', openStorageManager);
+    safeAdd(elements.closeStorageManagerBtn, 'click', () => elements.storageManagerModal.classList.add('hidden'));
     safeAdd(elements.nukeGhostsBtn, 'click', nukeGhostFiles);
 
     const toggleMenu = () => {
@@ -649,39 +771,28 @@ function setupEventListeners() {
             showToast("Stop current VM first!", "error");
             return;
         }
+        const target = e.target;
+        const item = target.closest('.vm-list-item');
+        if (!item) return;
+        const id = item.dataset.id;
 
-        const editBtn = e.target.closest('.edit-vm-btn');
-        if (editBtn) {
+        if (target.closest('.edit-vm-btn')) {
+            e.preventDefault(); e.stopPropagation(); openEditModal(id);
+        } else if (target.closest('.remove-vm-btn')) {
             e.preventDefault(); e.stopPropagation();
-            openEditModal(editBtn.closest('.vm-list-item').dataset.id);
-            return;
-        }
-        
-        const removeBtn = e.target.closest('.remove-vm-btn');
-        if (removeBtn) {
-            e.preventDefault(); e.stopPropagation();
-            if(confirm("Delete this machine?")) {
-                const item = removeBtn.closest('.vm-list-item');
-                const idToDelete = item.dataset.id;
-                machines = machines.filter(m => m.id !== idToDelete);
-                saveMachines();
-                item.remove();
-                
-                deleteFromDB(idToDelete);
-                
-                showToast("Machine deleted", "success");
-                if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
-                updatePlaceholderVisibility();
-                checkForGhosts();
+            if(confirm("Delete this machine? This will also delete its snapshot.")) {
+                deleteMachine(id);
             }
-            return;
-        }
-        
-        const startBtn = e.target.closest('.start-vm-btn');
-        if (startBtn || (e.target.closest('.vm-list-item') && window.innerWidth < 1024)) {
-            const row = e.target.closest('.vm-list-item');
-            startVM(row.dataset.id);
-            return;
+        } else if (target.closest('.delete-snapshot-btn')) {
+            e.preventDefault(); e.stopPropagation();
+            if(confirm("Delete this machine's snapshot?")) {
+                deleteFromDB(STORE_SNAPSHOTS, id).then(() => {
+                    showToast("Snapshot deleted", "success");
+                    renderAllMachineItems();
+                });
+            }
+        } else if (target.closest('.start-vm-btn') || window.innerWidth < 1024) {
+            startVM(id);
         }
     });
 
@@ -695,14 +806,11 @@ function setupEventListeners() {
     safeAdd(elements.modalNextBtn, 'click', () => changeStep(currentStep + 1));
     safeAdd(elements.modalCreateBtn, 'click', createVMFromModal);
     
-    safeAdd(elements.bootDriveType, 'change', (e) => {
-        newVMCreationData.sourceType = e.target.value;
-    });
+    safeAdd(elements.bootDriveType, 'change', (e) => newVMCreationData.sourceType = e.target.value);
     safeAdd(elements.primaryUpload, 'change', e => {
         if (e.target.files[0]) {
             newVMCreationData.primaryFile = e.target.files[0];
             elements.primaryNameDisplay.textContent = e.target.files[0].name;
-            
             if (!elements.vmNameInput.value) {
                 const cleanName = e.target.files[0].name.replace(/\.(iso|img|bin|dsk)$/i, '').replace(/[-_]/g, ' ');
                 elements.vmNameInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
@@ -713,9 +821,7 @@ function setupEventListeners() {
     
     const handleGenericFileSelect = (element, key) => {
         if(!element) return;
-        element.addEventListener('change', e => {
-            if(e.target.files[0]) newVMCreationData[key] = e.target.files[0];
-        });
+        element.addEventListener('change', e => { if(e.target.files[0]) newVMCreationData[key] = e.target.files[0]; });
     };
     handleGenericFileSelect(elements.fdbUpload, 'fdbFile');
     handleGenericFileSelect(elements.hdbUpload, 'hdbFile');
@@ -725,24 +831,12 @@ function setupEventListeners() {
     handleGenericFileSelect(elements.vgaBiosUpload, 'vgaBiosFile');
     
     safeAdd(elements.cmdlineInput, 'input', e => newVMCreationData.cmdline = e.target.value);
-
-    safeAdd(elements.ramSlider, 'input', () => {
-        const val = parseInt(elements.ramSlider.value, 10);
-        elements.ramValue.textContent = `${val} MB`;
-        newVMCreationData.ram = val;
-    });
-    
-    safeAdd(elements.vramSlider, 'input', () => {
-        const val = parseInt(elements.vramSlider.value, 10);
-        elements.vramValue.textContent = `${val} MB`;
-        newVMCreationData.vram = val;
-    });
-    
+    safeAdd(elements.ramSlider, 'input', () => { elements.ramValue.textContent = `${elements.ramSlider.value} MB`; newVMCreationData.ram = parseInt(elements.ramSlider.value); });
+    safeAdd(elements.vramSlider, 'input', () => { elements.vramValue.textContent = `${elements.vramSlider.value} MB`; newVMCreationData.vram = parseInt(elements.vramSlider.value); });
     safeAdd(elements.bootOrderSelect, 'change', (e) => newVMCreationData.bootOrder = parseInt(e.target.value));
     safeAdd(elements.cpuProfileSelect, 'change', (e) => newVMCreationData.cpuProfile = e.target.value);
     safeAdd(elements.graphicsScaleSelect, 'change', (e) => newVMCreationData.graphicsScale = e.target.value);
     safeAdd(elements.acpiToggle, 'change', (e) => newVMCreationData.acpi = e.target.checked);
-    
     safeAdd(elements.networkToggle, 'change', (e) => newVMCreationData.network = e.target.checked);
     safeAdd(elements.vmNameInput, 'input', updateModalUI);
 
@@ -751,17 +845,78 @@ function setupEventListeners() {
 
     safeAdd(elements.closeEditModalBtn, 'click', () => elements.editVmModal.classList.add('hidden'));
     safeAdd(elements.cancelEditBtn, 'click', () => elements.editVmModal.classList.add('hidden'));
-    safeAdd(elements.editRamSlider, 'input', () => {
-        elements.editRamValue.textContent = `${elements.editRamSlider.value} MB`;
-    });
+    safeAdd(elements.editRamSlider, 'input', () => { elements.editRamValue.textContent = `${elements.editRamSlider.value} MB`; });
     safeAdd(elements.saveChangesBtn, 'click', saveEditChanges);
+    
+    safeAdd(elements.storageItemsList, 'click', (e) => {
+        const deleteBtn = e.target.closest('.delete-storage-item-btn');
+        if (deleteBtn) {
+            const id = deleteBtn.dataset.id;
+            const name = deleteBtn.dataset.name;
+            if (confirm(`Are you sure you want to permanently delete "${name}" and all its data?`)) {
+                deleteMachine(id).then(() => {
+                    showToast(`"${name}" was deleted.`, 'success');
+                    openStorageManager(); // Refresh the manager view
+                });
+            }
+        }
+    });
 }
 
-function handleSnapshotUpload(e) {
+async function deleteMachine(id) {
+    machines = machines.filter(m => m.id !== id);
+    await deleteFromDB(STORE_CONFIGS, id);
+    await deleteFromDB(STORE_SNAPSHOTS, id);
+    renderAllMachineItems();
+    updatePlaceholderVisibility();
+}
+
+async function openStorageManager() {
+    elements.storageManagerModal.classList.remove('hidden');
+    elements.storageItemsList.innerHTML = `<tr><td colspan="4" class="p-4 text-center">Loading storage data...</td></tr>`;
+
+    const [configs, snapshots, storageEstimate] = await Promise.all([
+        getAllFromDB(STORE_CONFIGS),
+        getAllFromDB(STORE_SNAPSHOTS),
+        navigator.storage.estimate()
+    ]);
+
+    const snapshotMap = new Map(snapshots.map(s => [s.id, s]));
+    
+    elements.storageManagerSummary.innerHTML = `
+        <p class="text-lg font-bold text-white">${formatBytes(storageEstimate.usage)} used</p>
+        <p class="text-xs text-gray-500">out of ${formatBytes(storageEstimate.quota)} available</p>
+    `;
+
+    if (configs.length === 0) {
+        elements.storageItemsList.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">No machines stored.</td></tr>`;
+        return;
+    }
+
+    elements.storageItemsList.innerHTML = configs.map(config => {
+        const snapshot = snapshotMap.get(config.id);
+        const baseSize = calculateConfigSize(config);
+        
+        return `
+            <tr class="border-b border-gray-700 hover:bg-gray-700/50">
+                <td class="px-4 py-3 font-medium text-white whitespace-nowrap">${config.name}</td>
+                <td class="px-4 py-3">${baseSize > 0 ? formatBytes(baseSize) : '--'}</td>
+                <td class="px-4 py-3">${snapshot ? formatBytes(snapshot.size) : '--'}</td>
+                <td class="px-4 py-3 text-right">
+                    <button class="delete-storage-item-btn text-red-500 hover:text-red-400 font-bold" data-id="${config.id}" data-name="${config.name}">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+
+async function handleSnapshotUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // WARN ON LOW RAM DEVICES
     const fileSizeMB = file.size / (1024 * 1024);
     if (detectedSystemSpecs.isPotato && fileSizeMB > 100) {
         if (!confirm(`Warning: This snapshot is large (${Math.round(fileSizeMB)}MB) and may crash your device. Continue?`)) {
@@ -770,29 +925,32 @@ function handleSnapshotUpload(e) {
         }
     }
 
-    const defaultName = file.name.replace(/\.(bin|v86state|86state)$/i, "") || "Snapshot";
-    const name = prompt("Snapshot Name:", defaultName);
+    const defaultName = file.name.replace(/\.(bin|v86state|86state)$/i, "") || "Imported Snapshot";
+    const name = prompt("Name this machine:", defaultName);
 
     if (name) {
         const newMachine = {
             name,
             ram: detectedSystemSpecs.recommendedRam, 
-            file: file,
             isLocal: true,
             id: `snapshot-${Date.now()}`,
             sourceType: 'snapshot',
             network: false,
             cpuProfile: detectedSystemSpecs.isPotato ? 'potato' : 'balanced',
-            graphicsScale: 'pixelated'
+            graphicsScale: 'pixelated',
+            initialStateFile: file 
         };
+        
+        await storeInDB(STORE_CONFIGS, newMachine);
         machines.push(newMachine);
-        renderMachineItem(newMachine);
+        renderAllMachineItems();
         updatePlaceholderVisibility();
-        showToast("Snapshot loaded!", "success");
+        showToast("Snapshot machine created!", "success");
     }
     e.target.value = null;
     if(window.innerWidth < 1024) elements.sidebar.classList.add('-translate-x-full');
 }
+
 
 function resetModal() {
     currentStep = 1;
@@ -883,7 +1041,7 @@ function updateModalUI() {
     }
 }
 
-function createVMFromModal() {
+async function createVMFromModal() {
     const name = elements.vmNameInput.value.trim();
     if (!name) return;
     
@@ -913,8 +1071,9 @@ function createVMFromModal() {
         cmdline: newVMCreationData.cmdline
     };
     
+    await storeInDB(STORE_CONFIGS, newMachine);
     machines.push(newMachine);
-    renderMachineItem(newMachine);
+    renderAllMachineItems();
     updatePlaceholderVisibility();
     elements.createVmModal.classList.add('hidden');
     showToast("Machine ready to start", "success");
@@ -938,7 +1097,7 @@ function openEditModal(machineId) {
     elements.editVmModal.classList.remove('hidden');
 }
 
-function saveEditChanges() {
+async function saveEditChanges() {
     const machineId = document.getElementById('edit-vm-id').value;
     const newName = document.getElementById('edit-vm-name-input').value.trim();
     if (!newName) return;
@@ -948,7 +1107,9 @@ function saveEditChanges() {
         machines[machineIndex].name = newName;
         machines[machineIndex].ram = parseInt(elements.editRamSlider.value, 10);
         machines[machineIndex].network = elements.editNetworkToggle.checked;
-        if (!machines[machineIndex].isLocal) saveMachines();
+        
+        await storeInDB(STORE_CONFIGS, machines[machineIndex]);
+
         renderAllMachineItems();
         showToast("Changes saved", "success");
     }
@@ -963,12 +1124,41 @@ async function startVM(machineId) {
     }
     
     const selectedOS = machines.find(m => m.id === machineId);
-    if (!selectedOS) return;
+    if (!selectedOS) {
+        showToast("Error: Machine config not found.", "error");
+        return;
+    }
+    
+    let snapshotState = null;
+    try {
+        const transaction = db.transaction([STORE_SNAPSHOTS], 'readonly');
+        const store = transaction.objectStore(STORE_SNAPSHOTS);
+        const request = store.get(machineId);
+        await new Promise((resolve, reject) => {
+            request.onsuccess = () => {
+                if(request.result) snapshotState = request.result.state;
+                resolve();
+            };
+            request.onerror = reject;
+        });
+    } catch(e) { console.error("Failed to check for snapshot", e); }
 
-    showToast("Reading file into storage...", "info");
+    let configForVm = { ...selectedOS };
+
+    if (snapshotState) {
+        configForVm.initial_state_data = snapshotState;
+        showToast("Resuming from snapshot...", "info");
+    } else if (configForVm.sourceType === 'snapshot' && configForVm.initialStateFile) {
+        configForVm.initial_state_data = await configForVm.initialStateFile.arrayBuffer();
+        showToast("Loading from imported state file...", "info");
+    }
+     else {
+        delete configForVm.initial_state_data;
+        showToast("Reading file into storage...", "info");
+    }
 
     try {
-        await storeInDB(STORE_NAME, selectedOS);
+        await storeInDB(STORE_CONFIGS, configForVm);
     } catch(e) {
         console.error(e);
         if (typeof e === 'string' && e.includes("Storage Full")) {
@@ -1016,7 +1206,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners(); // Setup buttons immediately
     initDB()
         .then(() => {
-            loadMachines(); 
+            loadMachinesFromDB();
+            requestPersistentStorage();
         })
         .catch(e => {
             console.error("Critical DB Init Error:", e);

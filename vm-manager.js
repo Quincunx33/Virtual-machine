@@ -54,6 +54,11 @@ let cpuProfile = 'balanced';
 let screenUpdateInterval = null;
 let statusCheckInterval = null;
 
+const DB_NAME = 'WebEmulatorDB';
+const DB_VERSION = 2;
+const STORE_CONFIGS = 'vm_configs';
+const STORE_SNAPSHOTS = 'vm_snapshots';
+
 // --- Elements ---
 const elements = {
     loadingIndicator: document.getElementById('loading-indicator'),
@@ -83,8 +88,7 @@ function fullCleanup() {
     if (channel) {
         try {
             const vmId = selectedOS ? selectedOS.id : null;
-            const shouldDelete = selectedOS && selectedOS.isLocal;
-            channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: vmId, shouldDelete: shouldDelete });
+            channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: vmId });
         } catch(e) { }
     }
 
@@ -143,18 +147,27 @@ function initDB() {
     return new Promise((resolve, reject) => {
         if(db) try { db.close(); } catch(e) {}
 
-        const request = indexedDB.open('WebEmulatorDB', 1);
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onerror = () => reject("Error opening DB");
         request.onblocked = () => reject("DB Blocked");
         request.onsuccess = (event) => { db = event.target.result; resolve(db); };
+        request.onupgradeneeded = (event) => {
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_CONFIGS)) {
+                database.createObjectStore(STORE_CONFIGS, { keyPath: 'id' });
+            }
+            if (!database.objectStoreNames.contains(STORE_SNAPSHOTS)) {
+                database.createObjectStore(STORE_SNAPSHOTS, { keyPath: 'id' });
+            }
+        };
     });
 }
 
 function getFromDB(key) {
     return new Promise((resolve, reject) => {
         if (!db) { reject("DB not initialized"); return; }
-        const transaction = db.transaction(['vm_configs'], 'readonly');
-        const store = transaction.objectStore('vm_configs');
+        const transaction = db.transaction([STORE_CONFIGS], 'readonly');
+        const store = transaction.objectStore(STORE_CONFIGS);
         const request = store.get(key);
         request.onsuccess = (event) => resolve(event.target.result);
         request.onerror = () => reject("Error getting data");
@@ -214,7 +227,6 @@ async function init() {
         elements.loadingText.textContent = "Booting...";
         document.title = `${selectedOS.name} - Web VM`;
         
-        // Slight delay to allow UI to render before heavy lifting
         requestAnimationFrame(() => startEmulator(config));
 
     } catch (e) {
@@ -278,30 +290,35 @@ async function startEmulator(config) {
         cpuProfile = 'potato';
     }
     
-    // Base configuration shared by all modes
     let v86Config = {
         wasm_path: "v86.wasm",
         screen_container: elements.screenContainer,
         autostart: true,
         disable_mouse: false,
         disable_keyboard: false,
-        // FIX: Always load BIOS/VGA BIOS. 
         bios: { url: "seabios.bin" },
         vga_bios: { url: "vgabios.bin" }
     };
 
     try {
-        if (config.sourceType === 'snapshot') {
-            // --- SNAPSHOT MODE ---
+        const hasInitialState = config.initial_state_data || config.initialStateFile;
+
+        if (hasInitialState) {
             v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
             v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
             
-            const blobUrl = URL.createObjectURL(config.file);
+            // Prefer live data, fall back to file from DB
+            const stateData = config.initial_state_data || await config.initialStateFile.arrayBuffer();
+            const blob = new Blob([stateData]);
+            const blobUrl = URL.createObjectURL(blob);
             activeBlobUrls.push(blobUrl);
             v86Config.initial_state = { url: blobUrl };
             
+            // Clean up temporary properties
+            delete config.initial_state_data;
+            if(selectedOS) delete selectedOS.initial_state_data;
+
         } else {
-            // --- BOOT MODE ---
             v86Config.acpi = !!config.acpi;
             v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
             v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
@@ -316,11 +333,9 @@ async function startEmulator(config) {
                     v86Config[configKey] = { url: url };
                 }
             };
-
-            // Custom BIOS overrides if provided
+            
             addFile(config.biosFile, 'bios'); 
             addFile(config.vgaBiosFile, 'vga_bios');
-            
             addFile(config.cdromFile, 'cdrom');
             addFile(config.fdaFile, 'fda');
             addFile(config.fdbFile, 'fdb');
@@ -332,7 +347,6 @@ async function startEmulator(config) {
             if (config.cmdline) v86Config.cmdline = config.cmdline;
         }
 
-        // Initialize V86
         try {
             emulator = new V86(v86Config);
         } catch (initError) {
@@ -340,10 +354,10 @@ async function startEmulator(config) {
             handleCriticalError(initError);
             return;
         }
-
-        // --- Memory Cleanup Phase ---
+        
+        // De-reference large file objects from memory after they've been passed to the emulator
         setTimeout(() => {
-            const heavyKeys = ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
+            const heavyKeys = ['initialStateFile', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
             heavyKeys.forEach(k => {
                 if (config[k]) { try { delete config[k]; } catch(e) { config[k] = null; } }
                 if (selectedOS && selectedOS[k]) { try { delete selectedOS[k]; } catch(e) { selectedOS[k] = null; } }
@@ -354,11 +368,8 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
-            // Cleanup
             cleanupBlobUrls();
             
-            // --- AGGRESSIVE SNAPSHOT RESUME ---
-            // Often snapshots are loaded in a 'paused' state. We force run.
             setTimeout(() => {
                 if(!emulator.is_running()) {
                     console.log("Kickstarting Emulator...");
@@ -387,7 +398,6 @@ async function startEmulator(config) {
             
             fitScreen();
             
-            // Screen Fit Loop
             let checkCount = 0;
             screenUpdateInterval = setInterval(() => {
                 if (checkCount < 5 || window.wasResized) {
@@ -397,8 +407,6 @@ async function startEmulator(config) {
                 checkCount++;
             }, 500);
 
-            // --- LIVE STATUS CHECK LOOP ---
-            // Updates the green/red LED at top left to confirm CPU is actually active
             statusCheckInterval = setInterval(() => {
                 if (!emulator) return;
                 
@@ -413,9 +421,6 @@ async function startEmulator(config) {
                         elements.statusText.textContent = "HALTED";
                         elements.statusText.style.color = "#ef4444";
                         
-                        // Auto-kick if halted (common with some snapshot loads)
-                        // But don't kick if user intentionally paused. 
-                        // For now, we assume user didn't pause manually this early.
                         if (checkCount < 10) { 
                              try { emulator.run(); } catch(e){}
                         }
@@ -441,93 +446,57 @@ eventManager.add(window, 'resize', () => { window.wasResized = true; fitScreen()
 // --- Save Snapshot ---
 async function saveSnapshot() {
     if (!emulator) return;
-    
-    const wasRunning = emulator.is_running();
-    if (wasRunning) {
-        try { emulator.stop(); } catch(e) {}
-    }
 
-    const originalText = elements.loadingText.textContent;
+    const wasRunning = emulator.is_running();
+    if (wasRunning) emulator.stop();
+
     elements.loadingIndicator.classList.remove('hidden');
-    elements.loadingText.textContent = "Pausing & Compressing...";
+    elements.loadingText.textContent = "Compressing memory state...";
     
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
-        let state = await emulator.save_state();
-        const fileName = `snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.bin`;
+        let state = await emulator.save_state(); // This returns an ArrayBuffer
 
-        if (window.showSaveFilePicker) {
-            elements.loadingText.textContent = "Writing to storage...";
-            try {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: fileName,
-                    types: [{
-                        description: 'v86 State File',
-                        accept: { 'application/octet-stream': ['.bin', '.v86state'] },
-                    }],
-                });
-                
-                const writable = await handle.createWritable();
-                await writable.write(state);
-                await writable.close();
-                state = null; 
-                
-                if (confirm("Snapshot saved successfully!\n\nDo you want to close this window now to clean up storage and memory?")) {
-                    fullCleanup();
-                    window.close();
-                    return; 
-                }
+        elements.loadingText.textContent = "Writing to local database...";
+        await initDB();
 
-            } catch (fsError) {
-                if (fsError.name !== 'AbortError') throw fsError;
-            }
-        } 
-        else {
-            elements.loadingText.textContent = "Preparing Download...";
-            
-            const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-            if (state.byteLength > 100 * 1024 * 1024 && isMobile) {
-                if(!confirm(`Warning: Snapshot is large (~${Math.round(state.byteLength/1024/1024)}MB). This might crash on mobile. Continue?`)) {
-                    state = null;
-                    throw new Error("User cancelled save due to size warning");
-                }
-            }
+        const snapshotData = {
+            id: selectedOS.id,
+            state: state,
+            timestamp: Date.now(),
+            size: state.byteLength
+        };
 
-            const blob = new Blob([state], { type: 'application/octet-stream' });
-            state = null; 
-            
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            setTimeout(() => URL.revokeObjectURL(url), 100);
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_SNAPSHOTS], 'readwrite');
+            const store = transaction.objectStore(STORE_SNAPSHOTS);
+            const request = store.put(snapshotData);
+            request.onsuccess = resolve;
+            request.onerror = (e) => reject("DB Write Error: " + e.target.error.message);
+        });
 
-            if (confirm("Download started!\n\nOnce the download finishes, do you want to close this machine to free up storage?")) {
-                fullCleanup();
-                window.close();
-                return;
-            }
+        state = null;
+
+        channel.postMessage({ type: 'SNAPSHOT_SAVED', id: selectedOS.id });
+
+        if (confirm("Snapshot saved successfully!\n\nDo you want to close this machine now?")) {
+            fullCleanup();
+            window.close();
+            return;
         }
-        
-    } catch(e) {
+
+    } catch (e) {
         console.error("Save failed", e);
-        if (e.message !== "User cancelled save" && e.name !== 'AbortError') {
-            alert("Failed to save snapshot. Device memory full or operation blocked.");
-        }
+        alert("Failed to save snapshot. Your browser may be out of storage space. Error: " + e);
     } finally {
         elements.loadingIndicator.classList.add('hidden');
-        elements.loadingText.textContent = originalText;
-        
         if (wasRunning && emulator && !isShuttingDown) {
-            try { emulator.run(); } catch(e) {}
+            emulator.run();
         }
     }
 }
+
 
 // --- Error Handling ---
 function handleCriticalError(error) {
