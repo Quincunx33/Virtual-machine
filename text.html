@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,6 +7,12 @@
     <!-- FIX: Added 'wasm-unsafe-eval' and 'blob:' to support future features and consistency -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
     <title>Web VM Emulator</title>
+    
+    <!-- App Icon & Manifest -->
+    <link rel="icon" href="IMG_1074.png">
+    <link rel="apple-touch-icon" href="IMG_1074.png">
+    <link rel="manifest" href="manifest.json">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
@@ -75,62 +80,37 @@
         .toast:hover {
             transform: translateY(-2px);
             box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.6);
-            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .toast.hiding {
             animation: toastSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            pointer-events: none;
         }
 
         @keyframes toastSlideIn {
-            0% { opacity: 0; transform: translateY(-1rem) scale(0.95); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
+            0% { transform: translateY(-20px) scale(0.95); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
         }
 
         @keyframes toastSlideOut {
-            0% { opacity: 1; transform: translateX(0); }
-            100% { opacity: 0; transform: translateX(100%); }
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-20px) scale(0.95); opacity: 0; }
         }
 
-        /* Mobile specific animation adjustment */
-        @media (max-width: 767px) {
-            @keyframes toastSlideOut {
-                0% { opacity: 1; transform: translateY(0); }
-                100% { opacity: 0; transform: translateY(-100%); }
-            }
-        }
-
-        /* Toast Progress Bar */
-        .toast-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 3px;
-            width: 100%;
-            transform-origin: left;
-            animation: progress linear forwards;
-            background: linear-gradient(90deg, currentColor, transparent);
-            opacity: 0.3;
-        }
-
-        @keyframes progress {
-            from { transform: scaleX(1); }
-            to { transform: scaleX(0); }
-        }
-
-        /* Notification Types Styling */
+        /* Types */
+        .toast-info { border-left: 4px solid #3b82f6; }
+        .toast-info .toast-icon { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        
         .toast-success { border-left: 4px solid #10b981; }
-        .toast-success .toast-icon { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+        .toast-success .toast-icon { background: rgba(16, 185, 129, 0.2); color: #34d399; }
         
         .toast-error { border-left: 4px solid #ef4444; }
-        .toast-error .toast-icon { color: #f87171; background: rgba(239, 68, 68, 0.1); }
+        .toast-error .toast-icon { background: rgba(239, 68, 68, 0.2); color: #f87171; }
         
         .toast-warning { border-left: 4px solid #f59e0b; }
-        .toast-warning .toast-icon { color: #fbbf24; background: rgba(245, 158, 11, 0.1); }
-        
-        .toast-info { border-left: 4px solid #6366f1; }
-        .toast-info .toast-icon { color: #818cf8; background: rgba(99, 102, 241, 0.1); }
+        .toast-warning .toast-icon { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+        .toast-update { border-left: 4px solid #8b5cf6; }
+        .toast-update .toast-icon { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
 
         .toast-icon {
             width: 32px;
@@ -140,457 +120,461 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            margin-right: 12px;
-            margin-top: 2px;
+            margin-right: 1rem;
+            font-size: 1rem;
         }
 
-        /* Performance Mode Styles */
+        /* Progress Bar */
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            width: 100%;
+            transform-origin: left;
+            animation: progress linear forwards;
+        }
+        
+        @keyframes progress {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
+        
+        /* Potato Mode Styles */
         body.potato-mode * {
+            animation: none !important;
+            transition: none !important;
             box-shadow: none !important;
             backdrop-filter: none !important;
-            transition: none !important;
-            animation: none !important;
-            text-shadow: none !important;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-300 flex h-screen overflow-hidden antialiased">
+<body class="bg-gray-900 text-gray-100 h-screen flex overflow-hidden">
 
-    <div id="overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm"></div>
-    
-    <!-- Toast Container (Positioned via CSS) -->
+    <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <!-- Left Sidebar -->
-    <aside class="w-72 bg-gray-800/90 backdrop-blur-md border-r border-gray-700/50 flex flex-col fixed lg:static inset-y-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
-        <header class="p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0">
-            <div class="flex items-center space-x-2">
-                <i class="fas fa-server text-indigo-500"></i>
-                <h1 class="text-lg font-bold text-white">Web Emulator</h1>
-            </div>
-            <button class="lg:hidden text-gray-400 hover:text-white" onclick="document.getElementById('overlay').click()">
-                <i class="fas fa-times"></i>
+    <!-- Mobile Sidebar Overlay -->
+    <div id="overlay" class="fixed inset-0 bg-black/50 z-20 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
+
+    <!-- Sidebar -->
+    <aside class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col fixed lg:static h-full z-30 transition-transform transform -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
+        <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                    <i class="fas fa-cube text-white text-sm"></i>
+                </div>
+                Web<span class="text-indigo-400">VM</span>
+            </h1>
+            <button id="menu-toggle-btn" class="lg:hidden text-gray-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
             </button>
-        </header>
-        
-        <div class="p-4 flex-shrink-0">
-            <h2 class="text-xs text-gray-400 uppercase font-semibold tracking-wider flex justify-between items-center">
-                Virtual Machines
-                <span id="vm-count-badge" class="bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full text-[10px]">0</span>
-            </h2>
         </div>
 
-        <nav id="vm-list" class="flex-grow overflow-y-auto px-4 space-y-2 pb-4">
-            <div id="empty-list-placeholder" class="text-center text-gray-500 text-sm mt-8 hidden">
-                <div class="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <i class="fas fa-box-open text-2xl"></i>
+        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+            <!-- System Stats Card -->
+            <div class="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">System Status</span>
+                    <span id="low-end-badge" class="hidden bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded border border-yellow-500/30">Low Spec</span>
                 </div>
-                <p>No machines yet.</p>
-                <p class="text-xs mt-1">Tap "Create New" to start.</p>
-            </div>
-            <!-- Dynamically added VM items will go here -->
-        </nav>
-
-        <!-- Storage Doctor Section -->
-        <div id="storage-doctor-panel" class="hidden p-4 bg-red-900/20 border-t border-red-900/50">
-            <div class="flex items-start gap-2">
-                <i class="fas fa-biohazard text-red-500 mt-1"></i>
-                <div>
-                    <h3 class="text-xs font-bold text-red-400 uppercase">Ghost Files Detected</h3>
-                    <p class="text-[10px] text-gray-400 mt-1">Found <span id="ghost-file-count">0</span> orphaned files taking up space.</p>
-                    <button id="nuke-ghosts-btn" class="mt-2 w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-1 px-2 rounded">
-                        Delete Ghost Files
+                <div class="flex items-center gap-3 mb-2">
+                    <i class="fas fa-microchip text-indigo-400"></i>
+                    <span id="system-ram-display" class="text-sm font-mono">Detecting...</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-hdd text-emerald-400"></i>
+                    <span id="storage-display" class="text-sm font-mono">Storage: ...</span>
+                </div>
+                <!-- Ghost File Warning -->
+                <div id="storage-doctor-panel" class="hidden mt-3 pt-3 border-t border-gray-600">
+                    <div class="flex items-center gap-2 text-red-400 text-xs mb-2">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span><span id="ghost-file-count">0</span> Orphaned Files Found</span>
+                    </div>
+                    <button id="nuke-ghosts-btn" class="w-full text-xs bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800 rounded py-1.5 transition-colors">
+                        Clean Up
                     </button>
                 </div>
             </div>
-        </div>
 
-        <div class="p-4 border-t border-gray-700/50 mt-auto flex-shrink-0 space-y-2 bg-gray-800/50">
-            <button id="create-vm-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
-                <i class="fas fa-plus-circle"></i>
-                Create New Machine
+            <!-- Main Actions -->
+            <button id="create-vm-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 group">
+                <i class="fas fa-plus group-hover:rotate-90 transition-transform"></i> Create New Machine
             </button>
-            <div class="grid grid-cols-2 gap-2">
-                <button id="load-snapshot-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
-                    <i class="fas fa-upload"></i> Load
-                </button>
-                <button id="storage-manager-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
-                    <i class="fas fa-hdd"></i> Storage
-                </button>
-            </div>
             
-            <!-- Storage Info & Full Reset -->
-            <div class="pt-2 border-t border-gray-700/30 flex justify-between items-center text-[10px] text-gray-500 font-mono">
-                <span id="storage-display"><i class="fas fa-hdd mr-1"></i>...</span>
-                <button id="reset-app-btn" class="text-red-400 hover:text-red-300 transition-colors">Factory Reset</button>
+            <button id="load-snapshot-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 font-bold py-3 px-4 rounded-xl border border-gray-600 transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-upload"></i> Import Snapshot
+            </button>
+            <input type="file" id="snapshot-upload" accept=".bin,.v86state,.86state" class="hidden" />
+
+            <div class="pt-4 border-t border-gray-700">
+                <button id="storage-manager-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-database"></i> Storage Manager
+                </button>
+                <button id="reset-app-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors mt-2">
+                    <i class="fas fa-trash-alt"></i> Factory Reset
+                </button>
             </div>
+        </div>
+        
+        <div class="p-4 border-t border-gray-700 text-center text-xs text-gray-500">
+            v2.0 • Local Execution • <a href="#" class="hover:text-indigo-400">Help</a>
         </div>
     </aside>
 
-    <!-- Main Content Wrapper -->
-    <div class="flex-1 flex flex-col min-w-0 relative">
-        <!-- Mobile Header -->
-        <header class="lg:hidden p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0 bg-gray-900/80 backdrop-blur-md sticky top-0 z-20">
-             <div class="flex items-center space-x-2">
-                 <i class="fas fa-microchip text-indigo-500"></i>
-                 <h1 class="text-lg font-bold text-white">VM Manager</h1>
-             </div>
-             <button id="menu-toggle-btn" class="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-gray-300 hover:text-white border border-gray-700 active:bg-gray-700">
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full relative">
+        <!-- Header -->
+        <header class="h-16 bg-gray-800/50 border-b border-gray-700 flex items-center justify-between px-6 backdrop-blur-sm lg:hidden">
+            <span class="font-bold text-lg">My Machines</span>
+            <button onclick="document.getElementById('menu-toggle-btn').click()" class="text-white">
                 <i class="fas fa-bars"></i>
             </button>
         </header>
 
-        <main class="flex-1 flex flex-col items-center justify-center bg-gray-900 p-4 sm:p-8 overflow-y-auto">
-             <div class="text-center text-gray-600 max-w-md mx-auto">
-                <div class="relative inline-block mb-6">
-                    <div class="absolute inset-0 bg-indigo-500 blur-3xl opacity-10 rounded-full"></div>
-                    <i class="fas fa-desktop text-7xl sm:text-8xl relative z-10 text-gray-800"></i>
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8">
+            <div class="max-w-5xl mx-auto">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold hidden lg:block">My Machines</h2>
+                    <span id="vm-count-badge" class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs font-mono border border-gray-600">0 Machines</span>
                 </div>
-                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to Emulate</h2>
-                <p class="text-gray-400 text-sm sm:text-base leading-relaxed">
-                    Select a machine from the sidebar or create a new one to launch your operating system.
-                </p>
-                <div class="mt-8 flex flex-wrap justify-center gap-3 text-xs text-gray-500 font-mono">
-                    <span class="bg-gray-800 px-3 py-1 rounded-full border border-gray-700"><i class="fas fa-memory mr-1"></i> <span id="system-ram-display">Detecting...</span></span>
-                    <span id="low-end-badge" class="hidden bg-yellow-900/50 text-yellow-400 px-3 py-1 rounded-full border border-yellow-700"><i class="fas fa-battery-quarter mr-1"></i> Potato Mode</span>
+
+                <div id="vm-list" class="space-y-3">
+                    <!-- VM Items injected here -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-list-placeholder" class="hidden flex flex-col items-center justify-center py-20 text-gray-500 opacity-60">
+                    <i class="fas fa-microchip text-6xl mb-4"></i>
+                    <p class="text-lg">No machines created yet.</p>
+                    <p class="text-sm">Click "Create New Machine" to start.</p>
                 </div>
             </div>
-        </main>
-    </div>
-    
-    <!-- Create VM Modal (Responsive) -->
-    <div id="create-vm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
-        <!-- Modal Container: Added max-h and flex-col for proper scrolling on mobile -->
-        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh] animate-fade-in-up">
-            
-            <!-- Header (Fixed) -->
-            <div class="p-5 border-b border-gray-700 flex justify-between items-center flex-shrink-0 bg-gray-800 rounded-t-2xl">
-                <h3 class="text-lg font-bold text-white">New Machine</h3>
-                <button id="close-modal-btn" class="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors">
-                    <i class="fas fa-times"></i>
+        </div>
+    </main>
+
+    <!-- Create VM Modal -->
+    <div id="create-vm-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-700 flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-gray-700 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-bold text-white">Create Virtual Machine</h3>
+                    <p class="text-sm text-gray-400 mt-1">Configure your hardware environment</p>
+                </div>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-
-            <!-- Steps (Fixed) -->
-            <div class="px-5 py-4 bg-gray-800/50 flex justify-center items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                <div id="step-indicator-1" class="flex items-center text-indigo-400 text-xs sm:text-sm font-medium">
-                    <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-indigo-600 border-2 border-indigo-400 mr-2 text-white">1</div>
-                    Media
-                </div>
-                <div class="w-8 sm:w-16 h-px bg-gray-600"></div>
-                <div id="step-indicator-2" class="flex items-center text-gray-500 text-xs sm:text-sm font-medium">
-                    <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600 mr-2">2</div>
-                    System
-                </div>
-                <div class="w-8 sm:w-16 h-px bg-gray-600"></div>
-                <div id="step-indicator-3" class="flex items-center text-gray-500 text-xs sm:text-sm font-medium">
-                    <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600 mr-2">3</div>
-                    Done
-                </div>
-            </div>
-
-            <!-- Content (Scrollable) -->
+            
             <div class="p-6 overflow-y-auto custom-scrollbar">
-                
-                <!-- Step 1: Storage & Media -->
-                <div id="modal-step-1">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-white mb-2">Primary Boot Drive</label>
-                        <select id="boot-drive-type" class="w-full bg-gray-700 border-gray-600 rounded-xl text-white text-sm p-3 mb-3 focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="cd">CD-ROM (.iso)</option>
-                            <option value="floppy">Floppy Drive (.img)</option>
-                            <option value="hda">Hard Drive (.img/.bin)</option>
-                        </select>
+                <!-- Stepper -->
+                <div class="flex items-center justify-center mb-8">
+                    <div id="step-indicator-1" class="flex flex-col items-center gap-2 text-indigo-400">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold border-2 border-indigo-400">1</div>
+                        <span class="text-xs font-medium">Media</span>
+                    </div>
+                    <div class="w-16 h-0.5 bg-gray-600 mx-2"></div>
+                    <div id="step-indicator-2" class="flex flex-col items-center gap-2 text-gray-500">
+                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600">2</div>
+                        <span class="text-xs font-medium">Hardware</span>
+                    </div>
+                    <div class="w-16 h-0.5 bg-gray-600 mx-2"></div>
+                    <div id="step-indicator-3" class="flex flex-col items-center gap-2 text-gray-500">
+                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600">3</div>
+                        <span class="text-xs font-medium">Finish</span>
+                    </div>
+                </div>
 
-                        <label for="primary-upload" class="group flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-xl cursor-pointer bg-gray-700/30 hover:bg-gray-700/60 transition-all hover:border-indigo-500">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 group-hover:text-indigo-400 mb-3 transition-colors"></i>
-                                <p id="primary-name-display" class="text-sm text-gray-400 group-hover:text-white text-center px-4 break-all">Tap to browse files...</p>
-                            </div>
-                            <input id="primary-upload" type="file" class="hidden"/>
-                        </label>
+                <!-- Step 1: Media Selection -->
+                <div id="modal-step-1" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Boot Media Source</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="source-type" value="cd" class="peer hidden" checked onchange="document.getElementById('boot-drive-type').value='cd'">
+                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all">
+                                    <i class="fas fa-compact-disc text-2xl mb-2 text-indigo-400"></i>
+                                    <div class="text-sm font-medium">CD-ROM (ISO)</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="source-type" value="floppy" class="peer hidden" onchange="document.getElementById('boot-drive-type').value='floppy'">
+                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all">
+                                    <i class="fas fa-floppy-disk text-2xl mb-2 text-yellow-500"></i>
+                                    <div class="text-sm font-medium">Floppy (IMG)</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="source-type" value="hda" class="peer hidden" onchange="document.getElementById('boot-drive-type').value='hda'">
+                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all">
+                                    <i class="fas fa-hard-drive text-2xl mb-2 text-blue-500"></i>
+                                    <div class="text-sm font-medium">HDD Image</div>
+                                </div>
+                            </label>
+                        </div>
+                        <input type="hidden" id="boot-drive-type" value="cd">
                     </div>
 
-                    <!-- Additional Drives Accordion -->
-                    <details class="bg-gray-700/30 rounded-xl border border-gray-700 mb-2">
-                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
-                            <span><i class="fas fa-hdd mr-2 text-indigo-400"></i>Additional Drives</span>
-                            <i class="fas fa-chevron-down text-xs"></i>
-                        </summary>
-                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Floppy B (fdb)</label>
-                                <input type="file" id="fdb-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Hard Disk B (hdb)</label>
-                                <input type="file" id="hdb-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
-                            </div>
+                    <div class="bg-gray-700/30 p-4 rounded-xl border border-dashed border-gray-600 text-center hover:border-indigo-500 transition-colors relative group">
+                        <input type="file" id="primary-upload" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                        <div class="pointer-events-none">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2 group-hover:text-indigo-400 transition-colors"></i>
+                            <p class="text-sm font-medium text-white" id="primary-name-display">Tap to browse files</p>
+                            <p class="text-xs text-gray-500 mt-1">Supports .iso, .img, .bin</p>
                         </div>
-                    </details>
-
-                    <!-- Linux Kernel Accordion -->
-                    <details class="bg-gray-700/30 rounded-xl border border-gray-700">
-                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
-                            <span><i class="fab fa-linux mr-2 text-yellow-500"></i>Linux Kernel Boot</span>
-                            <i class="fas fa-chevron-down text-xs"></i>
+                    </div>
+                    
+                    <details class="group bg-gray-700/20 rounded-lg border border-gray-700">
+                        <summary class="p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white select-none flex justify-between items-center">
+                            <span>Advanced Media Options</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
                         </summary>
-                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">bzImage</label>
-                                <input type="file" id="bzimage-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Initrd</label>
-                                <input type="file" id="initrd-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Command Line (cmdline)</label>
-                                <input type="text" id="cmdline-input" placeholder="e.g. root=/dev/sda1" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2 text-xs text-white"/>
-                            </div>
+                        <div class="p-4 space-y-4 border-t border-gray-700">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Floppy Drive B</label>
+                                    <input type="file" id="fdb-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Hard Drive B</label>
+                                    <input type="file" id="hdb-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600" />
+                                </div>
+                             </div>
+                             
+                             <div class="pt-2 border-t border-gray-700/50">
+                                <p class="text-xs text-orange-400 font-bold mb-2">Direct Kernel Boot (Linux)</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-gray-400 mb-1">bzImage</label>
+                                        <input type="file" id="bzimage-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-400 mb-1">initrd</label>
+                                        <input type="file" id="initrd-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600" />
+                                    </div>
+                                    <div class="col-span-2">
+                                         <label class="block text-xs text-gray-400 mb-1">Command Line (cmdline)</label>
+                                         <input type="text" id="cmdline-input" placeholder="e.g. console=ttyS0 root=/dev/sda1" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                    </div>
+                                </div>
+                             </div>
+
+                             <div class="pt-2 border-t border-gray-700/50">
+                                <p class="text-xs text-purple-400 font-bold mb-2">Custom BIOS/Firmware</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-gray-400 mb-1">System BIOS</label>
+                                        <input type="file" id="bios-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-400 mb-1">VGA BIOS</label>
+                                        <input type="file" id="vga-bios-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600" />
+                                    </div>
+                                </div>
+                             </div>
                         </div>
                     </details>
                 </div>
 
-                <!-- Step 2: Configuration & Hardware -->
-                <div id="modal-step-2" class="hidden">
-                    
-                    <!-- Memory -->
-                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600 mb-4">
-                        <h4 class="text-sm font-semibold mb-3 text-white flex items-center">
-                            <i class="fas fa-memory mr-2 text-indigo-400"></i> RAM & Video
-                        </h4>
-                        
-                        <div class="mb-4">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-xs text-gray-400">System RAM</span>
-                                <span id="ram-value" class="font-mono text-indigo-300 font-bold bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-xs">96 MB</span>
-                            </div>
-                            <input id="ram-slider" type="range" min="32" max="1024" value="96" step="16" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
-                            <div class="flex justify-between text-[8px] text-gray-500 mt-1 font-mono">
-                                <span id="ram-min-label">32MB</span>
-                                <span id="ram-max-label">1024MB</span>
-                            </div>
+                <!-- Step 2: Hardware -->
+                <div id="modal-step-2" class="space-y-6 hidden">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-gray-300">Memory (RAM)</label>
+                            <span id="ram-value" class="text-sm font-bold text-indigo-400">64 MB</span>
                         </div>
-
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-xs text-gray-400">VRAM</span>
-                                <span id="vram-value" class="font-mono text-pink-300 font-bold bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-xs">4 MB</span>
-                            </div>
-                            <input id="vram-slider" type="range" min="1" max="16" value="4" step="1" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-500">
+                        <input type="range" id="ram-slider" min="16" max="1024" step="16" value="64" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                        <div class="flex justify-between text-[10px] text-gray-500 mt-1">
+                            <span>16MB</span>
+                            <span id="ram-max-label">1024MB</span>
                         </div>
                     </div>
 
-                    <!-- Advanced System Settings (New) -->
-                    <details class="bg-gray-700/30 rounded-xl border border-gray-700 mb-4">
-                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
-                            <span><i class="fas fa-cogs mr-2 text-blue-400"></i>Advanced System</span>
-                            <i class="fas fa-chevron-down text-xs"></i>
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-gray-300">Video Memory (VRAM)</label>
+                            <span id="vram-value" class="text-sm font-bold text-indigo-400">4 MB</span>
+                        </div>
+                        <input type="range" id="vram-slider" min="1" max="64" step="1" value="4" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-700/30 p-3 rounded-lg border border-gray-600">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="network-toggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 relative"></div>
+                                <span class="ml-3 text-sm font-medium text-gray-300">Networking</span>
+                            </label>
+                            <p class="text-[10px] text-gray-500 mt-1 ml-12 leading-tight">Requires WebSocket relay</p>
+                        </div>
+                        <div class="bg-gray-700/30 p-3 rounded-lg border border-gray-600">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" id="acpi-toggle" class="sr-only peer" checked>
+                                <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600 relative"></div>
+                                <span class="ml-3 text-sm font-medium text-gray-300">ACPI</span>
+                            </label>
+                            <p class="text-[10px] text-gray-500 mt-1 ml-12 leading-tight">Power management</p>
+                        </div>
+                    </div>
+                    
+                    <details class="group bg-gray-700/20 rounded-lg border border-gray-700">
+                        <summary class="p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white select-none flex justify-between items-center">
+                            <span>Boot & CPU Options</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
                         </summary>
-                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
-                            <!-- Boot Order -->
+                        <div class="p-4 space-y-4 border-t border-gray-700">
                             <div>
-                                <label class="block text-xs text-gray-400 mb-1">Boot Order Sequence</label>
-                                <select id="boot-order-select" class="w-full bg-gray-800 border-gray-600 rounded-lg text-white text-xs p-2 focus:ring-blue-500">
-                                    <option value="213">CD-ROM / Floppy / HDD (Default)</option>
-                                    <option value="123">Floppy / HDD / CD-ROM</option>
-                                    <option value="312">HDD / CD-ROM / Floppy</option>
+                                <label class="block text-xs text-gray-400 mb-1">Boot Order (Hex)</label>
+                                <select id="boot-order-select" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-xs text-white">
+                                    <option value="531">CD / HDD / Floppy (0x213)</option>
+                                    <option value="1144219">HDD / CD / Floppy (0x11759B)</option>
+                                    <option value="213">Floppy / CD / HDD (0xD5)</option>
                                 </select>
                             </div>
-                            
-                            <!-- CPU & Power -->
                             <div>
-                                <label class="block text-xs text-gray-400 mb-1">Performance Profile (CPU Limit)</label>
-                                <select id="cpu-profile-select" class="w-full bg-gray-800 border-gray-600 rounded-lg text-white text-xs p-2 focus:ring-green-500">
+                                <label class="block text-xs text-gray-400 mb-1">CPU Emulation Speed</label>
+                                <select id="cpu-profile-select" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-xs text-white">
+                                    <option value="balanced">Balanced (Recommended)</option>
+                                    <option value="potato">Potato Mode (Low End)</option>
                                     <option value="high">High Performance (Desktop)</option>
-                                    <option value="balanced" selected>Balanced (Standard)</option>
-                                    <option value="low">Low Power (Slowest - Mobile)</option>
-                                    <option value="potato">Potato Mode (Ultra Low - Infinix/A12)</option>
-                                </select>
-                                <p class="text-[10px] text-gray-500 mt-1">"Potato Mode" disables animations and reduces refresh rate to 1 FPS.</p>
-                            </div>
-
-                            <!-- Screen Scaling -->
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Display Graphics Mode</label>
-                                <select id="graphics-scale-select" class="w-full bg-gray-800 border-gray-600 rounded-lg text-white text-xs p-2 focus:ring-pink-500">
-                                    <option value="smooth">Smooth Scaling (Blur)</option>
-                                    <option value="pixelated" selected>Pixelated (Sharp/Retro)</option>
                                 </select>
                             </div>
-
-                            <!-- ACPI Toggle -->
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs text-gray-400">Enable ACPI Support</span>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="acpi-toggle" class="sr-only peer" checked>
-                                    <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                </label>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- Network -->
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-gray-700/50 border border-gray-600 mb-4">
-                        <div class="flex flex-col">
-                            <span class="font-medium text-white text-sm">Network Adapter</span>
-                            <span class="text-xs text-gray-400">Internet access</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="network-toggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
-
-                    <!-- Custom BIOS (Moved to bottom) -->
-                    <details class="bg-gray-700/30 rounded-xl border border-gray-700">
-                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
-                            <span><i class="fas fa-code mr-2 text-green-400"></i>Custom BIOS</span>
-                            <i class="fas fa-chevron-down text-xs"></i>
-                        </summary>
-                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
                             <div>
-                                <label class="block text-xs text-gray-400 mb-1">System BIOS</label>
-                                <input type="file" id="bios-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">VGA BIOS</label>
-                                <input type="file" id="vga-bios-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                                <label class="block text-xs text-gray-400 mb-1">Graphics Scaling</label>
+                                <select id="graphics-scale-select" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-xs text-white">
+                                    <option value="pixelated">Crisp (Pixelated)</option>
+                                    <option value="smooth">Smooth (Blur)</option>
+                                </select>
                             </div>
                         </div>
                     </details>
                 </div>
 
-                <!-- Step 3: VM Name -->
-                <div id="modal-step-3" class="hidden">
-                    <div class="text-center mb-6">
-                         <div class="w-16 h-16 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                            <i class="fas fa-tag"></i>
+                <!-- Step 3: Finish -->
+                <div id="modal-step-3" class="space-y-6 hidden">
+                    <div class="bg-gray-700/50 p-6 rounded-xl border border-gray-600 text-center">
+                        <div class="w-16 h-16 bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
+                            <i class="fas fa-rocket text-2xl text-indigo-400"></i>
                         </div>
-                        <h4 class="text-lg font-semibold text-white">Name Your Machine</h4>
-                    </div>
-                    
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-laptop text-gray-500"></i>
+                        <h4 class="text-lg font-bold text-white mb-1">Ready to Launch</h4>
+                        <p class="text-gray-400 text-sm mb-6">Review your configuration</p>
+                        
+                        <div class="text-left bg-gray-800/50 p-4 rounded-lg border border-gray-700 space-y-2 mb-6 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Source:</span>
+                                <span class="text-white truncate max-w-[150px]" id="summary-source">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Memory:</span>
+                                <span class="text-white" id="summary-ram">64 MB</span>
+                            </div>
                         </div>
-                        <input type="text" id="vm-name-input" placeholder="e.g., My Linux VM"
-                        class="w-full pl-10 bg-gray-900 border border-gray-600 text-white text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 placeholder-gray-600 transition-all">
-                    </div>
-                    
-                    <div class="mt-6 p-4 bg-gray-700/30 rounded-xl border border-gray-700 text-sm space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">Boot:</span>
-                            <span class="text-white font-medium truncate max-w-[150px]" id="summary-source">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">Memory:</span>
-                            <span class="text-white font-medium" id="summary-ram">-</span>
-                        </div>
+
+                        <label class="block text-left text-sm font-medium text-gray-300 mb-2">Machine Name</label>
+                        <input type="text" id="vm-name-input" placeholder="e.g. Alpine Linux, Win98" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors">
                     </div>
                 </div>
             </div>
 
-            <!-- Footer (Fixed) -->
-            <div class="p-5 bg-gray-800 border-t border-gray-700 flex justify-between rounded-b-2xl flex-shrink-0">
-                <button id="modal-back-btn" class="px-5 py-2.5 bg-gray-700 text-white font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+            <div class="p-6 border-t border-gray-700 flex justify-between bg-gray-800/50">
+                <button id="modal-back-btn" class="px-6 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
                     Back
                 </button>
-                <div>
-                    <button id="modal-next-btn" class="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 transition-all text-sm">
-                        Next <i class="fas fa-arrow-right ml-1"></i>
+                <div class="flex gap-3">
+                    <button id="modal-next-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        Next Step
                     </button>
-                    <button id="modal-create-btn" class="px-6 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 hidden disabled:opacity-50 shadow-lg shadow-green-500/30 transition-all text-sm">
-                        Launch <i class="fas fa-rocket ml-1"></i>
+                    <button id="modal-create-btn" class="hidden bg-green-600 hover:bg-green-500 text-white px-8 py-2 rounded-lg font-bold shadow-lg shadow-green-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        Create Machine
                     </button>
                 </div>
             </div>
         </div>
     </div>
     
-    <input type="file" id="snapshot-upload" class="hidden" accept=".bin,.v86state,.86state" />
-
     <!-- Edit VM Modal -->
-    <div id="edit-vm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-md border border-gray-700 flex flex-col max-h-[90vh]">
-            <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-gray-800 rounded-t-2xl">
-                <h3 class="text-lg font-semibold text-white">Edit Machine</h3>
-                <button id="close-edit-modal-btn" class="text-gray-400 hover:text-white text-xl">&times;</button>
-            </div>
-            <div class="p-6 space-y-4 overflow-y-auto">
-                <input type="hidden" id="edit-vm-id">
+    <div id="edit-vm-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl border border-gray-700 p-6">
+            <h3 class="text-lg font-bold text-white mb-4">Edit Configuration</h3>
+            <input type="hidden" id="edit-vm-id">
+            
+            <div class="space-y-4">
                 <div>
-                    <label for="edit-vm-name-input" class="block text-xs font-bold text-gray-400 uppercase mb-2">VM Name</label>
-                    <input type="text" id="edit-vm-name-input" class="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3">
+                    <label class="block text-sm text-gray-400 mb-1">Name</label>
+                    <input type="text" id="edit-vm-name-input" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white">
                 </div>
+                
                 <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Allocate Memory (RAM)</label>
-                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600">
-                        <div class="flex items-center justify-between mb-2">
-                             <i class="fas fa-memory text-indigo-400 text-lg"></i>
-                             <span id="edit-ram-value" class="font-mono text-indigo-300 font-bold bg-gray-800 px-2 py-1 rounded text-xs"></span>
-                        </div>
-                        <input id="edit-ram-slider" type="range" min="32" max="1024" step="16" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
-                         <div class="flex justify-between text-[10px] text-gray-500 mt-2 font-mono">
-                            <span id="edit-ram-min-label">32MB</span>
-                            <span id="edit-ram-max-label">1024MB</span>
-                        </div>
+                     <div class="flex justify-between items-center mb-1">
+                        <label class="text-sm text-gray-400">Memory (RAM)</label>
+                        <span id="edit-ram-value" class="text-xs text-indigo-400 font-bold">64 MB</span>
+                    </div>
+                    <input type="range" id="edit-ram-slider" min="16" max="1024" step="16" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    <div class="flex justify-between text-[10px] text-gray-500">
+                        <span>16MB</span>
+                        <span id="edit-ram-max-label">1024MB</span>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Network</label>
-                     <div class="flex items-center justify-between p-4 rounded-xl bg-gray-700/50 border border-gray-600">
-                        <span class="font-medium text-gray-300 text-sm">Enable Adapter</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="edit-network-toggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
+
+                <div class="flex items-center gap-3">
+                     <input type="checkbox" id="edit-network-toggle" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500">
+                     <label for="edit-network-toggle" class="text-sm text-gray-300">Enable Networking</label>
                 </div>
             </div>
-            <div class="p-5 bg-gray-800 border-t border-gray-700 flex justify-end rounded-b-2xl">
-                <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 mr-2 text-sm">Cancel</button>
-                <button id="save-changes-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-bold">Save Changes</button>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="close-edit-modal-btn" class="hidden"></button>
+                <button id="cancel-edit-btn" class="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 text-sm">Cancel</button>
+                <button id="save-changes-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Save Changes</button>
             </div>
         </div>
     </div>
-
+    
     <!-- Storage Manager Modal -->
-    <div id="storage-manager-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-gray-700 flex flex-col max-h-[90vh]">
-            <!-- Header -->
-            <div class="p-5 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-                <h3 class="text-lg font-bold text-white"><i class="fas fa-hdd mr-2"></i> Storage Manager</h3>
-                <button id="close-storage-manager-btn" class="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors">
+    <div id="storage-manager-modal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-700 flex flex-col h-[80vh]">
+            <div class="p-6 border-b border-gray-700 flex justify-between items-start">
+                <div>
+                    <h3 class="text-2xl font-bold text-white">Storage Manager</h3>
+                    <p class="text-sm text-gray-400 mt-1">Manage local database and storage quota</p>
+                </div>
+                <button id="close-storage-manager-btn" class="text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded-full flex items-center justify-center transition-colors">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            <!-- Content -->
-            <div class="p-6 overflow-y-auto">
-                <div id="storage-manager-summary" class="mb-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700 text-center">
-                     <!-- Populated by JS -->
+            
+            <div class="p-6 bg-gray-800/50 border-b border-gray-700">
+                <div id="storage-manager-summary">
+                    <!-- Injected via JS -->
+                    <div class="animate-pulse flex space-x-4">
+                         <div class="flex-1 space-y-4 py-1">
+                             <div class="h-4 bg-gray-700 rounded w-3/4"></div>
+                             <div class="h-4 bg-gray-700 rounded"></div>
+                         </div>
+                    </div>
                 </div>
-                <!-- Table -->
-                <div class="overflow-x-auto relative rounded-lg border border-gray-700">
-                    <table class="min-w-full text-sm text-left text-gray-400">
-                        <thead class="text-xs text-gray-400 uppercase bg-gray-700/50">
-                            <tr>
-                                <th scope="col" class="px-4 py-3">Machine Name</th>
-                                <th scope="col" class="px-4 py-3">Base Size</th>
-                                <th scope="col" class="px-4 py-3">Snapshot Size</th>
-                                <th scope="col" class="px-4 py-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="storage-items-list" class="bg-gray-800">
-                            <!-- JS will populate this -->
-                        </tbody>
-                    </table>
-                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto p-0">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-900/50 sticky top-0 backdrop-blur-sm z-10">
+                        <tr>
+                            <th class="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Item Name</th>
+                            <th class="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Config Size</th>
+                            <th class="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Snapshot</th>
+                            <th class="p-4 text-xs font-semibold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="storage-items-list" class="divide-y divide-gray-700">
+                        <!-- Items injected here -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-    
+
     <script src="dashboard.js"></script>
 </body>
 </html>
