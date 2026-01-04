@@ -2,16 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Web VM - The Browser Computer</title>
     <meta name="description" content="Run Linux, Windows, and DOS directly in your browser with WebAssembly. No install required."/>
     
-    <!-- iOS PWA Compatibility -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Web VM">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2645/2645897.png">
-
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -66,10 +60,6 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
-
-        /* iOS Install Modal Animation */
-        #ios-install-modal { transition: opacity 0.3s ease, transform 0.3s ease; }
-        #ios-install-modal.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
     </style>
 </head>
 <body class="antialiased selection:bg-indigo-500 selection:text-white">
@@ -79,9 +69,8 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
                 <div class="flex items-center gap-3">
-                    <!-- Updated Logo Image -->
-                    <div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-indigo-500/20 bg-white/10 p-1">
-                        <img src="https://cdn-icons-png.flaticon.com/512/2645/2645897.png" alt="WebVM Logo" class="w-full h-full object-contain">
+                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <i class="fas fa-cube text-white text-lg"></i>
                     </div>
                     <span class="text-2xl font-bold text-white tracking-tight">Web<span class="text-indigo-400">VM</span></span>
                 </div>
@@ -139,12 +128,6 @@
                         <a href="text.html" class="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/40 transition-all flex items-center justify-center gap-2 group">
                             <i class="fas fa-power-off group-hover:animate-pulse"></i> Boot Machine
                         </a>
-                        
-                        <!-- iOS Install Button (Hidden by default, shown via JS) -->
-                        <button id="ios-install-btn" class="hidden px-8 py-4 bg-gray-800/80 backdrop-blur-md border border-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-all flex items-center justify-center gap-2">
-                            <i class="fas fa-download text-xl"></i> Install App
-                        </button>
-
                         <a href="https://github.com/copy/v86" target="_blank" class="px-8 py-4 glass text-white rounded-xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2">
                             <i class="fab fa-github"></i> Source Code
                         </a>
@@ -286,155 +269,5 @@
         </p>
     </footer>
 
-    <!-- iOS Direct Profile Downloader -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Detect iOS
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            // Check if not already in standalone mode (installed)
-            const isStandalone = ('standalone' in window.navigator) && (window.navigator.standalone);
-
-            if (isIOS && !isStandalone) {
-                const btn = document.getElementById('ios-install-btn');
-                
-                if (btn) {
-                    btn.classList.remove('hidden');
-                    
-                    // Simple UUID generator
-                    const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                        return v.toString(16);
-                    });
-                    
-                    // Fallback generator
-                    const generateCanvasIcon = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 180;
-                        canvas.height = 180;
-                        const ctx = canvas.getContext('2d');
-                        const grd = ctx.createLinearGradient(0, 0, 180, 180);
-                        grd.addColorStop(0, "#4f46e5");
-                        grd.addColorStop(1, "#9333ea");
-                        ctx.fillStyle = grd;
-                        ctx.fillRect(0, 0, 180, 180);
-                        ctx.fillStyle = "white";
-                        ctx.font = "bold 80px sans-serif";
-                        ctx.textAlign = "center";
-                        ctx.textBaseline = "middle";
-                        ctx.shadowColor = "rgba(0,0,0,0.3)";
-                        ctx.shadowBlur = 10;
-                        ctx.fillText("VM", 90, 90);
-                        return canvas.toDataURL('image/png').split(',')[1];
-                    };
-
-                    btn.addEventListener('click', async () => {
-                        const originalText = btn.innerHTML;
-                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Fetching Icon...';
-                        
-                        // Use the specific online icon URL provided
-                        const iconUrl = "https://cdn-icons-png.flaticon.com/512/2645/2645897.png";
-                        // Use a proxy to bypass CORS restrictions for the Base64 conversion
-                        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(iconUrl);
-                        
-                        let iconData;
-                        try {
-                            const resp = await fetch(proxyUrl);
-                            if (!resp.ok) throw new Error("Fetch failed");
-                            const blob = await resp.blob();
-                            iconData = await new Promise(r => {
-                                const reader = new FileReader();
-                                reader.onload = () => r(reader.result.split(',')[1]); // Extract Base64 part
-                                reader.readAsDataURL(blob);
-                            });
-                        } catch (e) {
-                            console.warn("Using fallback icon generator");
-                            iconData = generateCanvasIcon();
-                        }
-
-                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Building Profile...';
-
-                        const appUrl = new URL('text.html', window.location.href).href;
-                        const profileUUID = uuid();
-                        const payloadUUID = uuid();
-
-                        // Configuration Profile XML with WebClip Payload
-                        const mobileConfig = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>PayloadContent</key>
-    <array>
-        <dict>
-            <key>FullScreen</key>
-            <true/>
-            <key>IsRemovable</key>
-            <true/>
-            <key>Label</key>
-            <string>Web VM</string>
-            <key>PayloadDescription</key>
-            <string>Adds Web VM to your Home Screen</string>
-            <key>PayloadDisplayName</key>
-            <string>Web VM (Web Clip)</string>
-            <key>PayloadIdentifier</key>
-            <string>com.webvm.webclip.${payloadUUID}</string>
-            <key>PayloadType</key>
-            <string>com.apple.webClip</string>
-            <key>PayloadUUID</key>
-            <string>${payloadUUID}</string>
-            <key>PayloadVersion</key>
-            <integer>1</integer>
-            <key>Precomposed</key>
-            <true/>
-            <key>URL</key>
-            <string>${appUrl}</string>
-            <key>Icon</key>
-            <data>${iconData}</data>
-        </dict>
-    </array>
-    <key>PayloadDisplayName</key>
-    <string>Web VM Installer</string>
-    <key>PayloadIdentifier</key>
-    <string>com.webvm.profile.${profileUUID}</string>
-    <key>PayloadRemovalDisallowed</key>
-    <false/>
-    <key>PayloadType</key>
-    <string>Configuration</string>
-    <key>PayloadUUID</key>
-    <string>${profileUUID}</string>
-    <key>PayloadVersion</key>
-    <integer>1</integer>
-</dict>
-</plist>`;
-
-                        try {
-                            const form = document.createElement('form');
-                            form.method = 'POST';
-                            form.action = '/install-profile'; 
-                            form.style.display = 'none';
-
-                            const input = document.createElement('textarea');
-                            input.name = 'profile';
-                            input.value = mobileConfig;
-
-                            form.appendChild(input);
-                            document.body.appendChild(form);
-                            form.submit();
-                            
-                            setTimeout(() => {
-                                document.body.removeChild(form);
-                                btn.innerHTML = originalText;
-                                alert("Profile Downloaded!\n\n1. Open iOS Settings.\n2. Tap 'Profile Downloaded' near the top.\n3. Tap 'Install'.\n\nYou will now have a 'Web VM' app icon on your home screen.");
-                            }, 1000);
-
-                        } catch(e) {
-                            console.error(e);
-                            alert("Error generating profile.");
-                            btn.innerHTML = originalText;
-                        }
-                    });
-                }
-            }
-        });
-    </script>
 </body>
 </html>

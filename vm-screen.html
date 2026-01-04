@@ -1,6 +1,4 @@
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -112,81 +110,6 @@
         .status-led { width: 6px; height: 6px; border-radius: 50%; background: #444; }
         .status-led.running { background: #10b981; box-shadow: 0 0 8px #10b981; }
         .status-led.halted { background: #ef4444; }
-
-        /* --- Toast Notifications (Ported from Dashboard) --- */
-        #toast-container {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            pointer-events: none;
-            width: auto;
-            align-items: flex-end;
-        }
-
-        .toast {
-            pointer-events: auto;
-            position: relative;
-            overflow: hidden;
-            border-radius: 12px;
-            background: rgba(23, 23, 23, 0.95);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            padding: 0.75rem 1rem;
-            color: #e5e7eb;
-            display: flex;
-            align-items: center;
-            animation: toastSlideIn 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
-            transition: all 0.3s ease;
-            max-width: 300px;
-        }
-
-        .toast.hiding {
-            animation: toastSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-            pointer-events: none;
-        }
-
-        @keyframes toastSlideIn {
-            0% { opacity: 0; transform: translateY(-1rem) scale(0.95); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        @keyframes toastSlideOut {
-            0% { opacity: 1; transform: translateX(0); }
-            100% { opacity: 0; transform: translateX(100%); }
-        }
-
-        .toast-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            height: 2px;
-            width: 100%;
-            transform-origin: left;
-            animation: progress linear forwards;
-            background: linear-gradient(90deg, currentColor, transparent);
-            opacity: 0.5;
-        }
-
-        @keyframes progress {
-            from { transform: scaleX(1); }
-            to { transform: scaleX(0); }
-        }
-
-        .toast-success { border-left: 3px solid #10b981; }
-        .toast-success .toast-icon { color: #34d399; }
-        
-        .toast-error { border-left: 3px solid #ef4444; }
-        .toast-error .toast-icon { color: #f87171; }
-        
-        .toast-info { border-left: 3px solid #6366f1; }
-        .toast-info .toast-icon { color: #818cf8; }
-
-        .toast-icon { margin-right: 0.75rem; font-size: 1.1rem; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
@@ -206,9 +129,6 @@
         <div id="status-led" class="status-led"></div>
         <span id="status-text">INIT</span>
     </div>
-
-    <!-- Toast Container -->
-    <div id="toast-container"></div>
 
     <div id="screen_container">
         <!-- libv86 elements will be injected here -->
