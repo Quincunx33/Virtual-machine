@@ -141,7 +141,7 @@
                         
                         <!-- iOS Install Button (Hidden by default, shown via JS) -->
                         <button id="ios-install-btn" class="hidden px-8 py-4 bg-gray-800/80 backdrop-blur-md border border-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-all flex items-center justify-center gap-2">
-                            <i class="fas fa-download text-xl"></i> Install Profile
+                            <i class="fas fa-download text-xl"></i> Install App
                         </button>
 
                         <a href="https://github.com/copy/v86" target="_blank" class="px-8 py-4 glass text-white rounded-xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2">
@@ -305,39 +305,43 @@
                         return v.toString(16);
                     });
                     
-                    // Fetch and convert icon to base64
-                    const getIconBase64 = async (url) => {
-                        try {
-                            const response = await fetch(url);
-                            const blob = await response.blob();
-                            return new Promise((resolve) => {
-                                const reader = new FileReader();
-                                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                                reader.onerror = () => resolve(null);
-                                reader.readAsDataURL(blob);
-                            });
-                        } catch (e) {
-                            console.warn("Could not fetch icon for embedding:", e);
-                            return null;
-                        }
+                    // Generate Icon via Canvas to guarantee it works (no CORS issues)
+                    const generateAppIcon = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 180;
+                        canvas.height = 180;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Background (Gradient)
+                        const grd = ctx.createLinearGradient(0, 0, 180, 180);
+                        grd.addColorStop(0, "#4f46e5");
+                        grd.addColorStop(1, "#9333ea");
+                        ctx.fillStyle = grd;
+                        ctx.fillRect(0, 0, 180, 180);
+                        
+                        // Text "VM"
+                        ctx.fillStyle = "white";
+                        ctx.font = "bold 80px sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.shadowColor = "rgba(0,0,0,0.3)";
+                        ctx.shadowBlur = 10;
+                        ctx.fillText("VM", 90, 90);
+                        
+                        return canvas.toDataURL('image/png').split(',')[1];
                     };
 
                     btn.addEventListener('click', async () => {
                         const originalText = btn.innerHTML;
-                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Preparing...';
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Generating...';
                         
                         // Point to the actual app dashboard
                         const appUrl = new URL('text.html', window.location.href).href;
                         const profileUUID = uuid();
                         const payloadUUID = uuid();
-                        const iconUrl = 'https://cdn-icons-png.flaticon.com/512/2645/2645897.png';
                         
-                        // Attempt to get Base64 icon
-                        let iconData = await getIconBase64(iconUrl);
-                        // Fallback icon if fetch fails
-                        if (!iconData) {
-                             iconData = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
-                        }
+                        // Generate reliable icon
+                        const iconData = generateAppIcon();
 
                         // Configuration Profile XML with WebClip Payload
                         const mobileConfig = `<?xml version="1.0" encoding="UTF-8"?>
@@ -358,7 +362,7 @@
             <key>PayloadDisplayName</key>
             <string>Web VM (Web Clip)</string>
             <key>PayloadIdentifier</key>
-            <string>com.webvm.webclip</string>
+            <string>com.webvm.webclip.${payloadUUID}</string>
             <key>PayloadType</key>
             <string>com.apple.webClip</string>
             <key>PayloadUUID</key>
@@ -376,7 +380,7 @@
     <key>PayloadDisplayName</key>
     <string>Web VM Installer</string>
     <key>PayloadIdentifier</key>
-    <string>com.webvm.profile</string>
+    <string>com.webvm.profile.${profileUUID}</string>
     <key>PayloadRemovalDisallowed</key>
     <false/>
     <key>PayloadType</key>
@@ -389,8 +393,6 @@
 </plist>`;
 
                         // FIX: Post data to Cloudflare Worker to get correct headers.
-                        // Browsers cannot spoof Content-Type headers for Blobs in a way iOS likes.
-                        // By POSTing to a worker, the worker returns the data with 'Content-Type: application/x-apple-aspen-config'
                         try {
                             const form = document.createElement('form');
                             form.method = 'POST';
@@ -410,12 +412,12 @@
                             setTimeout(() => {
                                 document.body.removeChild(form);
                                 btn.innerHTML = originalText;
-                                alert("Profile Generated!\n\n1. Tap 'Allow' to view the profile.\n2. Go to Settings > Profile Downloaded > Install.");
-                            }, 1500);
+                                alert("Profile Downloaded!\n\n1. Open iOS Settings.\n2. Tap 'Profile Downloaded' near the top.\n3. Tap 'Install'.\n\nYou will now have a 'Web VM' app icon on your home screen.");
+                            }, 1000);
 
                         } catch(e) {
                             console.error(e);
-                            alert("Error generating profile. Please check internet connection.");
+                            alert("Error generating profile.");
                             btn.innerHTML = originalText;
                         }
                     });
