@@ -1,4 +1,5 @@
 
+
 // --- Robustness: Polyfill for BroadcastChannel ---
 if (!window.BroadcastChannel) {
     window.BroadcastChannel = class {
@@ -209,7 +210,8 @@ async function init() {
         elements.loadingText.textContent = "Booting...";
         document.title = `${selectedOS.name} - Web VM`;
         
-        await startEmulator(config);
+        // Slight delay to allow UI to render before heavy lifting
+        requestAnimationFrame(() => startEmulator(config));
 
     } catch (e) {
         showError(e.message || e.toString());
@@ -289,6 +291,8 @@ async function startEmulator(config) {
     }
 
     try {
+        // --- Memory Optimization Phase ---
+        // 1. Convert files to Blob URLs
         if (config.sourceType === 'snapshot') {
             const blobUrl = URL.createObjectURL(config.file);
             activeBlobUrls.push(blobUrl);
@@ -318,14 +322,26 @@ async function startEmulator(config) {
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
 
-        // HEAVY MEMORY CLEANUP
-        ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'].forEach(k => {
-            if (config[k]) config[k] = null;
-            if (selectedOS && selectedOS[k]) selectedOS[k] = null;
+        // 2. AGGRESSIVE CLEANUP: Remove JS references to large files NOW
+        // This allows the Garbage Collector to free the original File objects
+        // before V86 instantiates WASM memory.
+        const heavyKeys = ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
+        
+        heavyKeys.forEach(k => {
+            if (config[k]) { 
+                try { delete config[k]; } catch(e) { config[k] = null; } 
+            }
+            if (selectedOS && selectedOS[k]) { 
+                try { delete selectedOS[k]; } catch(e) { selectedOS[k] = null; } 
+            }
         });
+        
+        // 3. Pause for GC cycle
+        await new Promise(resolve => setTimeout(resolve, 150));
 
         if (isShuttingDown) return;
 
+        // 4. Initialize V86
         try {
             emulator = new V86(v86Config);
         } catch (initError) {
@@ -338,12 +354,10 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
+            // Release Blob URLs as V86 has loaded them into WASM/Buffer
             cleanupBlobUrls();
 
             const interactionHandler = () => {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (AudioContext) {} 
-
                 if (emulator && emulator.is_running()) {
                     const canvas = elements.screenContainer.querySelector("canvas");
                     const supportsPointerLock = canvas && (
@@ -492,11 +506,11 @@ function handleCriticalError(error) {
     if (msg.includes("requestPointerLock") || msg.includes("pointer lock")) return;
 
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
+        let hint = "Try lowering RAM allocation.";
         if (selectedOS && selectedOS.sourceType === 'snapshot') {
-             showError("Out of Memory! The snapshot requires more RAM than your device has.");
-        } else {
-             showError("Out of Memory! The VM crashed. Try lowering RAM allocation.");
+             hint = "This snapshot needs more RAM than your device allows. Try loading it on a Desktop.";
         }
+        showError(`Out of Memory! ${hint}`);
     } else if (msg.includes("CSP") || msg.includes("Content Security Policy")) {
          showError("Security Error: CSP Blocked execution.");
     } else {
