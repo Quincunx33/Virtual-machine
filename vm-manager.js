@@ -11,12 +11,12 @@ class EventManager {
     }
 
     removeAll() {
-        console.log(`Cleaning up ${this.listeners.size} listeners...`);
+        // Safe removal without logging to prevent IO lag during shutdown
         for (const l of this.listeners) {
             try {
                 l.target.removeEventListener(l.type, l.listener, l.options);
             } catch (e) {
-                console.warn("Failed to remove listener", e);
+                // Ignore removal errors during shutdown
             }
         }
         this.listeners.clear();
@@ -61,40 +61,49 @@ const elements = {
 function fullCleanup() {
     if (isShuttingDown) return;
     isShuttingDown = true;
-    console.log("INITIATING NUCLEAR SHUTDOWN");
+    
+    // 1. Force Revoke Blob URLs IMMEDIATELY (Critical for Storage/RAM)
+    cleanupBlobUrls();
 
-    // 1. SIGNAL PARENT: Critical for No-Polling architecture
+    // 2. SIGNAL PARENT: Critical for No-Polling architecture
     if (channel) {
         try {
             const vmId = selectedOS ? selectedOS.id : null;
-            channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: vmId });
-        } catch(e) { console.error("Failed to signal close", e); }
+            // Check if this was a temporary/local machine (not saved in dashboard)
+            // If so, tell dashboard to delete it from DB immediately to free disk space
+            const shouldDelete = selectedOS && selectedOS.isLocal;
+            channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: vmId, shouldDelete: shouldDelete });
+        } catch(e) { console.warn("Failed to signal close"); }
     }
 
-    // 2. Stop Emulator Core
+    // 3. Stop Emulator Core & Destroy WebAssembly Instance
     if (emulator) {
         try {
-            emulator.stop();
-            if (typeof emulator.destroy === 'function') emulator.destroy();
+            if (emulator.is_running()) {
+                emulator.stop();
+            }
+            // Force destroy if method exists (depends on libv86 version, but safe to try)
+            if (typeof emulator.destroy === 'function') {
+                emulator.destroy();
+            }
+            // Break references manually
             emulator.screen_adapter = null;
             emulator.keyboard_adapter = null;
             emulator.mouse_adapter = null;
+            emulator.bus = null;
         } catch (e) {
-            console.warn("Emulator stop error:", e);
+            console.warn("Emulator cleanup warning:", e);
         }
         emulator = null;
     }
 
-    // 3. Kill Broadcast Channel
+    // 4. Kill Broadcast Channel
     if (channel) {
         try { channel.close(); } catch(e) {}
         channel = null;
     }
 
-    // 4. Revoke Blob URLs (Release Memory)
-    cleanupBlobUrls();
-
-    // 5. Destroy Canvas
+    // 5. Destroy Canvas & DOM
     if (elements.screenContainer) {
         while (elements.screenContainer.firstChild) {
             elements.screenContainer.removeChild(elements.screenContainer.firstChild);
@@ -106,19 +115,28 @@ function fullCleanup() {
 
     // 7. DB Connection
     if (db) {
-        db.close();
+        try { db.close(); } catch(e) {}
         db = null;
     }
     
     // 8. Clear Global References
     selectedOS = null;
+    
+    // 9. Force Garbage Collection Hint (by nullifying everything accessible)
+    window.emulator = null;
 }
 
 function cleanupBlobUrls() {
     if (activeBlobUrls.length > 0) {
-        console.log(`Releasing ${activeBlobUrls.length} file blobs from memory...`);
-        activeBlobUrls.forEach(url => URL.revokeObjectURL(url));
-        activeBlobUrls = [];
+        const count = activeBlobUrls.length;
+        // Iterate backwards to safely remove
+        while(activeBlobUrls.length > 0) {
+            const url = activeBlobUrls.pop();
+            try {
+                URL.revokeObjectURL(url);
+            } catch(e) {}
+        }
+        console.log(`Cleaned up ${count} blob storage references.`);
     }
 }
 
@@ -171,7 +189,14 @@ async function loadConfig(id) {
 
 // --- Initialization Flow ---
 async function init() {
+    // TRIPLE SAFETY NET for cleanup
+    // `beforeunload` is best for Desktop
+    eventManager.add(window, 'beforeunload', fullCleanup);
+    // `pagehide` is best for Mobile (iOS/Android)
     eventManager.add(window, 'pagehide', fullCleanup);
+    // `unload` is a fallback for older browsers
+    eventManager.add(window, 'unload', fullCleanup);
+    
     eventManager.add(elements.reloadBtn, 'click', () => location.reload());
 
     try {
@@ -301,7 +326,8 @@ async function startEmulator(config) {
         }
 
         // --- CRITICAL MEMORY FIX ---
-        // Release heavy file references immediately
+        // Release heavy file references immediately from the config object
+        // The V86 instance has likely already read the blob URL or buffered it.
         ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'].forEach(k => {
             if (config[k]) config[k] = null;
             if (selectedOS && selectedOS[k]) selectedOS[k] = null;
@@ -323,6 +349,7 @@ async function startEmulator(config) {
             elements.loadingIndicator.classList.add('hidden');
             
             // Release Blob URLs - Browser has likely buffered it by now
+            // Doing this here ensures we don't hold dual copies (Blob + Buffer) for long
             cleanupBlobUrls();
 
             const interactionHandler = () => {
@@ -342,7 +369,7 @@ async function startEmulator(config) {
                         try {
                             emulator.lock_mouse();
                         } catch(e) {
-                            console.warn("Mouse lock failed:", e);
+                            // Silent fail on mobile
                         }
                     }
                 }
@@ -429,16 +456,15 @@ function handleCriticalError(error) {
     console.error("Critical VM Error:", error);
     
     if (msg.includes("requestPointerLock") || msg.includes("pointer lock")) {
-        console.warn("Suppressing PointerLock error:", msg);
+        // Suppress
         return;
     }
 
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
-        // Specific advice for Snapshot users
         if (selectedOS && selectedOS.sourceType === 'snapshot') {
-             showError("Out of Memory! The snapshot requires more RAM than your device has. Try creating a new machine with less RAM (e.g., 64MB or 128MB).");
+             showError("Out of Memory! The snapshot requires more RAM than your device has.");
         } else {
-             showError("Out of Memory! The VM crashed. Try lowering RAM allocation in the creation menu.");
+             showError("Out of Memory! The VM crashed. Try lowering RAM allocation.");
         }
     } else if (msg.includes("CSP") || msg.includes("Content Security Policy")) {
          showError("Security Error: CSP Blocked execution.");

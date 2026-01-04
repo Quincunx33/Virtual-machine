@@ -44,6 +44,8 @@ const elements = {
     loadSnapshotBtn: document.getElementById('load-snapshot-btn'),
     snapshotUpload: document.getElementById('snapshot-upload'),
     resetAppBtn: document.getElementById('reset-app-btn'),
+    cleanStorageBtn: document.getElementById('clean-storage-btn'),
+    storageDisplay: document.getElementById('storage-display'),
     
     editVmModal: document.getElementById('edit-vm-modal'),
     closeEditModalBtn: document.getElementById('close-edit-modal-btn'),
@@ -179,6 +181,9 @@ function initDB() {
         request.onsuccess = (event) => {
             db = event.target.result;
             resolve(db);
+            // Auto cleanup old temp data on boot
+            cleanupOrphans();
+            updateStorageDisplay();
         };
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
@@ -195,9 +200,71 @@ function storeInDB(storeName, data) {
         const transaction = db.transaction([storeName], 'readwrite');
         const store = transaction.objectStore(storeName);
         const request = store.put(data);
-        request.onsuccess = () => resolve();
+        request.onsuccess = () => {
+            resolve();
+            updateStorageDisplay();
+        };
         request.onerror = (e) => reject("Error storing data: " + e.target.error);
     });
+}
+
+function deleteFromDB(id) {
+    return new Promise((resolve, reject) => {
+        if (!db) { reject("DB not initialized"); return; }
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.delete(id);
+        request.onsuccess = () => {
+            console.log("Deleted from storage:", id);
+            resolve();
+            updateStorageDisplay();
+        };
+        request.onerror = (e) => reject("Delete error: " + e.target.error);
+    });
+}
+
+// --- Storage Management ---
+async function updateStorageDisplay() {
+    if (elements.storageDisplay && navigator.storage && navigator.storage.estimate) {
+        try {
+            const { usage, quota } = await navigator.storage.estimate();
+            const usedMB = (usage / (1024 * 1024)).toFixed(0);
+            elements.storageDisplay.innerHTML = `<i class="fas fa-hdd mr-1"></i>${usedMB} MB Used`;
+        } catch(e) {
+            elements.storageDisplay.textContent = "Storage: Unknown";
+        }
+    }
+}
+
+// Cleans up any "local" (temp) VMs that are lingering in DB but not running
+async function cleanupOrphans() {
+    if (!db) return;
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.openCursor();
+    
+    let deletedCount = 0;
+    
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            const vm = cursor.value;
+            // 'isLocal' means it was created from a file upload (not a saved preset)
+            // If it exists on boot, it is a leftover from a previous session.
+            // Safe to delete.
+            if (vm.isLocal) {
+                console.log(`Cleaning up orphan VM data: ${vm.name} (${vm.id})`);
+                cursor.delete();
+                deletedCount++;
+            }
+            cursor.continue();
+        } else {
+             if(deletedCount > 0) {
+                 console.log(`Cleaned ${deletedCount} orphan files.`);
+                 updateStorageDisplay();
+             }
+        }
+    };
 }
 
 // --- Communication ---
@@ -206,9 +273,14 @@ let vmWindow = null;
 let runningVmId = null;
 
 channel.onmessage = async (event) => {
-    const { type, id } = event.data;
+    const { type, id, shouldDelete } = event.data;
     
     if (type === 'VM_WINDOW_CLOSED' || type === 'stopped') {
+        if (shouldDelete && id) {
+            // Signal from child process to delete the temp data
+            deleteFromDB(id).catch(console.error);
+        }
+        
         if (runningVmId && (id === runningVmId || !id)) {
             showToast("Machine stopped", 'info');
             handleVMShutdown(runningVmId);
@@ -326,7 +398,7 @@ function updatePlaceholderVisibility() {
 // --- Event Handlers ---
 function setupEventListeners() {
     elements.resetAppBtn.addEventListener('click', async () => {
-        if(confirm("Factory Reset: Delete all machines and data?")) {
+        if(confirm("Factory Reset: Delete ALL machines and clear storage?")) {
             localStorage.clear();
             if (db) db.close();
             const req = indexedDB.deleteDatabase(DB_NAME);
@@ -337,6 +409,18 @@ function setupEventListeners() {
             };
         }
     });
+    
+    // Explicit Cache Clean
+    if (elements.cleanStorageBtn) {
+        elements.cleanStorageBtn.addEventListener('click', () => {
+             cleanupOrphans();
+             showToast("Checking for unused files...", "info");
+             setTimeout(() => {
+                 showToast("Storage optimized.", "success");
+                 updateStorageDisplay();
+             }, 1000);
+        });
+    }
 
     const toggleMenu = () => {
         elements.sidebar.classList.toggle('-translate-x-full');
@@ -363,9 +447,14 @@ function setupEventListeners() {
             e.preventDefault(); e.stopPropagation();
             if(confirm("Delete this machine?")) {
                 const item = removeBtn.closest('.vm-list-item');
-                machines = machines.filter(m => m.id !== item.dataset.id);
+                const idToDelete = item.dataset.id;
+                machines = machines.filter(m => m.id !== idToDelete);
                 saveMachines();
                 item.remove();
+                
+                // Also clean from DB immediately
+                deleteFromDB(idToDelete);
+                
                 showToast("Machine deleted", "success");
                 if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
                 updatePlaceholderVisibility();

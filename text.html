@@ -84,9 +84,15 @@
                 <button id="load-snapshot-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
                     <i class="fas fa-upload"></i> Load
                 </button>
-                <button id="reset-app-btn" class="w-full bg-red-900/50 hover:bg-red-800 text-red-200 font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs border border-red-800/50">
-                    <i class="fas fa-trash"></i> Reset
+                <button id="clean-storage-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
+                    <i class="fas fa-broom"></i> Clean
                 </button>
+            </div>
+            
+            <!-- Storage Info & Full Reset -->
+            <div class="pt-2 border-t border-gray-700/30 flex justify-between items-center text-[10px] text-gray-500 font-mono">
+                <span id="storage-display"><i class="fas fa-hdd mr-1"></i>Calculating...</span>
+                <button id="reset-app-btn" class="text-red-400 hover:text-red-300 transition-colors">Factory Reset</button>
             </div>
         </div>
     </aside>
