@@ -281,13 +281,17 @@ async function startEmulator(config) {
         autostart: true,
         disable_mouse: false,
         disable_keyboard: false,
+        // FIX: Always load BIOS/VGA BIOS. 
+        // Snapshots usually need these to be present for the ROM mapping to work correctly,
+        // otherwise the screen may remain blank.
+        bios: { url: "seabios.bin" },
+        vga_bios: { url: "vgabios.bin" }
     };
 
     try {
         if (config.sourceType === 'snapshot') {
             // --- SNAPSHOT MODE ---
-            // FIX: Explicitly set memory size even for snapshots.
-            // If the snapshot state is larger than the default 64MB, V86 will crash without this.
+            // Fix: Set memory size to avoid OOM crash if snapshot is large
             v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
             v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
             
@@ -297,8 +301,6 @@ async function startEmulator(config) {
             
         } else {
             // --- BOOT MODE ---
-            v86Config.bios = { url: "seabios.bin" };
-            v86Config.vga_bios = { url: "vgabios.bin" };
             v86Config.acpi = !!config.acpi;
             v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
             v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
@@ -314,8 +316,10 @@ async function startEmulator(config) {
                 }
             };
 
+            // Custom BIOS overrides if provided
             addFile(config.biosFile, 'bios'); 
             addFile(config.vgaBiosFile, 'vga_bios');
+            
             addFile(config.cdromFile, 'cdrom');
             addFile(config.fdaFile, 'fda');
             addFile(config.fdbFile, 'fdb');
@@ -353,6 +357,11 @@ async function startEmulator(config) {
             
             // Release Blob URLs as V86 has loaded them into WASM/Buffer
             cleanupBlobUrls();
+            
+            // Fix: Explicitly start the emulator loop to ensure it's not paused after snapshot load
+            if(!emulator.is_running()) {
+                try { emulator.run(); } catch(e) {}
+            }
 
             const interactionHandler = () => {
                 if (emulator && emulator.is_running()) {
