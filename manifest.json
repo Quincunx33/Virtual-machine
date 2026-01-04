@@ -1,0 +1,21 @@
+{
+  "name": "Web VM Emulator",
+  "short_name": "WebVM",
+  "start_url": "./text.html",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "IMG_1074.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "IMG_1074.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
