@@ -537,54 +537,61 @@ function renderAllMachineItems() {
 }
 
 function renderMachineItem(machine) {
-    let iconClass, typeLabel;
+    let iconClass = 'fa-compact-disc';
+    let typeLabel = 'ISO';
+    let iconColorClass = 'text-indigo-400';
 
     if (machine.sourceType === 'snapshot') {
-        iconClass = 'fa-history';
+        iconClass = 'fa-clock-rotate-left'; // Modern icon for history/snapshot
         typeLabel = 'State';
+        iconColorClass = 'text-purple-400';
     } else if (machine.sourceType === 'floppy') {
-        iconClass = 'fa-save';
+        iconClass = 'fa-floppy-disk';
         typeLabel = 'Floppy';
+        iconColorClass = 'text-yellow-400';
     } else if (machine.sourceType === 'hda') {
-        iconClass = 'fa-hdd';
+        iconClass = 'fa-hard-drive';
         typeLabel = 'HDD';
-    } else { 
-        iconClass = 'fa-compact-disc';
-        typeLabel = 'ISO';
+        iconColorClass = 'text-blue-400';
     }
     
     if (machine.bzimageFile) {
         iconClass = 'fa-linux';
         typeLabel = 'Linux';
+        iconColorClass = 'text-orange-400';
     }
     
     const itemHTML = `
         <div class="vm-list-item group flex items-center p-3 rounded-xl text-sm font-medium hover:bg-gray-700/50 transition-colors relative cursor-pointer border border-transparent hover:border-gray-600 mb-2" data-id="${machine.id}">
-            <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 relative">
-                <i class="fab ${iconClass} text-indigo-400 text-lg"></i>
-                <span class="absolute -bottom-1 -right-1 bg-gray-700 text-[8px] px-1 rounded border border-gray-600">${typeLabel}</span>
+            <div class="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0 relative shadow-inner">
+                <i class="fas ${iconClass} ${iconColorClass} text-xl"></i>
+                <span class="absolute -bottom-1 -right-1 bg-gray-700 text-[8px] px-1.5 py-0.5 rounded border border-gray-600 font-mono text-gray-300 shadow-sm">${typeLabel}</span>
             </div>
+            
             <div class="ml-3 flex-1 overflow-hidden">
-                <p class="truncate font-semibold text-white">${machine.name}</p>
-                <div class="flex items-center space-x-2 text-[10px] text-gray-400 mt-0.5">
-                    <span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">${machine.ram}MB</span>
-                    ${machine.network ? '<i class="fas fa-wifi text-green-400" title="Net ON"></i>' : ''}
+                <p class="truncate font-semibold text-white group-hover:text-indigo-300 transition-colors">${machine.name}</p>
+                <div class="flex items-center space-x-2 text-[10px] text-gray-400 mt-1">
+                    <span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 flex items-center gap-1"><i class="fas fa-memory text-[9px]"></i> ${machine.ram}MB</span>
+                    ${machine.network ? '<span class="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700 flex items-center gap-1"><i class="fas fa-globe text-blue-400 text-[9px]"></i> Net</span>' : ''}
                 </div>
             </div>
             
-            <div class="vm-status-indicator hidden flex-col items-end gap-1 absolute right-3 top-3">
-                 <span class="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            <!-- Status Indicator (Hidden by default, shown when running) -->
+            <div class="vm-status-indicator hidden flex items-center gap-1.5 absolute right-3 top-3 bg-green-900/30 px-2 py-1 rounded-full border border-green-500/30 backdrop-blur-sm">
+                 <span class="flex h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                 <span class="text-[9px] font-bold text-green-400 uppercase tracking-wide">Running</span>
             </div>
 
-            <div class="vm-actions flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity absolute right-3">
-                 <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95" title="Start">
-                    <i class="fas fa-play text-xs"></i>
+            <!-- Actions (Visible on hover on desktop, always visible on mobile, hidden when running) -->
+            <div class="vm-actions flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-200 absolute right-3 z-10">
+                 <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 hover:scale-110" title="Start Machine">
+                    <i class="fas fa-play text-xs pl-0.5"></i>
                 </button>
-                <button class="edit-vm-btn text-gray-400 hover:text-white p-2 hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
-                    <i class="fas fa-cog"></i>
+                <button class="edit-vm-btn bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg transition-all w-8 h-8 flex items-center justify-center hover:scale-110" title="Edit Configuration">
+                    <i class="fas fa-pen text-xs"></i>
                 </button>
-                <button class="remove-vm-btn text-gray-500 hover:text-red-400 p-2 hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
-                    <i class="fas fa-trash-alt"></i>
+                <button class="remove-vm-btn bg-gray-700 hover:bg-red-900/50 text-gray-300 hover:text-red-400 rounded-lg transition-all w-8 h-8 flex items-center justify-center hover:scale-110" title="Delete Machine">
+                    <i class="fas fa-trash text-xs"></i>
                 </button>
             </div>
         </div>`;
