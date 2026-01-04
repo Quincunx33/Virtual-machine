@@ -1,4 +1,5 @@
 
+
 // --- Event Manager Class (The Memory Police) ---
 class EventManager {
     constructor() {
@@ -305,12 +306,19 @@ async function startEmulator(config) {
         autostart: true,
         disable_mouse: false,
         disable_keyboard: false,
-        memory_size: (config.ram || 64) * 1024 * 1024, // Default lower for safety
-        vga_memory_size: (config.vram || 4) * 1024 * 1024,
+        // memory_size is removed from default so it can be auto-detected for snapshots
         bios: { url: "seabios.bin" },
         vga_bios: { url: "vgabios.bin" },
         acpi: !!config.acpi
     };
+
+    // FIX: Only set memory if NOT loading a state.
+    // If loading a state, libv86 reads the memory size from the state header.
+    // Setting it explicitly to the wrong value causes boot failure.
+    if (config.sourceType !== 'snapshot') {
+        v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
+        v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
+    }
 
     try {
         if (config.sourceType === 'snapshot') {
