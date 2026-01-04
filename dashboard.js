@@ -13,7 +13,7 @@ window.onerror = function(msg, url, line) {
     }
 };
 
-// --- Storage Service (Optimized Database Handler) ---
+// --- Storage Service (Optimized for Data Integrity) ---
 class StorageService {
     constructor() {
         this.dbName = 'WebEmulatorDB';
@@ -90,15 +90,26 @@ class StorageService {
         return this._runTransaction(this.stores.SNAPSHOTS, 'readwrite', store => store.put(record));
     }
 
-    async deleteMachine(id) {
+    // --- ATOMIC DELETE (Crucial for Ghost Prevention) ---
+    // Deletes from BOTH stores in a SINGLE transaction.
+    // If one fails, both rollback. This guarantees no orphaned data.
+    async deleteMachineAtomic(id) {
         const db = await this.init();
         return new Promise((resolve, reject) => {
             const tx = db.transaction([this.stores.CONFIGS, this.stores.SNAPSHOTS], 'readwrite');
-            tx.oncomplete = () => resolve();
-            tx.onerror = (e) => reject(e);
             
-            tx.objectStore(this.stores.CONFIGS).delete(id);
-            tx.objectStore(this.stores.SNAPSHOTS).delete(id);
+            tx.oncomplete = () => resolve();
+            tx.onerror = (e) => reject(e.target.error);
+            tx.onabort = () => reject(new Error("Transaction aborted"));
+
+            // Perform deletions
+            try {
+                tx.objectStore(this.stores.CONFIGS).delete(id);
+                tx.objectStore(this.stores.SNAPSHOTS).delete(id);
+            } catch(e) {
+                // If any error occurs here, the transaction naturally fails
+                console.error(e);
+            }
         });
     }
 
@@ -147,12 +158,12 @@ class StorageService {
                 const store = tx.objectStore(storeName);
                 const request = operation(store);
                 
-                tx.oncomplete = () => resolve(request ? request.result : null); // Fallback if operation doesn't return request
-                if(request) request.onsuccess = () => {}; // Let tx.oncomplete handle resolve
+                tx.oncomplete = () => resolve(request ? request.result : null); 
+                if(request) request.onsuccess = () => {}; 
                 
                 tx.onerror = (e) => {
                     const err = e.target.error;
-                    if (err.name === 'QuotaExceededError') {
+                    if (err && err.name === 'QuotaExceededError') {
                         reject("Storage Full! Browser quota exceeded.");
                     } else {
                         reject(err);
@@ -312,8 +323,8 @@ channel.onmessage = async (event) => {
         channel.postMessage({ type: 'CONFIG_SYNCED', id });
     } else if (type === 'SNAPSHOT_SAVED') {
         showToast("Snapshot saved successfully!", "success");
-        renderAllMachineItems();
-        updateStorageDisplay();
+        // Reload data to reflect new timestamps
+        loadMachines();
     }
 };
 
@@ -326,6 +337,7 @@ async function loadMachines() {
         await renderAllMachineItems();
         updatePlaceholderVisibility();
         updateStorageDisplay();
+        checkForGhosts(); // Auto check on load
     } catch (e) {
         console.error("Failed to load machines", e);
         showToast("Failed to load data from database", "error");
@@ -429,11 +441,11 @@ async function createVMFromModal() {
         createdAt: Date.now()
     };
     
-    delete machine.primaryFile; // Don't store the raw file here if possible, but for current v86 config we might need it. 
-    // Optimization: If primaryFile is large, we should be careful. 
-    // However, for Config Store, we keep metadata. 
-    // The File objects (primaryFile, etc) are currently stored in IDB inside the config object. 
-    // This is "okay" for ISOs (~500MB) but bad for Snapshots. We fixed Snapshots.
+    // We clean up large file references here to avoid storing them in `vm_configs`
+    // Note: If using ISO (cd), we currently don't store the ISO in DB (to save space), 
+    // we rely on the user having the file or browser caching. 
+    // In a full implementation, you'd store the ISO in `vm_snapshots` or a `vm_media` store.
+    delete machine.primaryFile; 
     
     try {
         await storageService.saveConfig(machine);
@@ -454,6 +466,19 @@ async function handleSnapshotUpload(e) {
 
     if (detectedSystemSpecs.isPotato && file.size > 100 * 1024 * 1024) {
         if (!confirm(`Warning: Large snapshot (${(file.size/1024/1024).toFixed(0)}MB). May crash. Continue?`)) {
+            e.target.value = null;
+            return;
+        }
+    }
+
+    // --- DUPLICATE PREVENTION ---
+    // Check if we already have a snapshot with this exact name and size
+    // This isn't a perfect hash check, but it's fast and effective for user errors.
+    const snapshots = await storageService.getSnapshotsMetadata();
+    const isDuplicate = snapshots.some(s => s.size === file.size && machines.some(m => m.id === s.id && m.name === file.name.replace(/\.(bin|v86state|86state)$/i, "")));
+
+    if (isDuplicate) {
+        if (!confirm("A machine with this name and size already exists. Import copy anyway?")) {
             e.target.value = null;
             return;
         }
@@ -496,14 +521,20 @@ async function handleSnapshotUpload(e) {
 
 async function deleteMachine(id) {
     try {
+        // UI Update first for responsiveness
         machines = machines.filter(m => m.id !== id);
         renderAllMachineItems();
         updatePlaceholderVisibility();
-        await storageService.deleteMachine(id);
+        
+        // Atomic DB Delete
+        await storageService.deleteMachineAtomic(id);
+        
         updateStorageDisplay();
     } catch(e) {
         console.error(e);
         showToast("Error deleting machine", "error");
+        // Reload to ensure UI matches DB state if error occurred
+        setTimeout(loadMachines, 1000);
     }
 }
 

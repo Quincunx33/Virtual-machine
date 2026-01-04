@@ -533,8 +533,13 @@ async function saveSnapshot(isAuto = false) {
         // ArrayBuffers are fine for storage, but Blobs are better for future retrieval via URL.
         const blob = new Blob([state]);
 
+        // DUPLICATION PREVENTION: 
+        // We use the ID from the currently loaded OS configuration.
+        // This ensures we overwrite the existing snapshot entry (Update) instead of creating a new one (Insert).
+        const currentId = vmManager.selectedOS.id;
+
         const snapshotData = {
-            id: vmManager.selectedOS.id,
+            id: currentId,
             state: blob, // Store as Blob
             timestamp: Date.now(),
             size: state.byteLength
@@ -549,9 +554,9 @@ async function saveSnapshot(isAuto = false) {
         });
 
         if (isAuto) {
-            vmManager.channel.postMessage({ type: 'AUTO_SAVE_COMPLETE', id: vmManager.selectedOS.id });
+            vmManager.channel.postMessage({ type: 'AUTO_SAVE_COMPLETE', id: currentId });
         } else {
-            vmManager.channel.postMessage({ type: 'SNAPSHOT_SAVED', id: vmManager.selectedOS.id });
+            vmManager.channel.postMessage({ type: 'SNAPSHOT_SAVED', id: currentId });
             if (confirm("Snapshot saved successfully!\n\nDo you want to close this machine now?")) {
                 vmManager.cleanup();
                 window.close();
