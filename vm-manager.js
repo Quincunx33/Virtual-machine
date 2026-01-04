@@ -1,3 +1,4 @@
+
 // --- Event Manager Class (The Memory Police) ---
 class EventManager {
     constructor() {
@@ -42,6 +43,8 @@ let isShuttingDown = false;
 let db = null;
 let channel = new BroadcastChannel('vm_channel');
 let activeBlobUrls = []; // Track Blob URLs to release memory
+let cpuProfile = 'balanced';
+let screenUpdateInterval = null;
 
 // --- Elements ---
 const elements = {
@@ -61,6 +64,9 @@ const elements = {
 function fullCleanup() {
     if (isShuttingDown) return;
     isShuttingDown = true;
+    
+    // Stop custom intervals
+    if (screenUpdateInterval) clearInterval(screenUpdateInterval);
     
     // 1. Force Revoke Blob URLs IMMEDIATELY (Critical for Storage/RAM)
     cleanupBlobUrls();
@@ -262,13 +268,35 @@ function fitScreen() {
 
         target.style.transformOrigin = 'center center';
         target.style.transform = `scale(${scale})`;
-        target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
+        
+        // Apply scaling preference
+        const scaleMode = selectedOS ? selectedOS.graphicsScale : 'pixelated';
+        if (scaleMode === 'smooth') {
+             target.style.imageRendering = 'auto';
+        } else {
+             target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
+        }
     });
 }
 
 // --- Emulator Startup with Robust Error Handling ---
 async function startEmulator(config) {
     if (isShuttingDown) return;
+    
+    // CPU/Battery Profile Logic
+    cpuProfile = config.cpuProfile || 'balanced';
+    
+    // MOBILE OVERRIDE: If user didn't explicitly choose 'high', and it's a phone, force low/balanced.
+    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    if (isMobile && cpuProfile !== 'high' && cpuProfile !== 'potato') {
+        cpuProfile = 'low'; // Force Low power on mobile default
+    }
+    
+    // POTATO MODE FORCE
+    // Check hardware concurrency to detect very low end devices (e.g. 4 core low clocks)
+    if(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4 && isMobile) {
+        cpuProfile = 'potato';
+    }
     
     // Base configuration
     let v86Config = {
@@ -277,10 +305,11 @@ async function startEmulator(config) {
         autostart: true,
         disable_mouse: false,
         disable_keyboard: false,
-        memory_size: (config.ram || 128) * 1024 * 1024,
-        vga_memory_size: (config.vram || 8) * 1024 * 1024,
+        memory_size: (config.ram || 64) * 1024 * 1024, // Default lower for safety
+        vga_memory_size: (config.vram || 4) * 1024 * 1024,
         bios: { url: "seabios.bin" },
-        vga_bios: { url: "vgabios.bin" }
+        vga_bios: { url: "vgabios.bin" },
+        acpi: !!config.acpi
     };
 
     try {
@@ -316,11 +345,11 @@ async function startEmulator(config) {
                 v86Config.cmdline = config.cmdline;
             }
 
-            // Set Boot Order based on available media
-            if (config.cdromFile) v86Config.boot_order = 0x213; // CD, Floppy, HDD
-            else if (config.fdaFile) v86Config.boot_order = 0x123; // Floppy, HDD, CD
-            else if (config.hdaFile) v86Config.boot_order = 0x312; // HDD, CD, Floppy
-            else v86Config.boot_order = 0x213;
+            // Set Boot Order
+            // 0x213 = CD, Floppy, HDD (Default)
+            // 0x123 = Floppy, HDD, CD
+            // 0x312 = HDD, CD, Floppy
+            v86Config.boot_order = config.bootOrder || 0x213;
 
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
@@ -378,13 +407,28 @@ async function startEmulator(config) {
             eventManager.add(elements.screenContainer, 'click', interactionHandler);
             eventManager.add(elements.screenContainer, 'touchstart', interactionHandler);
             
+            // Apply Initial Fit
             fitScreen();
+            
+            // Apply Performance Profile Logic (Throttle resize/redraw events)
+            // POTATO MODE: 1000ms check interval = 1 FPS max for resizing checks.
+            // This drastically reduces main thread load on Infinix devices.
+            let checkInterval = 200; // Default
+            
+            if (cpuProfile === 'high') checkInterval = 50;
+            else if (cpuProfile === 'low') checkInterval = 2000;
+            else if (cpuProfile === 'potato') checkInterval = 3000; // Extremely lazy UI updates
+            else checkInterval = 500;
+            
             let checkCount = 0;
-            const bootInterval = setInterval(() => {
-                fitScreen();
+            screenUpdateInterval = setInterval(() => {
+                // Only fit screen if dimensions changed or first few seconds
+                if (checkCount < 5 || window.wasResized) {
+                    fitScreen();
+                    window.wasResized = false;
+                }
                 checkCount++;
-                if (checkCount > 20) clearInterval(bootInterval); 
-            }, 100);
+            }, checkInterval);
         });
 
         emulator.add_listener("screen-set-mode", () => {
@@ -399,7 +443,7 @@ async function startEmulator(config) {
 }
 
 // Add Global Resize Listener
-eventManager.add(window, 'resize', fitScreen);
+eventManager.add(window, 'resize', () => { window.wasResized = true; fitScreen(); });
 
 // --- Save Snapshot (Paused & Optimized) ---
 async function saveSnapshot() {
@@ -459,7 +503,7 @@ async function saveSnapshot() {
             elements.loadingText.textContent = "Preparing Download...";
             
             const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-            if (state.byteLength > 150 * 1024 * 1024 && isMobile) {
+            if (state.byteLength > 100 * 1024 * 1024 && isMobile) {
                 if(!confirm(`Warning: Snapshot is large (~${Math.round(state.byteLength/1024/1024)}MB). This might crash on mobile. Continue?`)) {
                     state = null;
                     throw new Error("User cancelled save due to size warning");
