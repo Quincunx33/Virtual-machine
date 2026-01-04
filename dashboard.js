@@ -437,58 +437,76 @@ async function updateStorageDisplay() {
 async function checkForGhosts() {
     if (!db) return;
     
-    // This check is now simpler: any file in DB storage should have a corresponding
-    // entry in our 'machines' array after loading.
-    const validIDs = new Set(machines.map(m => m.id));
+    // We compare Snapshot Store vs Config Store
+    // Integrity Rule: Every Snapshot MUST have a corresponding Config.
+    // If a snapshot ID exists but that ID is missing from configs, it is a GHOST.
 
-    const transaction = db.transaction([STORE_CONFIGS], 'readonly');
-    const store = transaction.objectStore(STORE_CONFIGS);
-    const request = store.getAllKeys();
+    const [configKeys, snapshotKeys] = await Promise.all([
+        new Promise(resolve => {
+            const t = db.transaction([STORE_CONFIGS], 'readonly');
+            t.objectStore(STORE_CONFIGS).getAllKeys().onsuccess = (e) => resolve(new Set(e.target.result.map(String)));
+        }),
+        new Promise(resolve => {
+             const t = db.transaction([STORE_SNAPSHOTS], 'readonly');
+             t.objectStore(STORE_SNAPSHOTS).getAllKeys().onsuccess = (e) => resolve(e.target.result);
+        })
+    ]);
 
-    request.onsuccess = (event) => {
-        const dbKeys = event.target.result;
-        let ghostCount = 0;
-        
-        dbKeys.forEach(key => {
-            if (!validIDs.has(String(key))) {
-                ghostCount++;
-            }
-        });
-
-        if (ghostCount > 0) {
-            if(elements.ghostFileCount) elements.ghostFileCount.textContent = ghostCount;
-            if(elements.storageDoctorPanel) elements.storageDoctorPanel.classList.remove('hidden');
-        } else {
-            if(elements.storageDoctorPanel) elements.storageDoctorPanel.classList.add('hidden');
+    let ghostCount = 0;
+    
+    // Check snapshots that don't have parents
+    snapshotKeys.forEach(key => {
+        if (!configKeys.has(String(key))) {
+            ghostCount++;
         }
-    };
+    });
+    
+    // Also check for config entries that are not in our 'machines' array (if array is loaded)
+    // This handles cases where 'machines' array desyncs from DB
+    if(machines.length > 0) {
+        const machineIds = new Set(machines.map(m => m.id));
+        configKeys.forEach(key => {
+            if(!machineIds.has(String(key))) ghostCount++;
+        });
+    }
+
+    if (ghostCount > 0) {
+        if(elements.ghostFileCount) elements.ghostFileCount.textContent = ghostCount;
+        if(elements.storageDoctorPanel) elements.storageDoctorPanel.classList.remove('hidden');
+    } else {
+        if(elements.storageDoctorPanel) elements.storageDoctorPanel.classList.add('hidden');
+    }
 }
 
 async function nukeGhostFiles() {
     if (!db) return;
     elements.nukeGhostsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning...';
     
-    const validIDs = new Set(machines.map(m => m.id));
-    
-    const transaction = db.transaction([STORE_CONFIGS, STORE_SNAPSHOTS], 'readwrite');
-    const configStore = transaction.objectStore(STORE_CONFIGS);
+    // Get valid IDs from configs
+    const validIDs = await new Promise(resolve => {
+        const t = db.transaction([STORE_CONFIGS], 'readonly');
+        t.objectStore(STORE_CONFIGS).getAllKeys().onsuccess = (e) => resolve(new Set(e.target.result.map(String)));
+    });
+
+    const transaction = db.transaction([STORE_SNAPSHOTS], 'readwrite');
     const snapshotStore = transaction.objectStore(STORE_SNAPSHOTS);
     let deletedCount = 0;
 
-    const request = configStore.openCursor();
+    const request = snapshotStore.openCursor();
     request.onsuccess = (event) => {
         const cursor = event.target.result;
         if (cursor) {
+            // If this snapshot ID is NOT in our valid config IDs, kill it.
             if (!validIDs.has(String(cursor.key))) {
                 cursor.delete();
-                snapshotStore.delete(cursor.key); // Also delete associated snapshot
                 deletedCount++;
             }
             cursor.continue();
         } else {
-            // Finished
-            setTimeout(() => {
-                showToast(`Deleted ${deletedCount} ghost machines.`, "success");
+             // Transaction done
+             // Also sync configs with machines array if needed (simplified here to just snapshots)
+             setTimeout(() => {
+                showToast(`Cleaned ${deletedCount} orphaned files.`, "success");
                 elements.nukeGhostsBtn.innerHTML = 'Delete Ghost Files';
                 elements.storageDoctorPanel.classList.add('hidden');
                 updateStorageDisplay();
@@ -526,6 +544,10 @@ channel.onmessage = async (event) => {
     } else if (type === 'SNAPSHOT_SAVED') {
         showToast("Snapshot saved successfully!", "success");
         renderAllMachineItems();
+    } else if (type === 'AUTO_SAVE_COMPLETE') {
+        // Subtle toast for auto-saves
+        console.log("Auto-save confirmed.");
+        updateStorageDisplay();
     }
 };
 
@@ -863,12 +885,36 @@ function setupEventListeners() {
     });
 }
 
-async function deleteMachine(id) {
-    machines = machines.filter(m => m.id !== id);
-    await deleteFromDB(STORE_CONFIGS, id);
-    await deleteFromDB(STORE_SNAPSHOTS, id);
-    renderAllMachineItems();
-    updatePlaceholderVisibility();
+// --- Atomic Delete Strategy ---
+function deleteMachine(id) {
+    return new Promise((resolve, reject) => {
+        // Remove from memory immediately
+        machines = machines.filter(m => m.id !== id);
+        renderAllMachineItems();
+        updatePlaceholderVisibility();
+
+        if (!db) { resolve(); return; }
+
+        // Use a single transaction to delete from both stores at once
+        // This prevents "Ghost" snapshots if one delete fails
+        const transaction = db.transaction([STORE_CONFIGS, STORE_SNAPSHOTS], 'readwrite');
+        
+        transaction.oncomplete = () => {
+            updateStorageDisplay();
+            resolve();
+        };
+        
+        transaction.onerror = (e) => {
+            console.error("Delete failed", e);
+            // Even if DB fail, UI is updated.
+            // Next reload will show ghost files if any, which nukeGhostFiles can fix.
+            resolve();
+        };
+
+        // Execute deletions
+        transaction.objectStore(STORE_CONFIGS).delete(id);
+        transaction.objectStore(STORE_SNAPSHOTS).delete(id);
+    });
 }
 
 async function openStorageManager() {
@@ -883,13 +929,32 @@ async function openStorageManager() {
 
     const snapshotMap = new Map(snapshots.map(s => [s.id, s]));
     
+    // Improved Visualization
+    const usedBytes = storageEstimate.usage || 0;
+    const totalBytes = storageEstimate.quota || 1;
+    const usedPercent = Math.min(100, Math.max(1, (usedBytes / totalBytes) * 100));
+    
+    let barColor = 'bg-indigo-500';
+    if(usedPercent > 80) barColor = 'bg-red-500';
+    else if(usedPercent > 50) barColor = 'bg-yellow-500';
+
     elements.storageManagerSummary.innerHTML = `
-        <p class="text-lg font-bold text-white">${formatBytes(storageEstimate.usage)} used</p>
-        <p class="text-xs text-gray-500">out of ${formatBytes(storageEstimate.quota)} available</p>
+        <div class="flex justify-between items-end mb-2">
+            <div>
+                <p class="text-2xl font-bold text-white">${formatBytes(usedBytes)}</p>
+                <p class="text-xs text-gray-400">used of ${formatBytes(totalBytes)} available</p>
+            </div>
+            <div class="text-right">
+                 <p class="text-sm font-mono text-gray-300">${usedPercent.toFixed(1)}%</p>
+            </div>
+        </div>
+        <div class="w-full bg-gray-700 h-3 rounded-full overflow-hidden shadow-inner">
+            <div class="${barColor} h-full transition-all duration-500 ease-out" style="width: ${usedPercent}%"></div>
+        </div>
     `;
 
     if (configs.length === 0) {
-        elements.storageItemsList.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">No machines stored.</td></tr>`;
+        elements.storageItemsList.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-gray-500"><i class="fas fa-box-open text-4xl mb-3 opacity-50"></i><br>Storage is empty.</td></tr>`;
         return;
     }
 
@@ -897,14 +962,35 @@ async function openStorageManager() {
         const snapshot = snapshotMap.get(config.id);
         const baseSize = calculateConfigSize(config);
         
+        let iconClass = 'fa-compact-disc text-gray-400';
+        if(config.sourceType === 'floppy') iconClass = 'fa-floppy-disk text-yellow-600';
+        else if(config.sourceType === 'hda') iconClass = 'fa-hard-drive text-blue-500';
+        
         return `
-            <tr class="border-b border-gray-700 hover:bg-gray-700/50">
-                <td class="px-4 py-3 font-medium text-white whitespace-nowrap">${config.name}</td>
-                <td class="px-4 py-3">${baseSize > 0 ? formatBytes(baseSize) : '--'}</td>
-                <td class="px-4 py-3">${snapshot ? formatBytes(snapshot.size) : '--'}</td>
-                <td class="px-4 py-3 text-right">
-                    <button class="delete-storage-item-btn text-red-500 hover:text-red-400 font-bold" data-id="${config.id}" data-name="${config.name}">
-                        Delete
+            <tr class="border-b border-gray-700 hover:bg-gray-700/30 transition-colors group">
+                <td class="px-4 py-4">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded bg-gray-800 flex items-center justify-center mr-3 border border-gray-600">
+                             <i class="fas ${iconClass}"></i>
+                        </div>
+                        <div>
+                            <div class="font-medium text-white">${config.name}</div>
+                            <div class="text-[10px] text-gray-500 font-mono">${config.id}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-4 text-gray-300 text-xs font-mono">${baseSize > 0 ? formatBytes(baseSize) : '<span class="text-gray-600">--</span>'}</td>
+                <td class="px-4 py-4 text-xs">
+                    ${snapshot 
+                        ? `<div class="flex flex-col">
+                             <span class="text-purple-300 font-mono">${formatBytes(snapshot.size)}</span>
+                             <span class="text-[9px] text-gray-500">${timeAgo(snapshot.timestamp)}</span>
+                           </div>` 
+                        : '<span class="text-gray-600 font-mono">--</span>'}
+                </td>
+                <td class="px-4 py-4 text-right">
+                    <button class="delete-storage-item-btn text-gray-500 hover:text-red-400 p-2 rounded hover:bg-red-900/20 transition-all" data-id="${config.id}" data-name="${config.name}" title="Delete">
+                        <i class="fas fa-trash-alt"></i>
                     </button>
                 </td>
             </tr>
