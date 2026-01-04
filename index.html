@@ -388,23 +388,29 @@
 </dict>
 </plist>`;
 
-                        // Force navigation to Data URI using FileReader
-                        // This bypasses the 'Save to Files' dialog on iOS 17+ and forces the profile handler
+                        // FIX: Use URL.createObjectURL instead of FileReader/DataURI
+                        // This forces the correct MIME type in memory, bypassing server header issues
+                        // and satisfying iOS security requirements for user-initiated downloads.
                         try {
                             const blob = new Blob([mobileConfig], { type: 'application/x-apple-aspen-config' });
-                            const reader = new FileReader();
+                            const url = window.URL.createObjectURL(blob);
                             
-                            reader.onloadend = () => {
-                                const dataUrl = reader.result;
-                                window.location.href = dataUrl;
-                                
-                                setTimeout(() => {
-                                    btn.innerHTML = originalText;
-                                    alert("Profile Generated!\n\n1. Tap 'Allow' if prompted.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near top.\n4. Tap 'Install'.");
-                                }, 1000);
-                            };
+                            // Create a temporary anchor to force download
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = 'WebVM-Installer.mobileconfig'; // Explicit filename
+                            link.style.display = 'none';
+                            document.body.appendChild(link);
                             
-                            reader.readAsDataURL(blob);
+                            // Explicit user action trigger
+                            link.click();
+                            
+                            setTimeout(() => {
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                                btn.innerHTML = originalText;
+                                alert("Profile Generated!\n\n1. Tap 'Allow' if prompted.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near top.\n4. Tap 'Install'.");
+                            }, 1000);
 
                         } catch(e) {
                             console.error(e);
