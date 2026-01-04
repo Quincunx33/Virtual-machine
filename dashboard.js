@@ -181,9 +181,11 @@ function initDB() {
         request.onsuccess = (event) => {
             db = event.target.result;
             resolve(db);
-            // Auto cleanup old temp data on boot
-            cleanupOrphans();
-            updateStorageDisplay();
+            // Auto cleanup old temp data on boot silently
+            cleanupOrphans().then(count => {
+                if (count > 0) console.log(`Auto-cleaned ${count} orphans on boot.`);
+                updateStorageDisplay();
+            });
         };
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
@@ -236,35 +238,50 @@ async function updateStorageDisplay() {
     }
 }
 
-// Cleans up any "local" (temp) VMs that are lingering in DB but not running
+// Robust Cleanup: Deletes ANYTHING in IndexedDB that isn't in LocalStorage (the saved list)
 async function cleanupOrphans() {
-    if (!db) return;
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.openCursor();
+    if (!db) return 0;
     
-    let deletedCount = 0;
-    
-    request.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-            const vm = cursor.value;
-            // 'isLocal' means it was created from a file upload (not a saved preset)
-            // If it exists on boot, it is a leftover from a previous session.
-            // Safe to delete.
-            if (vm.isLocal) {
-                console.log(`Cleaning up orphan VM data: ${vm.name} (${vm.id})`);
-                cursor.delete();
-                deletedCount++;
+    // 1. Get IDs of persistent machines (Saved User Presets)
+    let persistentIDs = new Set();
+    try {
+        const stored = JSON.parse(localStorage.getItem('web_emulator_machines') || '[]');
+        stored.forEach(m => persistentIDs.add(m.id));
+    } catch(e) {
+        console.error("Failed to parse saved machines", e);
+    }
+
+    return new Promise((resolve) => {
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.openCursor();
+        
+        let deletedCount = 0;
+
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                const vm = cursor.value;
+                const vmId = vm.id;
+                
+                // CRITICAL CHECK:
+                // If it's NOT in our saved list (localStorage), it is a temporary/phantom file.
+                // We MUST delete it to free up space.
+                const isSaved = persistentIDs.has(vmId);
+                
+                if (!isSaved) {
+                    console.log(`Deleting orphan file: ${vm.name || 'Unknown'} (${vmId})`);
+                    cursor.delete();
+                    deletedCount++;
+                }
+                cursor.continue();
+            } else {
+                resolve(deletedCount);
             }
-            cursor.continue();
-        } else {
-             if(deletedCount > 0) {
-                 console.log(`Cleaned ${deletedCount} orphan files.`);
-                 updateStorageDisplay();
-             }
-        }
-    };
+        };
+        
+        request.onerror = () => resolve(0);
+    });
 }
 
 // --- Communication ---
@@ -410,15 +427,37 @@ function setupEventListeners() {
         }
     });
     
-    // Explicit Cache Clean
+    // Explicit Cache Clean with Feedback
     if (elements.cleanStorageBtn) {
-        elements.cleanStorageBtn.addEventListener('click', () => {
-             cleanupOrphans();
-             showToast("Checking for unused files...", "info");
-             setTimeout(() => {
-                 showToast("Storage optimized.", "success");
-                 updateStorageDisplay();
-             }, 1000);
+        elements.cleanStorageBtn.addEventListener('click', async () => {
+             const btn = elements.cleanStorageBtn;
+             const originalText = btn.innerHTML;
+             
+             // Loading state
+             btn.disabled = true;
+             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+             showToast("Scanning for orphans...", "info");
+             
+             try {
+                 const count = await cleanupOrphans();
+                 await updateStorageDisplay();
+                 
+                 setTimeout(() => {
+                    if (count > 0) {
+                        showToast(`Deleted ${count} temporary files.`, "success");
+                    } else {
+                        showToast("Storage is already clean.", "success");
+                    }
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                 }, 500);
+                 
+             } catch(e) {
+                 console.error(e);
+                 showToast("Cleanup failed.", "error");
+                 btn.innerHTML = originalText;
+                 btn.disabled = false;
+             }
         });
     }
 

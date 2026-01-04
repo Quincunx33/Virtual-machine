@@ -401,52 +401,107 @@ async function startEmulator(config) {
 // Add Global Resize Listener
 eventManager.add(window, 'resize', fitScreen);
 
-// --- Save Snapshot ---
+// --- Save Snapshot (Paused & Optimized) ---
 async function saveSnapshot() {
     if (!emulator) return;
     
-    // UI Feedback: Show loading indicator
+    // 1. Pause execution to stabilize state and stop new memory allocations
+    const wasRunning = emulator.is_running();
+    if (wasRunning) {
+        try {
+            emulator.stop(); 
+        } catch(e) { console.warn("Could not stop emulator", e); }
+    }
+
+    // UI Feedback
     const originalText = elements.loadingText.textContent;
     elements.loadingIndicator.classList.remove('hidden');
-    elements.loadingText.textContent = "Saving State... (Do not close)";
+    elements.loadingText.textContent = "Pausing & Compressing...";
     
-    // Allow the browser to render the loading screen
+    // Yield to UI thread
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
+        // 2. Generate State (Heavy Operation)
         let state = await emulator.save_state();
-        
-        // Safety Check for Mobile: Warn if state is huge
-        const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-        if (state.byteLength > 200 * 1024 * 1024 && isMobile) {
-             if(!confirm(`Warning: This snapshot is large (~${Math.round(state.byteLength/1024/1024)}MB). Saving may crash your browser due to memory limits. Continue?`)) {
-                 throw new Error("User cancelled save");
-             }
-        }
+        const fileName = `snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.bin`;
 
-        const blob = new Blob([state], { type: 'application/octet-stream' });
-        state = null; // MEMORY FIX: Release original buffer immediately
-        
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.bin`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        // Cleanup immediately to free memory
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        // 3. Strategy A: File System Access API
+        if (window.showSaveFilePicker) {
+            elements.loadingText.textContent = "Writing to storage...";
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [{
+                        description: 'v86 State File',
+                        accept: { 'application/octet-stream': ['.bin', '.v86state'] },
+                    }],
+                });
+                
+                const writable = await handle.createWritable();
+                await writable.write(state);
+                await writable.close();
+                state = null; // Free memory
+                
+                // 4. Prompt for Cleanup
+                if (confirm("Snapshot saved successfully!\n\nDo you want to close this window now to clean up storage and memory?")) {
+                    fullCleanup();
+                    window.close();
+                    return; // Stop here, don't resume
+                }
+
+            } catch (fsError) {
+                if (fsError.name !== 'AbortError') throw fsError;
+            }
+        } 
+        // 5. Strategy B: Legacy Blob
+        else {
+            elements.loadingText.textContent = "Preparing Download...";
+            
+            const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+            if (state.byteLength > 150 * 1024 * 1024 && isMobile) {
+                if(!confirm(`Warning: Snapshot is large (~${Math.round(state.byteLength/1024/1024)}MB). This might crash on mobile. Continue?`)) {
+                    state = null;
+                    throw new Error("User cancelled save due to size warning");
+                }
+            }
+
+            const blob = new Blob([state], { type: 'application/octet-stream' });
+            state = null; // Release buffer
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+
+            // 4. Prompt for Cleanup (Legacy)
+            if (confirm("Download started!\n\nOnce the download finishes, do you want to close this machine to free up storage?")) {
+                fullCleanup();
+                window.close();
+                return;
+            }
+        }
         
     } catch(e) {
         console.error("Save failed", e);
-        if (e.message !== "User cancelled save") {
-            alert("Failed to save snapshot. Your device might be out of memory.");
+        if (e.message !== "User cancelled save" && e.name !== 'AbortError') {
+            alert("Failed to save snapshot. Device memory full or operation blocked.");
         }
     } finally {
         elements.loadingIndicator.classList.add('hidden');
         elements.loadingText.textContent = originalText;
+        
+        // Resume if we aren't shutting down
+        if (wasRunning && emulator && !isShuttingDown) {
+            try {
+                emulator.run();
+            } catch(e) { console.warn("Failed to resume", e); }
+        }
     }
 }
 
