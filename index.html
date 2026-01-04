@@ -68,8 +68,8 @@
         }
 
         /* iOS Install Modal Animation */
-        #safari-handover-modal { transition: opacity 0.3s ease, transform 0.3s ease; }
-        #safari-handover-modal.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
+        #ios-install-modal { transition: opacity 0.3s ease, transform 0.3s ease; }
+        #ios-install-modal.hidden { opacity: 0; pointer-events: none; transform: translateY(20px); }
     </style>
 </head>
 <body class="antialiased selection:bg-indigo-500 selection:text-white">
@@ -197,30 +197,6 @@
             </div>
         </div>
     </main>
-    
-    <!-- Safari Handover Modal (For Chrome/Firefox on iOS) -->
-    <div id="safari-handover-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div class="bg-gray-800 rounded-2xl max-w-sm w-full border border-gray-600 shadow-2xl overflow-hidden">
-            <div class="p-6 text-center">
-                <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-                    <i class="fab fa-safari"></i>
-                </div>
-                <h3 class="text-xl font-bold text-white mb-2">Switch to Safari</h3>
-                <p class="text-gray-400 text-sm mb-6">
-                    Apple restricts profile installation from Chrome or Firefox. To install without saving files manually, you <b>must</b> use Safari.
-                </p>
-                
-                <div class="bg-black/30 p-3 rounded-lg border border-gray-700 flex items-center gap-3 mb-6">
-                    <input type="text" id="share-link-input" class="bg-transparent border-none text-gray-300 text-xs w-full focus:ring-0" readonly value="Loading...">
-                    <button id="copy-link-btn" class="text-indigo-400 hover:text-white font-bold text-xs uppercase">Copy</button>
-                </div>
-
-                <button onclick="document.getElementById('safari-handover-modal').classList.add('hidden')" class="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-bold transition-colors">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Features Section -->
     <section id="features" class="py-24 bg-[#0F131F]">
@@ -312,19 +288,9 @@
     <!-- iOS Direct Profile Downloader -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Precise iOS Browser Detection
-            const ua = navigator.userAgent;
-            const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-            
-            // Check for specific iOS browsers
-            const isChromeIOS = /CriOS/i.test(ua);
-            const isFirefoxIOS = /FxiOS/i.test(ua);
-            const isWebview = /FBAN|FBAV|Instagram/i.test(ua); // Facebook, Instagram
-            
-            // Genuine Safari Check (Not Chrome, Not Firefox, Not Webview, but has Safari in UA)
-            const isSafari = isIOS && /Safari/i.test(ua) && !isChromeIOS && !isFirefoxIOS && !isWebview;
-            
-            // Standalone mode check
+            // Detect iOS
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            // Check if not already in standalone mode (installed)
             const isStandalone = ('standalone' in window.navigator) && (window.navigator.standalone);
 
             if (isIOS && !isStandalone) {
@@ -332,34 +298,6 @@
                 
                 if (btn) {
                     btn.classList.remove('hidden');
-
-                    // If user is on iOS but NOT on Safari (e.g. Chrome/Firefox)
-                    // We must prevent direct download attempts because they fail (save to Files)
-                    // Instead, we show the "Handover Modal"
-                    if (!isSafari) {
-                        const modal = document.getElementById('safari-handover-modal');
-                        const linkInput = document.getElementById('share-link-input');
-                        const copyBtn = document.getElementById('copy-link-btn');
-
-                        linkInput.value = window.location.href;
-
-                        copyBtn.addEventListener('click', () => {
-                            navigator.clipboard.writeText(window.location.href).then(() => {
-                                copyBtn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
-                                setTimeout(() => copyBtn.textContent = 'COPY', 2000);
-                            });
-                        });
-
-                        // Override the button click
-                        btn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            modal.classList.remove('hidden');
-                        });
-                        return; // Stop execution here for non-Safari browsers
-                    }
-                    
-                    // --- Logic below only runs for Safari on iOS ---
                     
                     // Simple UUID generator
                     const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -450,8 +388,9 @@
 </dict>
 </plist>`;
 
-                        // Post data to Cloudflare Worker to get correct headers.
-                        // This triggers the automatic "Profile Downloaded" prompt in Safari.
+                        // FIX: Post data to Cloudflare Worker to get correct headers.
+                        // Browsers cannot spoof Content-Type headers for Blobs in a way iOS likes.
+                        // By POSTing to a worker, the worker returns the data with 'Content-Type: application/x-apple-aspen-config'
                         try {
                             const form = document.createElement('form');
                             form.method = 'POST';
