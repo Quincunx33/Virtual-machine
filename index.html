@@ -388,33 +388,34 @@
 </dict>
 </plist>`;
 
-                        // FIX: Use URL.createObjectURL instead of FileReader/DataURI
-                        // This forces the correct MIME type in memory, bypassing server header issues
-                        // and satisfying iOS security requirements for user-initiated downloads.
+                        // FIX: Post data to Cloudflare Worker to get correct headers.
+                        // Browsers cannot spoof Content-Type headers for Blobs in a way iOS likes.
+                        // By POSTing to a worker, the worker returns the data with 'Content-Type: application/x-apple-aspen-config'
                         try {
-                            const blob = new Blob([mobileConfig], { type: 'application/x-apple-aspen-config' });
-                            const url = window.URL.createObjectURL(blob);
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = '/install-profile'; // Calls functions/install-profile.js
+                            form.style.display = 'none';
+
+                            const input = document.createElement('textarea');
+                            input.name = 'profile';
+                            input.value = mobileConfig;
+
+                            form.appendChild(input);
+                            document.body.appendChild(form);
                             
-                            // Create a temporary anchor to force download
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = 'WebVM-Installer.mobileconfig'; // Explicit filename
-                            link.style.display = 'none';
-                            document.body.appendChild(link);
-                            
-                            // Explicit user action trigger
-                            link.click();
+                            // Submitting triggers the download with correct headers
+                            form.submit();
                             
                             setTimeout(() => {
-                                document.body.removeChild(link);
-                                window.URL.revokeObjectURL(url);
+                                document.body.removeChild(form);
                                 btn.innerHTML = originalText;
-                                alert("Profile Generated!\n\n1. Tap 'Allow' if prompted.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near top.\n4. Tap 'Install'.");
-                            }, 1000);
+                                alert("Profile Generated!\n\n1. Tap 'Allow' to view the profile.\n2. Go to Settings > Profile Downloaded > Install.");
+                            }, 1500);
 
                         } catch(e) {
                             console.error(e);
-                            alert("Error generating profile. Please try again.");
+                            alert("Error generating profile. Please check internet connection.");
                             btn.innerHTML = originalText;
                         }
                     });
