@@ -305,21 +305,17 @@
                         return v.toString(16);
                     });
                     
-                    // Generate Icon via Canvas to guarantee it works (no CORS issues)
-                    const generateAppIcon = () => {
+                    // Fallback generator
+                    const generateCanvasIcon = () => {
                         const canvas = document.createElement('canvas');
                         canvas.width = 180;
                         canvas.height = 180;
                         const ctx = canvas.getContext('2d');
-                        
-                        // Background (Gradient)
                         const grd = ctx.createLinearGradient(0, 0, 180, 180);
                         grd.addColorStop(0, "#4f46e5");
                         grd.addColorStop(1, "#9333ea");
                         ctx.fillStyle = grd;
                         ctx.fillRect(0, 0, 180, 180);
-                        
-                        // Text "VM"
                         ctx.fillStyle = "white";
                         ctx.font = "bold 80px sans-serif";
                         ctx.textAlign = "center";
@@ -327,21 +323,38 @@
                         ctx.shadowColor = "rgba(0,0,0,0.3)";
                         ctx.shadowBlur = 10;
                         ctx.fillText("VM", 90, 90);
-                        
                         return canvas.toDataURL('image/png').split(',')[1];
                     };
 
                     btn.addEventListener('click', async () => {
                         const originalText = btn.innerHTML;
-                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Generating...';
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Fetching Icon...';
                         
-                        // Point to the actual app dashboard
+                        // Use a specific online icon URL as requested
+                        const iconUrl = "https://cdn-icons-png.flaticon.com/512/2645/2645897.png";
+                        // Use a proxy to bypass CORS restrictions
+                        const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(iconUrl);
+                        
+                        let iconData;
+                        try {
+                            const resp = await fetch(proxyUrl);
+                            if (!resp.ok) throw new Error("Fetch failed");
+                            const blob = await resp.blob();
+                            iconData = await new Promise(r => {
+                                const reader = new FileReader();
+                                reader.onload = () => r(reader.result.split(',')[1]);
+                                reader.readAsDataURL(blob);
+                            });
+                        } catch (e) {
+                            console.warn("Using fallback icon generator");
+                            iconData = generateCanvasIcon();
+                        }
+
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xl"></i> Building Profile...';
+
                         const appUrl = new URL('text.html', window.location.href).href;
                         const profileUUID = uuid();
                         const payloadUUID = uuid();
-                        
-                        // Generate reliable icon
-                        const iconData = generateAppIcon();
 
                         // Configuration Profile XML with WebClip Payload
                         const mobileConfig = `<?xml version="1.0" encoding="UTF-8"?>
@@ -392,11 +405,10 @@
 </dict>
 </plist>`;
 
-                        // FIX: Post data to Cloudflare Worker to get correct headers.
                         try {
                             const form = document.createElement('form');
                             form.method = 'POST';
-                            form.action = '/install-profile'; // Calls functions/install-profile.js
+                            form.action = '/install-profile'; 
                             form.style.display = 'none';
 
                             const input = document.createElement('textarea');
@@ -405,8 +417,6 @@
 
                             form.appendChild(input);
                             document.body.appendChild(form);
-                            
-                            // Submitting triggers the download with correct headers
                             form.submit();
                             
                             setTimeout(() => {
