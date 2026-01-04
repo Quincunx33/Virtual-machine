@@ -52,6 +52,7 @@ let channel = new BroadcastChannel('vm_channel');
 let activeBlobUrls = []; 
 let cpuProfile = 'balanced';
 let screenUpdateInterval = null;
+let statusCheckInterval = null;
 
 // --- Elements ---
 const elements = {
@@ -64,7 +65,9 @@ const elements = {
     screenContainer: document.getElementById('screen_container'),
     menuContainer: document.querySelector('.menu-container'),
     assistiveTouch: document.getElementById('assistive-touch'),
-    mainAssistiveBtn: document.getElementById('main-assistive-btn')
+    mainAssistiveBtn: document.getElementById('main-assistive-btn'),
+    statusLed: document.getElementById('status-led'),
+    statusText: document.getElementById('status-text')
 };
 
 // --- Nuclear Cleanup & Signaling ---
@@ -73,6 +76,7 @@ function fullCleanup() {
     isShuttingDown = true;
     
     if (screenUpdateInterval) clearInterval(screenUpdateInterval);
+    if (statusCheckInterval) clearInterval(statusCheckInterval);
     
     cleanupBlobUrls();
 
@@ -282,8 +286,6 @@ async function startEmulator(config) {
         disable_mouse: false,
         disable_keyboard: false,
         // FIX: Always load BIOS/VGA BIOS. 
-        // Snapshots usually need these to be present for the ROM mapping to work correctly,
-        // otherwise the screen may remain blank.
         bios: { url: "seabios.bin" },
         vga_bios: { url: "vgabios.bin" }
     };
@@ -291,7 +293,6 @@ async function startEmulator(config) {
     try {
         if (config.sourceType === 'snapshot') {
             // --- SNAPSHOT MODE ---
-            // Fix: Set memory size to avoid OOM crash if snapshot is large
             v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
             v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
             
@@ -341,8 +342,6 @@ async function startEmulator(config) {
         }
 
         // --- Memory Cleanup Phase ---
-        // Increase delay to 1s to ensure V86 has time to process the config on slow devices
-        // before we nuke the file references from memory.
         setTimeout(() => {
             const heavyKeys = ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
             heavyKeys.forEach(k => {
@@ -355,13 +354,17 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
-            // Release Blob URLs as V86 has loaded them into WASM/Buffer
+            // Cleanup
             cleanupBlobUrls();
             
-            // Fix: Explicitly start the emulator loop to ensure it's not paused after snapshot load
-            if(!emulator.is_running()) {
-                try { emulator.run(); } catch(e) {}
-            }
+            // --- AGGRESSIVE SNAPSHOT RESUME ---
+            // Often snapshots are loaded in a 'paused' state. We force run.
+            setTimeout(() => {
+                if(!emulator.is_running()) {
+                    console.log("Kickstarting Emulator...");
+                    try { emulator.run(); } catch(e) { console.error(e); }
+                }
+            }, 500);
 
             const interactionHandler = () => {
                 if (emulator && emulator.is_running()) {
@@ -384,12 +387,7 @@ async function startEmulator(config) {
             
             fitScreen();
             
-            let checkInterval = 200; 
-            if (cpuProfile === 'high') checkInterval = 50;
-            else if (cpuProfile === 'low') checkInterval = 2000;
-            else if (cpuProfile === 'potato') checkInterval = 3000; 
-            else checkInterval = 500;
-            
+            // Screen Fit Loop
             let checkCount = 0;
             screenUpdateInterval = setInterval(() => {
                 if (checkCount < 5 || window.wasResized) {
@@ -397,7 +395,34 @@ async function startEmulator(config) {
                     window.wasResized = false;
                 }
                 checkCount++;
-            }, checkInterval);
+            }, 500);
+
+            // --- LIVE STATUS CHECK LOOP ---
+            // Updates the green/red LED at top left to confirm CPU is actually active
+            statusCheckInterval = setInterval(() => {
+                if (!emulator) return;
+                
+                const isRunning = emulator.is_running();
+                if (elements.statusLed && elements.statusText) {
+                    if (isRunning) {
+                        elements.statusLed.className = 'status-led running';
+                        elements.statusText.textContent = "RUNNING";
+                        elements.statusText.style.color = "#10b981";
+                    } else {
+                        elements.statusLed.className = 'status-led halted';
+                        elements.statusText.textContent = "HALTED";
+                        elements.statusText.style.color = "#ef4444";
+                        
+                        // Auto-kick if halted (common with some snapshot loads)
+                        // But don't kick if user intentionally paused. 
+                        // For now, we assume user didn't pause manually this early.
+                        if (checkCount < 10) { 
+                             try { emulator.run(); } catch(e){}
+                        }
+                    }
+                }
+            }, 1000);
+
         });
 
         emulator.add_listener("screen-set-mode", () => {

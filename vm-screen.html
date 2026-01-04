@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -85,6 +86,30 @@
         .menu-container.expanded .menu-item:nth-child(6) { transform: translate(0px, 70px) scale(1); }
         #assistive-touch { cursor: grab; }
         #assistive-touch:active { cursor: grabbing; }
+        
+        /* Live Status Badge */
+        #vm-status-badge {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 40;
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 10px;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: monospace;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .status-led { width: 6px; height: 6px; border-radius: 50%; background: #444; }
+        .status-led.running { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-led.halted { background: #ef4444; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
@@ -97,6 +122,12 @@
         <button id="reload-btn" class="px-6 py-3 bg-white text-red-900 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg">
             <i class="fas fa-redo mr-2"></i> Reload Page
         </button>
+    </div>
+
+    <!-- Live Status Indicator -->
+    <div id="vm-status-badge">
+        <div id="status-led" class="status-led"></div>
+        <span id="status-text">INIT</span>
     </div>
 
     <div id="screen_container">
