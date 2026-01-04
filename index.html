@@ -334,9 +334,9 @@
                         
                         // Attempt to get Base64 icon
                         let iconData = await getIconBase64(iconUrl);
-                        // Fallback icon if fetch fails (Small generic base64 for 'computer' icon)
+                        // Fallback icon if fetch fails
                         if (!iconData) {
-                             iconData = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAIlSURBVHhe7ZqtTgNBFIXFAkFAEBAMEgQEg4KgICAYJAypBMEgYUgQEAQEg4QhQUAwSBgSBASDhCFBQDqvZJOs2d2Z7bSbeP+kJ83O3D1978w2s0tVAw888MAD74F5sA6WwRa4B5fgrT/V4u1wDzbBFpgH61r+8wW4B+9gCByAA3AINsEmmAfrYF3Lf74Cd+AdDIEDcAAOwSbYBPNgXct/vgJ34B0MgQNwAA7BJtgE82Bdy3++AnfgHQyBA3AADsEm2ATzYF3Lf74Cd+AdDIEDcAAOwSbYBPNgXct/vgJ34B0MgQNwAA7BJtgE82Bdy3++AnfgHQyBA3AADsEm2ATzYF3Lf74Cd+AdDIEDcAAOwSbYBPNgXct/vgJ34B0MgQNwAA7BJtgE82Bdy3++AnfgHQyBA3AADsEm2ATzYF3Lf74Cd+AdDIEDcAAOwSbYBPNgXct/vgJ34B0MgQNwAA7BJtgE82Bdy3++AnfgHQyBA3AADsEm2ATzYF3Lf74Cd+AdDIEDcAAOwSbYBPNgXct/vgJ34B0MgQNwAA7BJtgE82Bdy3++AnfgHQyBA3AADsEm2ATzYF3Lf74Cd+AdDIEDcAAOwSbYBPNgXct/vgJ34B0MgQNwAA7BJtgE82Bdy3/ug1VwB0P+D8ABOASbYBP453wF7sA7GAIH4AAcgk2wCTbBPLjT8p8vwD14B0PgAByAQ7AJNsE8WNfyn6/AHXgHQ+AAHIBDsAk2wTxY1/Kfr8AdeAdD4AAcgEOwCTbBPFjX8p+vwB14B0PgAByAQ7AJNsE8WNfyn6/AHXgHQ+AAHIBDsAk2wTxY1/Kfr8AdeAdD4AAcgEOwCTbBPFjX8p+vwB14B0PgAByAQ7AJNsE8WNfyn6/AHXgHQ+AAHIBDsAk2wTxY1/Kfr8AdeAdD4AAcgEOwCTbBPFjX8p/bYBXcwZD/A3AADsEm2AT+OV+BO/AOhsABOACHYBNsgk3gH9848MADDrwFvo/yY4ta8JcAAAAASUVORK5CYII=";
+                             iconData = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
                         }
 
                         // Configuration Profile XML with WebClip Payload
@@ -390,14 +390,15 @@
 
                         // Force navigation to Data URI to trigger iOS Profile Handler
                         try {
-                            // Properly encode string to support unicode and avoid base64 errors
                             const base64Content = btoa(unescape(encodeURIComponent(mobileConfig)));
                             const dataUri = `data:application/x-apple-aspen-config;charset=utf-8;base64,${base64Content}`;
+                            
+                            // Important: Navigating directly to the Data URI forces Safari to hand off to Settings
                             window.location.href = dataUri;
                             
                             setTimeout(() => {
                                 btn.innerHTML = originalText;
-                                alert("Profile Download Attempted!\n\n1. If prompted, tap 'Allow'.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near the top.\n4. Tap 'Install'.\n\nThe app icon will then appear on your Home Screen.");
+                                alert("1. Tap 'Allow' to download the configuration profile.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' at the top.\n4. Tap 'Install'.");
                             }, 500);
                         } catch(e) {
                             console.error(e);
