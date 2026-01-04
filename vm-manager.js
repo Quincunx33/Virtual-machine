@@ -1,4 +1,14 @@
 
+// --- Robustness: Polyfill for BroadcastChannel ---
+if (!window.BroadcastChannel) {
+    window.BroadcastChannel = class {
+        constructor() {}
+        postMessage() {}
+        close() {}
+        set onmessage(fn) {}
+    };
+}
+
 // --- Event Manager Class (The Memory Police) ---
 class EventManager {
     constructor() {
@@ -70,7 +80,7 @@ function fullCleanup() {
             const vmId = selectedOS ? selectedOS.id : null;
             const shouldDelete = selectedOS && selectedOS.isLocal;
             channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: vmId, shouldDelete: shouldDelete });
-        } catch(e) { console.warn("Failed to signal close"); }
+        } catch(e) { }
     }
 
     if (emulator) {
@@ -85,9 +95,7 @@ function fullCleanup() {
             emulator.keyboard_adapter = null;
             emulator.mouse_adapter = null;
             emulator.bus = null;
-        } catch (e) {
-            console.warn("Emulator cleanup warning:", e);
-        }
+        } catch (e) { }
         emulator = null;
     }
 
@@ -104,7 +112,6 @@ function fullCleanup() {
 
     eventManager.removeAll();
 
-    // CRITICAL FIX: Explicitly close DB to prevent locking Dashboard
     if (db) {
         try { db.close(); } catch(e) {}
         db = null;
@@ -129,7 +136,6 @@ function cleanupBlobUrls() {
 // --- DB Logic ---
 function initDB() {
     return new Promise((resolve, reject) => {
-        // Try close existing
         if(db) try { db.close(); } catch(e) {}
 
         const request = indexedDB.open('WebEmulatorDB', 1);
@@ -153,16 +159,13 @@ function getFromDB(key) {
 // --- Config Loading ---
 async function loadConfig(id) {
     try {
-        // Attempt immediate fetch
         const instantData = await getFromDB(id);
         if (instantData) return instantData;
-    } catch(e) {
-        console.warn("Direct DB fetch failed, waiting for sync", e);
-    }
+    } catch(e) {}
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            reject(new Error("Timeout waiting for VM data. Dashboard might be closed or DB locked."));
+            reject(new Error("Timeout waiting for VM data."));
         }, 10000); 
 
         const handler = async (e) => {
@@ -172,7 +175,7 @@ async function loadConfig(id) {
                 try {
                     const data = await getFromDB(id);
                     if(data) resolve(data);
-                    else reject(new Error("Synced, but data missing in DB."));
+                    else reject(new Error("Synced, but data missing."));
                 } catch(err) { reject(err); }
             }
         };
@@ -188,7 +191,7 @@ async function init() {
     eventManager.add(window, 'pagehide', fullCleanup);
     eventManager.add(window, 'unload', fullCleanup);
     
-    eventManager.add(elements.reloadBtn, 'click', () => location.reload());
+    if(elements.reloadBtn) eventManager.add(elements.reloadBtn, 'click', () => location.reload());
 
     try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -586,18 +589,20 @@ function dragEnd() {
     window.removeEventListener('touchend', dragEnd);
 }
 
-eventManager.add(elements.mainAssistiveBtn, 'mousedown', dragStart);
-eventManager.add(elements.mainAssistiveBtn, 'touchstart', dragStart, { passive: false });
-eventManager.add(elements.mainAssistiveBtn, 'click', () => {
-    if (!hasDragged) elements.menuContainer.classList.toggle('expanded');
-});
+if(elements.mainAssistiveBtn) {
+    eventManager.add(elements.mainAssistiveBtn, 'mousedown', dragStart);
+    eventManager.add(elements.mainAssistiveBtn, 'touchstart', dragStart, { passive: false });
+    eventManager.add(elements.mainAssistiveBtn, 'click', () => {
+        if (!hasDragged) elements.menuContainer.classList.toggle('expanded');
+    });
+}
 
-eventManager.add(document.getElementById('vm-power-btn'), 'click', () => { fullCleanup(); window.close(); });
-eventManager.add(document.getElementById('vm-reset-btn'), 'click', () => emulator?.restart());
-eventManager.add(document.getElementById('vm-fullscreen-btn'), 'click', () => document.documentElement.requestFullscreen().catch(console.error));
-eventManager.add(document.getElementById('vm-keyboard-btn'), 'click', () => elements.virtualKeyboard.classList.toggle('hidden'));
-eventManager.add(document.getElementById('vm-cad-btn'), 'click', () => emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]));
-eventManager.add(document.getElementById('vm-save-btn'), 'click', saveSnapshot);
+if(document.getElementById('vm-power-btn')) eventManager.add(document.getElementById('vm-power-btn'), 'click', () => { fullCleanup(); window.close(); });
+if(document.getElementById('vm-reset-btn')) eventManager.add(document.getElementById('vm-reset-btn'), 'click', () => emulator?.restart());
+if(document.getElementById('vm-fullscreen-btn')) eventManager.add(document.getElementById('vm-fullscreen-btn'), 'click', () => document.documentElement.requestFullscreen().catch(console.error));
+if(document.getElementById('vm-keyboard-btn')) eventManager.add(document.getElementById('vm-keyboard-btn'), 'click', () => elements.virtualKeyboard.classList.toggle('hidden'));
+if(document.getElementById('vm-cad-btn')) eventManager.add(document.getElementById('vm-cad-btn'), 'click', () => emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]));
+if(document.getElementById('vm-save-btn')) eventManager.add(document.getElementById('vm-save-btn'), 'click', saveSnapshot);
 
 function handleKey(e, isPress) {
     const key = e.target.closest('.key');
@@ -622,10 +627,12 @@ function handleKey(e, isPress) {
 const keyPress = (e) => handleKey(e, true);
 const keyRelease = (e) => handleKey(e, false);
 
-eventManager.add(elements.virtualKeyboard, 'mousedown', keyPress);
-eventManager.add(elements.virtualKeyboard, 'mouseup', keyRelease);
-eventManager.add(elements.virtualKeyboard, 'mouseleave', keyRelease);
-eventManager.add(elements.virtualKeyboard, 'touchstart', keyPress, { passive: false });
-eventManager.add(elements.virtualKeyboard, 'touchend', keyRelease);
+if(elements.virtualKeyboard) {
+    eventManager.add(elements.virtualKeyboard, 'mousedown', keyPress);
+    eventManager.add(elements.virtualKeyboard, 'mouseup', keyRelease);
+    eventManager.add(elements.virtualKeyboard, 'mouseleave', keyRelease);
+    eventManager.add(elements.virtualKeyboard, 'touchstart', keyPress, { passive: false });
+    eventManager.add(elements.virtualKeyboard, 'touchend', keyRelease);
+}
 
 document.addEventListener('DOMContentLoaded', init);

@@ -1,4 +1,29 @@
 
+// --- Global Crash Protection ---
+window.onerror = function(msg, url, line) {
+    console.error("Global Error:", msg, line);
+    const container = document.getElementById('toast-container');
+    if(container) {
+        // Only show if it's a UI blocking error
+        const div = document.createElement('div');
+        div.className = 'toast toast-error flex items-start gap-2 p-3 rounded-lg bg-red-900/90 text-white mt-2 border border-red-500 shadow-xl';
+        div.innerHTML = `<i class="fas fa-bug mt-1"></i><div class="text-xs break-all">App Error: ${msg}<br>Line: ${line}</div>`;
+        container.appendChild(div);
+        setTimeout(() => div.remove(), 5000);
+    }
+};
+
+// --- Polyfills for Mobile/Older Browsers ---
+if (!window.BroadcastChannel) {
+    console.warn("BroadcastChannel not supported. Using fallback.");
+    window.BroadcastChannel = class {
+        constructor() {}
+        postMessage() {}
+        close() {}
+        set onmessage(fn) {}
+    };
+}
+
 // --- State Management ---
 let machines = [];
 const DB_NAME = 'WebEmulatorDB';
@@ -7,94 +32,98 @@ const STORE_NAME = 'vm_configs';
 let db;
 
 // --- DOM Elements ---
+// We use a getter to safely access elements even if DOM isn't fully ready or IDs change
+const getEl = (id) => document.getElementById(id);
+
 const elements = {
-    vmList: document.getElementById('vm-list'),
-    emptyListPlaceholder: document.getElementById('empty-list-placeholder'),
-    createVmBtn: document.getElementById('create-vm-btn'),
-    createVmModal: document.getElementById('create-vm-modal'),
-    closeModalBtn: document.getElementById('close-modal-btn'),
-    modalBackBtn: document.getElementById('modal-back-btn'),
-    modalNextBtn: document.getElementById('modal-next-btn'),
-    modalCreateBtn: document.getElementById('modal-create-btn'),
+    vmList: getEl('vm-list'),
+    emptyListPlaceholder: getEl('empty-list-placeholder'),
+    createVmBtn: getEl('create-vm-btn'),
+    createVmModal: getEl('create-vm-modal'),
+    closeModalBtn: getEl('close-modal-btn'),
+    modalBackBtn: getEl('modal-back-btn'),
+    modalNextBtn: getEl('modal-next-btn'),
+    modalCreateBtn: getEl('modal-create-btn'),
     
     // Primary Media inputs
-    bootDriveType: document.getElementById('boot-drive-type'),
-    primaryUpload: document.getElementById('primary-upload'),
-    primaryNameDisplay: document.getElementById('primary-name-display'),
+    bootDriveType: getEl('boot-drive-type'),
+    primaryUpload: getEl('primary-upload'),
+    primaryNameDisplay: getEl('primary-name-display'),
     
     // Extra Media inputs
-    fdbUpload: document.getElementById('fdb-upload'),
-    hdbUpload: document.getElementById('hdb-upload'),
+    fdbUpload: getEl('fdb-upload'),
+    hdbUpload: getEl('hdb-upload'),
     
     // System/Kernel inputs
-    bzimageUpload: document.getElementById('bzimage-upload'),
-    initrdUpload: document.getElementById('initrd-upload'),
-    cmdlineInput: document.getElementById('cmdline-input'),
-    biosUpload: document.getElementById('bios-upload'),
-    vgaBiosUpload: document.getElementById('vga-bios-upload'),
+    bzimageUpload: getEl('bzimage-upload'),
+    initrdUpload: getEl('initrd-upload'),
+    cmdlineInput: getEl('cmdline-input'),
+    biosUpload: getEl('bios-upload'),
+    vgaBiosUpload: getEl('vga-bios-upload'),
 
     // Hardware & Config
-    ramSlider: document.getElementById('ram-slider'),
-    ramValue: document.getElementById('ram-value'),
-    ramMaxLabel: document.getElementById('ram-max-label'),
-    vramSlider: document.getElementById('vram-slider'),
-    vramValue: document.getElementById('vram-value'),
-    networkToggle: document.getElementById('network-toggle'),
+    ramSlider: getEl('ram-slider'),
+    ramValue: getEl('ram-value'),
+    ramMaxLabel: getEl('ram-max-label'),
+    vramSlider: getEl('vram-slider'),
+    vramValue: getEl('vram-value'),
+    networkToggle: getEl('network-toggle'),
     
     // Advanced Options
-    bootOrderSelect: document.getElementById('boot-order-select'),
-    cpuProfileSelect: document.getElementById('cpu-profile-select'),
-    graphicsScaleSelect: document.getElementById('graphics-scale-select'),
-    acpiToggle: document.getElementById('acpi-toggle'),
+    bootOrderSelect: getEl('boot-order-select'),
+    cpuProfileSelect: getEl('cpu-profile-select'),
+    graphicsScaleSelect: getEl('graphics-scale-select'),
+    acpiToggle: getEl('acpi-toggle'),
     
-    vmNameInput: document.getElementById('vm-name-input'),
-    loadSnapshotBtn: document.getElementById('load-snapshot-btn'),
-    snapshotUpload: document.getElementById('snapshot-upload'),
-    resetAppBtn: document.getElementById('reset-app-btn'),
-    cleanStorageBtn: document.getElementById('clean-storage-btn'),
-    storageDisplay: document.getElementById('storage-display'),
+    vmNameInput: getEl('vm-name-input'),
+    loadSnapshotBtn: getEl('load-snapshot-btn'),
+    snapshotUpload: getEl('snapshot-upload'),
+    resetAppBtn: getEl('reset-app-btn'),
+    cleanStorageBtn: getEl('clean-storage-btn'),
+    storageDisplay: getEl('storage-display'),
     
     // Storage Doctor
-    storageDoctorPanel: document.getElementById('storage-doctor-panel'),
-    ghostFileCount: document.getElementById('ghost-file-count'),
-    nukeGhostsBtn: document.getElementById('nuke-ghosts-btn'),
+    storageDoctorPanel: getEl('storage-doctor-panel'),
+    ghostFileCount: getEl('ghost-file-count'),
+    nukeGhostsBtn: getEl('nuke-ghosts-btn'),
     
-    editVmModal: document.getElementById('edit-vm-modal'),
-    closeEditModalBtn: document.getElementById('close-edit-modal-btn'),
-    cancelEditBtn: document.getElementById('cancel-edit-btn'),
-    saveChangesBtn: document.getElementById('save-changes-btn'),
-    editRamSlider: document.getElementById('edit-ram-slider'),
-    editRamValue: document.getElementById('edit-ram-value'),
-    editRamMaxLabel: document.getElementById('edit-ram-max-label'),
-    editNetworkToggle: document.getElementById('edit-network-toggle'),
+    editVmModal: getEl('edit-vm-modal'),
+    closeEditModalBtn: getEl('close-edit-modal-btn'),
+    cancelEditBtn: getEl('cancel-edit-btn'),
+    saveChangesBtn: getEl('save-changes-btn'),
+    editRamSlider: getEl('edit-ram-slider'),
+    editRamValue: getEl('edit-ram-value'),
+    editRamMaxLabel: getEl('edit-ram-max-label'),
+    editNetworkToggle: getEl('edit-network-toggle'),
     
-    menuToggleBtn: document.getElementById('menu-toggle-btn'),
+    menuToggleBtn: getEl('menu-toggle-btn'),
     sidebar: document.querySelector('aside'),
-    overlay: document.getElementById('overlay'),
-    systemRamDisplay: document.getElementById('system-ram-display'),
-    lowEndBadge: document.getElementById('low-end-badge'),
-    summarySource: document.getElementById('summary-source'),
-    summaryRam: document.getElementById('summary-ram'),
-    vmCountBadge: document.getElementById('vm-count-badge'),
-    toastContainer: document.getElementById('toast-container'),
+    overlay: getEl('overlay'),
+    systemRamDisplay: getEl('system-ram-display'),
+    lowEndBadge: getEl('low-end-badge'),
+    summarySource: getEl('summary-source'),
+    summaryRam: getEl('summary-ram'),
+    vmCountBadge: getEl('vm-count-badge'),
+    toastContainer: getEl('toast-container'),
     
     modalSteps: [
-        document.getElementById('modal-step-1'),
-        document.getElementById('modal-step-2'),
-        document.getElementById('modal-step-3')
+        getEl('modal-step-1'),
+        getEl('modal-step-2'),
+        getEl('modal-step-3')
     ],
     stepIndicators: [
-        document.getElementById('step-indicator-1'),
-        document.getElementById('step-indicator-2'),
-        document.getElementById('step-indicator-3')
+        getEl('step-indicator-1'),
+        getEl('step-indicator-2'),
+        getEl('step-indicator-3')
     ]
 };
 
 // --- Advanced Notification System ---
 class NotificationSystem {
     constructor() {
-        this.permission = Notification.permission;
+        // Safe check for Notification API
         this.isSupported = 'Notification' in window;
+        this.permission = this.isSupported ? Notification.permission : 'denied';
     }
 
     async requestPermission() {
@@ -128,7 +157,7 @@ class NotificationSystem {
 
     initAutoUpdateCheck() {
         setTimeout(() => {
-            // Placeholder for update check
+            // Placeholder
         }, 5000); 
     }
 }
@@ -165,7 +194,7 @@ function showToast(message, type = 'info') {
         <div class="toast-progress" style="animation-duration: ${duration}ms"></div>
     `;
 
-    if(type === 'update' && Notification.permission === 'default') {
+    if(type === 'update' && notifier.isSupported && Notification.permission === 'default') {
         toast.onclick = () => notifier.requestPermission();
     }
 
@@ -194,58 +223,60 @@ let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 64, maxAllo
 
 // --- Smart Device Detection ---
 function detectSystemSpecs() {
-    const memory = navigator.deviceMemory || 2;
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
-    const cores = navigator.hardwareConcurrency || 4;
-    
-    let recommended = 64;
-    let maxAllowed = 256;
-    let isPotato = false;
+    try {
+        const memory = navigator.deviceMemory || 2;
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+        
+        let recommended = 64;
+        let maxAllowed = 256;
+        let isPotato = false;
 
-    if (isMobile) {
-        if (memory <= 4 || cores <= 4) {
-            isPotato = true; 
-            maxAllowed = 1024; 
-            recommended = 64; 
+        if (isMobile) {
+            if (memory <= 4) {
+                isPotato = true; 
+                maxAllowed = 1024; 
+                recommended = 64; 
+            } else {
+                maxAllowed = 2048; 
+                recommended = 256;
+            }
         } else {
-            maxAllowed = 2048; 
-            recommended = 256;
+            if (memory >= 8) {
+                maxAllowed = 4096;
+                recommended = 1024;
+            } else {
+                maxAllowed = 2048;
+                recommended = 512;
+            }
         }
-    } else {
-        if (memory >= 8) {
-            maxAllowed = 4096;
-            recommended = 1024;
-        } else {
-            maxAllowed = 2048;
-            recommended = 512;
+
+        detectedSystemSpecs = {
+            ram: memory,
+            isMobile: isMobile,
+            recommendedRam: recommended,
+            maxAllowed: maxAllowed,
+            isPotato: isPotato
+        };
+
+        newVMCreationData.ram = recommended;
+        newVMCreationData.cpuProfile = isPotato ? 'potato' : 'balanced';
+
+        if(isPotato) {
+            document.body.classList.add('potato-mode');
+            if(elements.lowEndBadge) elements.lowEndBadge.classList.remove('hidden');
+            if(elements.systemRamDisplay) elements.systemRamDisplay.textContent = "Low-Spec Device";
+        } else if(elements.systemRamDisplay) {
+            elements.systemRamDisplay.textContent = `Host: ~${memory}GB RAM`;
         }
-    }
-
-    detectedSystemSpecs = {
-        ram: memory,
-        isMobile: isMobile,
-        recommendedRam: recommended,
-        maxAllowed: maxAllowed,
-        isPotato: isPotato
-    };
-
-    newVMCreationData.ram = recommended;
-    newVMCreationData.cpuProfile = isPotato ? 'potato' : 'balanced';
-
-    if(isPotato) {
-        document.body.classList.add('potato-mode');
-        elements.lowEndBadge.classList.remove('hidden');
-        if(elements.systemRamDisplay) elements.systemRamDisplay.textContent = "Low-Spec Device Detected";
-    } else if(elements.systemRamDisplay) {
-        elements.systemRamDisplay.textContent = `Host: ~${memory}GB RAM`;
+    } catch(e) {
+        console.error("Spec detection failed", e);
     }
 }
 
 // --- Robust Database Initialization ---
 function initDB() {
     return new Promise((resolve, reject) => {
-        // Explicitly close if exists to prevent blocking
         if (db) {
             try { db.close(); } catch(e) {}
         }
@@ -254,25 +285,25 @@ function initDB() {
         
         request.onblocked = () => {
              console.warn("DB Blocked. Please close other VM tabs.");
-             showToast("Database blocked! Close other tabs.", "warning");
+             showToast("Database blocked by another tab", "warning");
+             // Don't reject, but maybe UI won't load perfectly. 
+             // We allow it to hang rather than crash logic, but listeners should still work.
         };
 
         request.onerror = (e) => {
             console.error("DB Open Error", e);
-            reject("Error opening DB: " + e.target.error);
+            reject("Error opening DB: " + (e.target.error ? e.target.error.message : "Unknown"));
         };
 
         request.onsuccess = (event) => {
             db = event.target.result;
             
-            // Handle generic errors on db instance
             db.onversionchange = () => {
                 db.close();
                 console.log("Database is outdated, closing.");
             };
 
             resolve(db);
-            // Run side effects AFTER resolve
             setTimeout(() => {
                 updateStorageDisplay();
                 checkForGhosts(); 
@@ -291,7 +322,6 @@ function initDB() {
 function storeInDB(storeName, data) {
     return new Promise((resolve, reject) => {
         if (!db) { 
-            // Try to reconnect
             initDB().then(() => storeInDB(storeName, data).then(resolve).catch(reject)).catch(reject);
             return;
         }
@@ -304,14 +334,10 @@ function storeInDB(storeName, data) {
                 if (error && error.name === 'QuotaExceededError') {
                     reject("Storage Full! Browser denied saving file.");
                 } else {
-                    reject("Transaction Aborted: " + (error ? error.message : "Unknown"));
+                    reject("Transaction Aborted");
                 }
             };
             
-            transaction.onerror = (e) => {
-                reject("DB Error: " + e.target.error);
-            };
-
             const store = transaction.objectStore(storeName);
             const request = store.put(data);
             
@@ -320,7 +346,6 @@ function storeInDB(storeName, data) {
                 updateStorageDisplay();
             };
             request.onerror = (e) => {
-                // Specific check for quota
                 if (e.target.error.name === 'QuotaExceededError') {
                     reject("Storage Full! Cannot save file.");
                 } else {
@@ -335,19 +360,15 @@ function storeInDB(storeName, data) {
 
 function deleteFromDB(id) {
     return new Promise((resolve, reject) => {
-        if (!db) { resolve(); return; } // If no DB, assume deleted
+        if (!db) { resolve(); return; }
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.delete(id);
         request.onsuccess = () => {
-            console.log("Deleted from storage:", id);
             resolve();
             updateStorageDisplay();
         };
-        request.onerror = (e) => {
-            console.warn("Delete error (ignorable):", e);
-            resolve(); // Don't block flow on delete error
-        };
+        request.onerror = () => resolve(); 
     });
 }
 
@@ -391,10 +412,10 @@ async function checkForGhosts() {
         });
 
         if (ghostCount > 0) {
-            elements.ghostFileCount.textContent = ghostCount;
-            elements.storageDoctorPanel.classList.remove('hidden');
+            if(elements.ghostFileCount) elements.ghostFileCount.textContent = ghostCount;
+            if(elements.storageDoctorPanel) elements.storageDoctorPanel.classList.remove('hidden');
         } else {
-            elements.storageDoctorPanel.classList.add('hidden');
+            if(elements.storageDoctorPanel) elements.storageDoctorPanel.classList.add('hidden');
         }
     };
 }
@@ -435,7 +456,14 @@ async function nukeGhostFiles() {
 }
 
 // --- Communication ---
-const channel = new BroadcastChannel('vm_channel');
+// Safely init channel
+let channel;
+try {
+    channel = new BroadcastChannel('vm_channel');
+} catch(e) {
+    channel = { postMessage: () => {}, close: () => {}, set onmessage(fn){} };
+}
+
 let vmWindow = null;
 let runningVmId = null;
 
@@ -455,9 +483,7 @@ channel.onmessage = async (event) => {
     else if (type === 'REQUEST_CONFIG_SYNC') {
         try {
             channel.postMessage({ type: 'CONFIG_SYNCED', id });
-        } catch(e) {
-            console.error("Sync failed", e);
-        }
+        } catch(e) {}
     }
 };
 
@@ -475,7 +501,7 @@ function saveMachines() {
     try {
         const machinesToSave = machines.filter(m => !m.isLocal);
         localStorage.setItem('web_emulator_machines', JSON.stringify(machinesToSave));
-    } catch (e) { console.error("Failed to save machines to localStorage", e); }
+    } catch (e) { console.error("Failed to save machines", e); }
 }
 
 function loadMachines() {
@@ -490,12 +516,13 @@ function loadMachines() {
             });
             renderAllMachineItems();
         }
-    } catch (e) { console.error("Failed to load machines from localStorage", e); machines = []; }
+    } catch (e) { machines = []; }
     updatePlaceholderVisibility();
 }
 
 // --- UI Rendering ---
 function renderAllMachineItems() {
+    if(!elements.vmList) return;
     elements.vmList.innerHTML = '';
     machines.forEach(renderMachineItem);
     if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
@@ -557,59 +584,52 @@ function renderMachineItem(machine) {
 }
 
 function updatePlaceholderVisibility() {
-    elements.emptyListPlaceholder.classList.toggle('hidden', machines.length > 0);
+    if(elements.emptyListPlaceholder) elements.emptyListPlaceholder.classList.toggle('hidden', machines.length > 0);
 }
 
 // --- Event Handlers ---
 function setupEventListeners() {
-    // FIXED: Factory Reset now explicitly closes connections to prevent "Blocked" state
-    elements.resetAppBtn.addEventListener('click', async () => {
+    // Safe wrappers to prevent crashing if elements are missing
+    const safeAdd = (el, event, handler) => {
+        if(el) el.addEventListener(event, handler);
+    };
+
+    safeAdd(elements.resetAppBtn, 'click', async () => {
         if(confirm("Factory Reset: Delete ALL machines and clear storage?\n\nThis will refresh the page.")) {
-            // 1. Close current connection
             if (db) {
-                db.close();
+                try { db.close(); } catch(e) {}
                 db = null;
             }
-
-            // 2. Try delete
             const req = indexedDB.deleteDatabase(DB_NAME);
-            
             req.onblocked = () => {
-                alert("Database is blocked by another tab. Please close any open VM windows and try again.");
+                alert("Database blocked. Please close open VM tabs.");
                 window.location.reload();
             };
-
             req.onsuccess = () => {
                 localStorage.clear();
                 window.location.reload();
             };
-
             req.onerror = () => {
-                alert("Could not delete DB. Please clear browser data manually via settings.");
                 window.location.reload();
             };
         }
     });
     
-    if (elements.cleanStorageBtn) {
-        elements.cleanStorageBtn.addEventListener('click', async () => {
-             showToast("Checking storage...", "info");
-             checkForGhosts();
-        });
-    }
+    safeAdd(elements.cleanStorageBtn, 'click', async () => {
+        showToast("Checking storage...", "info");
+        checkForGhosts();
+    });
     
-    if (elements.nukeGhostsBtn) {
-        elements.nukeGhostsBtn.addEventListener('click', nukeGhostFiles);
-    }
+    safeAdd(elements.nukeGhostsBtn, 'click', nukeGhostFiles);
 
     const toggleMenu = () => {
-        elements.sidebar.classList.toggle('-translate-x-full');
-        elements.overlay.classList.toggle('hidden');
+        if(elements.sidebar) elements.sidebar.classList.toggle('-translate-x-full');
+        if(elements.overlay) elements.overlay.classList.toggle('hidden');
     };
-    elements.menuToggleBtn.addEventListener('click', toggleMenu);
-    elements.overlay.addEventListener('click', toggleMenu);
+    safeAdd(elements.menuToggleBtn, 'click', toggleMenu);
+    safeAdd(elements.overlay, 'click', toggleMenu);
 
-    elements.vmList.addEventListener('click', (e) => {
+    safeAdd(elements.vmList, 'click', (e) => {
         if (runningVmId) {
             showToast("Stop current VM first!", "error");
             return;
@@ -650,20 +670,20 @@ function setupEventListeners() {
         }
     });
 
-    elements.createVmBtn.addEventListener('click', () => {
+    safeAdd(elements.createVmBtn, 'click', () => {
         resetModal();
-        elements.createVmModal.classList.remove('hidden');
+        if(elements.createVmModal) elements.createVmModal.classList.remove('hidden');
         if(window.innerWidth < 1024) toggleMenu();
     });
-    elements.closeModalBtn.addEventListener('click', () => elements.createVmModal.classList.add('hidden'));
-    elements.modalBackBtn.addEventListener('click', () => changeStep(currentStep - 1));
-    elements.modalNextBtn.addEventListener('click', () => changeStep(currentStep + 1));
-    elements.modalCreateBtn.addEventListener('click', createVMFromModal);
+    safeAdd(elements.closeModalBtn, 'click', () => elements.createVmModal.classList.add('hidden'));
+    safeAdd(elements.modalBackBtn, 'click', () => changeStep(currentStep - 1));
+    safeAdd(elements.modalNextBtn, 'click', () => changeStep(currentStep + 1));
+    safeAdd(elements.modalCreateBtn, 'click', createVMFromModal);
     
-    elements.bootDriveType.addEventListener('change', (e) => {
+    safeAdd(elements.bootDriveType, 'change', (e) => {
         newVMCreationData.sourceType = e.target.value;
     });
-    elements.primaryUpload.addEventListener('change', e => {
+    safeAdd(elements.primaryUpload, 'change', e => {
         if (e.target.files[0]) {
             newVMCreationData.primaryFile = e.target.files[0];
             elements.primaryNameDisplay.textContent = e.target.files[0].name;
@@ -677,6 +697,7 @@ function setupEventListeners() {
     });
     
     const handleGenericFileSelect = (element, key) => {
+        if(!element) return;
         element.addEventListener('change', e => {
             if(e.target.files[0]) newVMCreationData[key] = e.target.files[0];
         });
@@ -688,37 +709,37 @@ function setupEventListeners() {
     handleGenericFileSelect(elements.biosUpload, 'biosFile');
     handleGenericFileSelect(elements.vgaBiosUpload, 'vgaBiosFile');
     
-    elements.cmdlineInput.addEventListener('input', e => newVMCreationData.cmdline = e.target.value);
+    safeAdd(elements.cmdlineInput, 'input', e => newVMCreationData.cmdline = e.target.value);
 
-    elements.ramSlider.addEventListener('input', () => {
+    safeAdd(elements.ramSlider, 'input', () => {
         const val = parseInt(elements.ramSlider.value, 10);
         elements.ramValue.textContent = `${val} MB`;
         newVMCreationData.ram = val;
     });
     
-    elements.vramSlider.addEventListener('input', () => {
+    safeAdd(elements.vramSlider, 'input', () => {
         const val = parseInt(elements.vramSlider.value, 10);
         elements.vramValue.textContent = `${val} MB`;
         newVMCreationData.vram = val;
     });
     
-    elements.bootOrderSelect.addEventListener('change', (e) => newVMCreationData.bootOrder = parseInt(e.target.value));
-    elements.cpuProfileSelect.addEventListener('change', (e) => newVMCreationData.cpuProfile = e.target.value);
-    elements.graphicsScaleSelect.addEventListener('change', (e) => newVMCreationData.graphicsScale = e.target.value);
-    elements.acpiToggle.addEventListener('change', (e) => newVMCreationData.acpi = e.target.checked);
+    safeAdd(elements.bootOrderSelect, 'change', (e) => newVMCreationData.bootOrder = parseInt(e.target.value));
+    safeAdd(elements.cpuProfileSelect, 'change', (e) => newVMCreationData.cpuProfile = e.target.value);
+    safeAdd(elements.graphicsScaleSelect, 'change', (e) => newVMCreationData.graphicsScale = e.target.value);
+    safeAdd(elements.acpiToggle, 'change', (e) => newVMCreationData.acpi = e.target.checked);
     
-    elements.networkToggle.addEventListener('change', (e) => newVMCreationData.network = e.target.checked);
-    elements.vmNameInput.addEventListener('input', updateModalUI);
+    safeAdd(elements.networkToggle, 'change', (e) => newVMCreationData.network = e.target.checked);
+    safeAdd(elements.vmNameInput, 'input', updateModalUI);
 
-    elements.loadSnapshotBtn.addEventListener('click', () => elements.snapshotUpload.click());
-    elements.snapshotUpload.addEventListener('change', handleSnapshotUpload);
+    safeAdd(elements.loadSnapshotBtn, 'click', () => elements.snapshotUpload.click());
+    safeAdd(elements.snapshotUpload, 'change', handleSnapshotUpload);
 
-    elements.closeEditModalBtn.addEventListener('click', () => elements.editVmModal.classList.add('hidden'));
-    elements.cancelEditBtn.addEventListener('click', () => elements.editVmModal.classList.add('hidden'));
-    elements.editRamSlider.addEventListener('input', () => {
+    safeAdd(elements.closeEditModalBtn, 'click', () => elements.editVmModal.classList.add('hidden'));
+    safeAdd(elements.cancelEditBtn, 'click', () => elements.editVmModal.classList.add('hidden'));
+    safeAdd(elements.editRamSlider, 'input', () => {
         elements.editRamValue.textContent = `${elements.editRamSlider.value} MB`;
     });
-    elements.saveChangesBtn.addEventListener('click', saveEditChanges);
+    safeAdd(elements.saveChangesBtn, 'click', saveEditChanges);
 }
 
 function handleSnapshotUpload(e) {
@@ -765,31 +786,33 @@ function resetModal() {
         graphicsScale: 'pixelated'
     };
     
-    elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
-    elements.ramMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
-    elements.ramSlider.value = defaultRam;
-    elements.ramValue.textContent = `${defaultRam} MB`;
+    if(elements.ramSlider) {
+        elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
+        elements.ramSlider.value = defaultRam;
+    }
+    if(elements.ramMaxLabel) elements.ramMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
+    if(elements.ramValue) elements.ramValue.textContent = `${defaultRam} MB`;
     
-    elements.vramSlider.value = 4;
-    elements.vramValue.textContent = '4 MB';
+    if(elements.vramSlider) elements.vramSlider.value = 4;
+    if(elements.vramValue) elements.vramValue.textContent = '4 MB';
     
-    elements.networkToggle.checked = false;
-    elements.acpiToggle.checked = true;
-    elements.cpuProfileSelect.value = newVMCreationData.cpuProfile;
-    elements.graphicsScaleSelect.value = 'pixelated';
-    elements.bootOrderSelect.value = "213";
+    if(elements.networkToggle) elements.networkToggle.checked = false;
+    if(elements.acpiToggle) elements.acpiToggle.checked = true;
+    if(elements.cpuProfileSelect) elements.cpuProfileSelect.value = newVMCreationData.cpuProfile;
+    if(elements.graphicsScaleSelect) elements.graphicsScaleSelect.value = 'pixelated';
+    if(elements.bootOrderSelect) elements.bootOrderSelect.value = "213";
     
-    elements.vmNameInput.value = '';
+    if(elements.vmNameInput) elements.vmNameInput.value = '';
     
-    elements.bootDriveType.value = 'cd';
-    elements.primaryNameDisplay.textContent = 'Tap to browse files';
+    if(elements.bootDriveType) elements.bootDriveType.value = 'cd';
+    if(elements.primaryNameDisplay) elements.primaryNameDisplay.textContent = 'Tap to browse files';
     
     const inputs = [
         elements.primaryUpload, elements.fdbUpload, elements.hdbUpload, 
         elements.bzimageUpload, elements.initrdUpload, elements.biosUpload, elements.vgaBiosUpload
     ];
-    inputs.forEach(el => el.value = null);
-    elements.cmdlineInput.value = '';
+    inputs.forEach(el => { if(el) el.value = null; });
+    if(elements.cmdlineInput) elements.cmdlineInput.value = '';
     
     document.querySelectorAll('details').forEach(d => d.removeAttribute('open'));
     updateModalUI();
@@ -802,8 +825,9 @@ function changeStep(step) {
 }
 
 function updateModalUI() {
-    elements.modalSteps.forEach((s, i) => s.classList.toggle('hidden', i + 1 !== currentStep));
+    elements.modalSteps.forEach((s, i) => { if(s) s.classList.toggle('hidden', i + 1 !== currentStep); });
     elements.stepIndicators.forEach((indicator, i) => {
+        if(!indicator) return;
         const stepNumDiv = indicator.querySelector('div');
         const isActive = i < currentStep;
         indicator.classList.toggle('text-indigo-400', isActive);
@@ -814,13 +838,13 @@ function updateModalUI() {
         stepNumDiv.classList.toggle('border-gray-600', !isActive);
     });
 
-    elements.modalBackBtn.disabled = currentStep === 1;
-    elements.modalNextBtn.classList.toggle('hidden', currentStep === 3);
-    elements.modalCreateBtn.classList.toggle('hidden', currentStep !== 3);
+    if(elements.modalBackBtn) elements.modalBackBtn.disabled = currentStep === 1;
+    if(elements.modalNextBtn) elements.modalNextBtn.classList.toggle('hidden', currentStep === 3);
+    if(elements.modalCreateBtn) elements.modalCreateBtn.classList.toggle('hidden', currentStep !== 3);
     
     const step1Valid = !!newVMCreationData.primaryFile || !!newVMCreationData.bzimageFile;
-    elements.modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
-    elements.modalCreateBtn.disabled = (currentStep === 3 && !elements.vmNameInput.value.trim());
+    if(elements.modalNextBtn) elements.modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
+    if(elements.modalCreateBtn) elements.modalCreateBtn.disabled = (currentStep === 3 && !elements.vmNameInput.value.trim());
 
     if (currentStep === 3) {
         if(elements.summarySource) {
@@ -878,12 +902,14 @@ function openEditModal(machineId) {
     document.getElementById('edit-vm-id').value = machineId;
     document.getElementById('edit-vm-name-input').value = machine.name;
     
-    elements.editRamSlider.max = detectedSystemSpecs.maxAllowed;
+    if(elements.editRamSlider) {
+        elements.editRamSlider.max = detectedSystemSpecs.maxAllowed;
+        elements.editRamSlider.value = machine.ram;
+    }
     if(elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
-
-    elements.editRamSlider.value = machine.ram;
-    elements.editRamValue.textContent = `${machine.ram} MB`;
-    elements.editNetworkToggle.checked = machine.network || false;
+    if(elements.editRamValue) elements.editRamValue.textContent = `${machine.ram} MB`;
+    if(elements.editNetworkToggle) elements.editNetworkToggle.checked = machine.network || false;
+    
     elements.editVmModal.classList.remove('hidden');
 }
 
@@ -919,7 +945,6 @@ async function startVM(machineId) {
     try {
         await storeInDB(STORE_NAME, selectedOS);
     } catch(e) {
-        // DETAILED Error message for user
         console.error(e);
         if (typeof e === 'string' && e.includes("Storage Full")) {
             showToast(e, "error");
@@ -944,7 +969,8 @@ function updateUIAfterVMStart(machineId) {
     }
     elements.createVmBtn.disabled = true;
     elements.loadSnapshotBtn.disabled = true;
-    elements.vmList.querySelectorAll('button').forEach(b => b.disabled = true);
+    const btns = elements.vmList.querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
 }
 
 function updateUIAfterVMStop(machineId) {
@@ -956,19 +982,20 @@ function updateUIAfterVMStop(machineId) {
     }
     elements.createVmBtn.disabled = false;
     elements.loadSnapshotBtn.disabled = false;
-    elements.vmList.querySelectorAll('button').forEach(b => b.disabled = false);
+    const btns = elements.vmList.querySelectorAll('button');
+    btns.forEach(b => b.disabled = false);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     detectSystemSpecs();
+    setupEventListeners(); // Setup buttons immediately
     initDB()
         .then(() => {
-            loadMachines(); // Only load UI after DB is ready
+            loadMachines(); 
         })
         .catch(e => {
             console.error("Critical DB Init Error:", e);
-            showToast("Database Error - Reset might be needed", "error");
+            showToast("DB Init Failed. Try Factory Reset.", "error");
         });
-    setupEventListeners();
     notifier.initAutoUpdateCheck();
 });
