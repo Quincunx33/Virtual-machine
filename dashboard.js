@@ -1,3 +1,4 @@
+
 // --- State Management ---
 let machines = [];
 const DB_NAME = 'WebEmulatorDB';
@@ -32,7 +33,7 @@ const elements = {
     biosUpload: document.getElementById('bios-upload'),
     vgaBiosUpload: document.getElementById('vga-bios-upload'),
 
-    // Hardware
+    // Hardware & Config
     ramSlider: document.getElementById('ram-slider'),
     ramValue: document.getElementById('ram-value'),
     ramMaxLabel: document.getElementById('ram-max-label'),
@@ -40,12 +41,23 @@ const elements = {
     vramValue: document.getElementById('vram-value'),
     networkToggle: document.getElementById('network-toggle'),
     
+    // Advanced Options
+    bootOrderSelect: document.getElementById('boot-order-select'),
+    cpuProfileSelect: document.getElementById('cpu-profile-select'),
+    graphicsScaleSelect: document.getElementById('graphics-scale-select'),
+    acpiToggle: document.getElementById('acpi-toggle'),
+    
     vmNameInput: document.getElementById('vm-name-input'),
     loadSnapshotBtn: document.getElementById('load-snapshot-btn'),
     snapshotUpload: document.getElementById('snapshot-upload'),
     resetAppBtn: document.getElementById('reset-app-btn'),
     cleanStorageBtn: document.getElementById('clean-storage-btn'),
     storageDisplay: document.getElementById('storage-display'),
+    
+    // Storage Doctor
+    storageDoctorPanel: document.getElementById('storage-doctor-panel'),
+    ghostFileCount: document.getElementById('ghost-file-count'),
+    nukeGhostsBtn: document.getElementById('nuke-ghosts-btn'),
     
     editVmModal: document.getElementById('edit-vm-modal'),
     closeEditModalBtn: document.getElementById('close-edit-modal-btn'),
@@ -60,6 +72,7 @@ const elements = {
     sidebar: document.querySelector('aside'),
     overlay: document.getElementById('overlay'),
     systemRamDisplay: document.getElementById('system-ram-display'),
+    lowEndBadge: document.getElementById('low-end-badge'),
     summarySource: document.getElementById('summary-source'),
     summaryRam: document.getElementById('summary-ram'),
     vmCountBadge: document.getElementById('vm-count-badge'),
@@ -126,49 +139,71 @@ let newVMCreationData = {
     vgaBiosFile: null,
     
     // Hardware
-    ram: 128, 
-    vram: 8,
+    ram: 64, // Reduced default for stability on Potato devices
+    vram: 4,
     network: false, 
+    
+    // Advanced
+    bootOrder: 0x213,
+    cpuProfile: 'potato', // Default to potato for safety on mobile
+    acpi: true,
+    graphicsScale: 'pixelated',
     
     name: '' 
 };
 
-let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 128, maxAllowed: 512 };
+let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 64, maxAllowed: 256, isPotato: false };
 
-// --- Smart Device Detection ---
+// --- Smart Device Detection (Updated for Infinix/Low End) ---
 function detectSystemSpecs() {
-    const memory = navigator.deviceMemory || 4;
-    const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    const memory = navigator.deviceMemory || 2; // iOS often hides exact RAM, assume low
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
+    const cores = navigator.hardwareConcurrency || 4;
     
-    let recommended = 128;
-    let maxAllowed = 512;
+    let recommended = 64;
+    let maxAllowed = 256;
+    let isPotato = false;
 
-    if (memory >= 8) {
-        maxAllowed = 2048;
-        recommended = 512;
-    } else if (memory >= 4) {
-        maxAllowed = 1024;
-        recommended = 256;
-    } else if (memory >= 2) {
-        maxAllowed = 512;
-        recommended = 128;
+    // Detect Low End (Infinix, older iPhones, 4GB RAM Androids with heavy OS)
+    // 4GB RAM is often reported as 4 by navigator.deviceMemory
+    if (isMobile) {
+        if (memory <= 4 || cores <= 4) {
+            isPotato = true; // Force Potato mode
+            maxAllowed = 128; // Strict Cap
+            recommended = 48; // Safe default for DOS
+        } else {
+            maxAllowed = 512;
+            recommended = 128;
+        }
     } else {
-        maxAllowed = 256;
-        recommended = 64;
-    }
-
-    if (isMobile && maxAllowed > 1024) {
-        maxAllowed = 1024;
+        // Desktop
+        if (memory >= 8) {
+            maxAllowed = 2048;
+            recommended = 512;
+        } else {
+            maxAllowed = 512;
+            recommended = 128;
+        }
     }
 
     detectedSystemSpecs = {
         ram: memory,
         isMobile: isMobile,
         recommendedRam: recommended,
-        maxAllowed: maxAllowed
+        maxAllowed: maxAllowed,
+        isPotato: isPotato
     };
 
-    if(elements.systemRamDisplay) {
+    // Set defaults based on detection
+    newVMCreationData.ram = recommended;
+    newVMCreationData.cpuProfile = isPotato ? 'potato' : 'balanced';
+
+    if(isPotato) {
+        document.body.classList.add('potato-mode');
+        elements.lowEndBadge.classList.remove('hidden');
+        if(elements.systemRamDisplay) elements.systemRamDisplay.textContent = "Low-Spec Device Detected";
+    } else if(elements.systemRamDisplay) {
         elements.systemRamDisplay.textContent = `Host: ~${memory}GB RAM`;
     }
 }
@@ -181,11 +216,9 @@ function initDB() {
         request.onsuccess = (event) => {
             db = event.target.result;
             resolve(db);
-            // Auto cleanup old temp data on boot silently
-            cleanupOrphans().then(count => {
-                if (count > 0) console.log(`Auto-cleaned ${count} orphans on boot.`);
-                updateStorageDisplay();
-            });
+            // Run a check on boot
+            checkForGhosts();
+            updateStorageDisplay();
         };
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
@@ -238,50 +271,77 @@ async function updateStorageDisplay() {
     }
 }
 
-// Robust Cleanup: Deletes ANYTHING in IndexedDB that isn't in LocalStorage (the saved list)
-async function cleanupOrphans() {
-    if (!db) return 0;
+// --- GHOST FILE DETECTOR & KILLER ---
+async function checkForGhosts() {
+    if (!db) return;
     
-    // 1. Get IDs of persistent machines (Saved User Presets)
-    let persistentIDs = new Set();
+    // 1. Get valid IDs from LocalStorage
+    let validIDs = new Set();
     try {
         const stored = JSON.parse(localStorage.getItem('web_emulator_machines') || '[]');
-        stored.forEach(m => persistentIDs.add(m.id));
-    } catch(e) {
-        console.error("Failed to parse saved machines", e);
-    }
+        stored.forEach(m => {
+            if(m.id) validIDs.add(String(m.id));
+        });
+    } catch(e) { console.error("LS Error", e); }
 
-    return new Promise((resolve) => {
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.openCursor();
+    const transaction = db.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAllKeys(); // Get all IDs in DB
+
+    request.onsuccess = (event) => {
+        const dbKeys = event.target.result;
+        let ghostCount = 0;
         
-        let deletedCount = 0;
-
-        request.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-                const vm = cursor.value;
-                const vmId = vm.id;
-                
-                // CRITICAL CHECK:
-                // If it's NOT in our saved list (localStorage), it is a temporary/phantom file.
-                // We MUST delete it to free up space.
-                const isSaved = persistentIDs.has(vmId);
-                
-                if (!isSaved) {
-                    console.log(`Deleting orphan file: ${vm.name || 'Unknown'} (${vmId})`);
-                    cursor.delete();
-                    deletedCount++;
-                }
-                cursor.continue();
-            } else {
-                resolve(deletedCount);
+        dbKeys.forEach(key => {
+            if (!validIDs.has(String(key))) {
+                ghostCount++;
             }
-        };
-        
-        request.onerror = () => resolve(0);
-    });
+        });
+
+        if (ghostCount > 0) {
+            elements.ghostFileCount.textContent = ghostCount;
+            elements.storageDoctorPanel.classList.remove('hidden');
+        } else {
+            elements.storageDoctorPanel.classList.add('hidden');
+        }
+    };
+}
+
+async function nukeGhostFiles() {
+    if (!db) return;
+    elements.nukeGhostsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning...';
+    
+    let validIDs = new Set();
+    try {
+        const stored = JSON.parse(localStorage.getItem('web_emulator_machines') || '[]');
+        stored.forEach(m => { if(m.id) validIDs.add(String(m.id)); });
+    } catch(e) {}
+
+    const transaction = db.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.openCursor();
+    let deletedCount = 0;
+
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            const key = String(cursor.key);
+            if (!validIDs.has(key)) {
+                console.log(`Nuking ghost: ${key}`);
+                cursor.delete();
+                deletedCount++;
+            }
+            cursor.continue();
+        } else {
+            // Done
+            setTimeout(() => {
+                showToast(`Deleted ${deletedCount} files.`, "success");
+                elements.nukeGhostsBtn.innerHTML = 'Delete Ghost Files';
+                elements.storageDoctorPanel.classList.add('hidden');
+                updateStorageDisplay();
+            }, 500);
+        }
+    };
 }
 
 // --- Communication ---
@@ -427,38 +487,17 @@ function setupEventListeners() {
         }
     });
     
-    // Explicit Cache Clean with Feedback
+    // Manual Clean Button
     if (elements.cleanStorageBtn) {
         elements.cleanStorageBtn.addEventListener('click', async () => {
-             const btn = elements.cleanStorageBtn;
-             const originalText = btn.innerHTML;
-             
-             // Loading state
-             btn.disabled = true;
-             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-             showToast("Scanning for orphans...", "info");
-             
-             try {
-                 const count = await cleanupOrphans();
-                 await updateStorageDisplay();
-                 
-                 setTimeout(() => {
-                    if (count > 0) {
-                        showToast(`Deleted ${count} temporary files.`, "success");
-                    } else {
-                        showToast("Storage is already clean.", "success");
-                    }
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                 }, 500);
-                 
-             } catch(e) {
-                 console.error(e);
-                 showToast("Cleanup failed.", "error");
-                 btn.innerHTML = originalText;
-                 btn.disabled = false;
-             }
+             showToast("Checking storage...", "info");
+             checkForGhosts();
         });
+    }
+    
+    // Nuke Button
+    if (elements.nukeGhostsBtn) {
+        elements.nukeGhostsBtn.addEventListener('click', nukeGhostFiles);
     }
 
     const toggleMenu = () => {
@@ -497,6 +536,7 @@ function setupEventListeners() {
                 showToast("Machine deleted", "success");
                 if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
                 updatePlaceholderVisibility();
+                checkForGhosts(); // Update ghost count
             }
             return;
         }
@@ -566,6 +606,12 @@ function setupEventListeners() {
         newVMCreationData.vram = val;
     });
     
+    // Advanced Handlers
+    elements.bootOrderSelect.addEventListener('change', (e) => newVMCreationData.bootOrder = parseInt(e.target.value));
+    elements.cpuProfileSelect.addEventListener('change', (e) => newVMCreationData.cpuProfile = e.target.value);
+    elements.graphicsScaleSelect.addEventListener('change', (e) => newVMCreationData.graphicsScale = e.target.value);
+    elements.acpiToggle.addEventListener('change', (e) => newVMCreationData.acpi = e.target.checked);
+    
     elements.networkToggle.addEventListener('change', (e) => newVMCreationData.network = e.target.checked);
     elements.vmNameInput.addEventListener('input', updateModalUI);
 
@@ -589,12 +635,15 @@ function handleSnapshotUpload(e) {
     if (name) {
         const newMachine = {
             name,
-            ram: 128, // Default to 128MB to prevent 0MB OOM crashes
+            ram: detectedSystemSpecs.recommendedRam, 
             file: file,
             isLocal: true,
             id: `snapshot-${Date.now()}`,
             sourceType: 'snapshot',
-            network: false
+            network: false,
+            // Defaults for snapshots
+            cpuProfile: detectedSystemSpecs.isPotato ? 'potato' : 'balanced',
+            graphicsScale: 'pixelated'
         };
         machines.push(newMachine);
         renderMachineItem(newMachine);
@@ -607,7 +656,7 @@ function handleSnapshotUpload(e) {
 
 function resetModal() {
     currentStep = 1;
-    const defaultRam = detectedSystemSpecs.recommendedRam || 128;
+    const defaultRam = detectedSystemSpecs.recommendedRam || 64;
     
     // Reset Data Object
     newVMCreationData = { 
@@ -615,8 +664,12 @@ function resetModal() {
         fdbFile: null, hdbFile: null, 
         bzimageFile: null, initrdFile: null, cmdline: '',
         biosFile: null, vgaBiosFile: null,
-        ram: defaultRam, vram: 8, 
-        name: '', network: false
+        ram: defaultRam, vram: 4, 
+        name: '', network: false,
+        bootOrder: 0x213, 
+        cpuProfile: detectedSystemSpecs.isPotato ? 'potato' : 'balanced', 
+        acpi: true, 
+        graphicsScale: 'pixelated'
     };
     
     // Reset DOM
@@ -625,10 +678,15 @@ function resetModal() {
     elements.ramSlider.value = defaultRam;
     elements.ramValue.textContent = `${defaultRam} MB`;
     
-    elements.vramSlider.value = 8;
-    elements.vramValue.textContent = '8 MB';
+    elements.vramSlider.value = 4;
+    elements.vramValue.textContent = '4 MB';
     
     elements.networkToggle.checked = false;
+    elements.acpiToggle.checked = true;
+    elements.cpuProfileSelect.value = newVMCreationData.cpuProfile;
+    elements.graphicsScaleSelect.value = 'pixelated';
+    elements.bootOrderSelect.value = "213";
+    
     elements.vmNameInput.value = '';
     
     elements.bootDriveType.value = 'cd';
@@ -701,6 +759,12 @@ function createVMFromModal() {
         vram: newVMCreationData.vram, 
         network: newVMCreationData.network,
         sourceType: newVMCreationData.sourceType,
+        
+        // Advanced
+        bootOrder: newVMCreationData.bootOrder,
+        acpi: newVMCreationData.acpi,
+        cpuProfile: newVMCreationData.cpuProfile,
+        graphicsScale: newVMCreationData.graphicsScale,
         
         // Files
         cdromFile: newVMCreationData.sourceType === 'cd' ? newVMCreationData.primaryFile : null,
