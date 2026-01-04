@@ -2,6 +2,7 @@
 
 
 
+
 // --- Robustness: Polyfill for BroadcastChannel ---
 if (!window.BroadcastChannel) {
     window.BroadcastChannel = class {
@@ -615,17 +616,28 @@ window.onunhandledrejection = (e) => {
 // --- Assistive Touch Logic ---
 let isDragging = false;
 let hasDragged = false;
+let dragStartX, dragStartY;
 let offsetX, offsetY;
 
 function dragStart(e) {
     if (e.target.closest('.menu-item')) return;
-    hasDragged = false;
+    
+    // Prevent default on touch to stop scrolling, but be careful with click interpretation
+    if(e.type === 'touchstart') e.preventDefault();
+    
     isDragging = true;
-    const rect = elements.assistiveTouch.getBoundingClientRect();
+    hasDragged = false;
+    
     const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
     const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    
+    dragStartX = clientX;
+    dragStartY = clientY;
+    
+    const rect = elements.assistiveTouch.getBoundingClientRect();
     offsetX = clientX - rect.left;
     offsetY = clientY - rect.top;
+    
     elements.assistiveTouch.style.transition = 'none';
 
     eventManager.add(window, 'mousemove', dragMove);
@@ -637,37 +649,49 @@ function dragStart(e) {
 function dragMove(e) {
     if (!isDragging) return;
     e.preventDefault();
-    if (!hasDragged) {
-        hasDragged = true;
-        elements.menuContainer.classList.remove('expanded');
-    }
+    
     const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
     const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
     
-    const maxX = window.innerWidth - elements.assistiveTouch.offsetWidth;
-    const maxY = window.innerHeight - elements.assistiveTouch.offsetHeight;
+    // Calculate distance moved
+    const dist = Math.hypot(clientX - dragStartX, clientY - dragStartY);
     
-    elements.assistiveTouch.style.left = `${Math.max(0, Math.min(clientX - offsetX, maxX))}px`;
-    elements.assistiveTouch.style.top = `${Math.max(0, Math.min(clientY - offsetY, maxY))}px`;
-    elements.assistiveTouch.style.right = 'auto';
-    elements.assistiveTouch.style.bottom = 'auto';
+    // Only count as drag if moved more than 5 pixels
+    if (dist > 5) {
+        hasDragged = true;
+        
+        // Handle visual movement
+        if (!elements.menuContainer.classList.contains('expanded')) {
+            const maxX = window.innerWidth - elements.assistiveTouch.offsetWidth;
+            const maxY = window.innerHeight - elements.assistiveTouch.offsetHeight;
+            
+            elements.assistiveTouch.style.left = `${Math.max(0, Math.min(clientX - offsetX, maxX))}px`;
+            elements.assistiveTouch.style.top = `${Math.max(0, Math.min(clientY - offsetY, maxY))}px`;
+            elements.assistiveTouch.style.right = 'auto';
+            elements.assistiveTouch.style.bottom = 'auto';
+        }
+    }
 }
 
 function dragEnd() {
     isDragging = false;
     elements.assistiveTouch.style.transition = '';
+    
     window.removeEventListener('mousemove', dragMove);
     window.removeEventListener('touchmove', dragMove);
     window.removeEventListener('mouseup', dragEnd);
     window.removeEventListener('touchend', dragEnd);
+    
+    // If we didn't drag far, treat it as a tap/click
+    if (!hasDragged) {
+        elements.menuContainer.classList.toggle('expanded');
+    }
 }
 
 if(elements.mainAssistiveBtn) {
     eventManager.add(elements.mainAssistiveBtn, 'mousedown', dragStart);
     eventManager.add(elements.mainAssistiveBtn, 'touchstart', dragStart, { passive: false });
-    eventManager.add(elements.mainAssistiveBtn, 'click', () => {
-        if (!hasDragged) elements.menuContainer.classList.toggle('expanded');
-    });
+    // Remove the 'click' listener as dragEnd handles it now
 }
 
 if(document.getElementById('vm-power-btn')) eventManager.add(document.getElementById('vm-power-btn'), 'click', () => { fullCleanup(); window.close(); });
