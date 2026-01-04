@@ -1,5 +1,4 @@
 
-
 // --- State Management ---
 let machines = [];
 const DB_NAME = 'WebEmulatorDB';
@@ -91,7 +90,7 @@ const elements = {
     ]
 };
 
-// --- Advanced Notification System (Native + Toast) ---
+// --- Advanced Notification System ---
 class NotificationSystem {
     constructor() {
         this.permission = Notification.permission;
@@ -113,16 +112,13 @@ class NotificationSystem {
     }
 
     notify(title, message, type = 'info') {
-        // 1. Show In-App Toast
         showToast(message, type);
-
-        // 2. Show Native Push Notification (if backgrounded or requested)
         if (this.isSupported && this.permission === 'granted') {
             if (document.visibilityState === 'hidden' || type === 'update') {
                 try {
                     new Notification(title, {
                         body: message,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/2645/2645897.png', // Generic CPU icon
+                        icon: 'https://cdn-icons-png.flaticon.com/512/2645/2645897.png',
                         tag: 'web-vm-notification'
                     });
                 } catch(e) {}
@@ -130,29 +126,21 @@ class NotificationSystem {
         }
     }
 
-    // Simulate "Real" Updates from a server
     initAutoUpdateCheck() {
-        console.log("Initializing Update Listener...");
         setTimeout(() => {
-            // Fake an update event coming from "Server"
-            this.notify(
-                "System Update Available", 
-                "New version v2.1.0 is ready. Performance improvements for Android 13+.", 
-                "update"
-            );
-        }, 5000); // 5 seconds after load
+            // Placeholder for update check
+        }, 5000); 
     }
 }
 
 const notifier = new NotificationSystem();
 
-// --- Refactored Toast Logic ---
+// --- Toast Logic ---
 function showToast(message, type = 'info') {
     if (!elements.toastContainer) return;
 
     const toast = document.createElement('div');
     
-    // Map types to icons and classes
     const styles = {
         error: { class: 'toast-error', icon: 'fa-exclamation-circle text-red-400' },
         success: { class: 'toast-success', icon: 'fa-check-circle text-green-400' },
@@ -162,7 +150,7 @@ function showToast(message, type = 'info') {
     };
     
     const style = styles[type] || styles.info;
-    const duration = type === 'update' ? 6000 : 3000; // Updates stay longer
+    const duration = type === 'update' ? 6000 : 3000; 
 
     toast.className = `toast ${style.class}`;
     toast.innerHTML = `
@@ -177,14 +165,12 @@ function showToast(message, type = 'info') {
         <div class="toast-progress" style="animation-duration: ${duration}ms"></div>
     `;
 
-    // Click to enable push if update type
     if(type === 'update' && Notification.permission === 'default') {
         toast.onclick = () => notifier.requestPermission();
     }
 
     elements.toastContainer.appendChild(toast);
 
-    // Auto remove
     setTimeout(() => {
         toast.classList.add('hiding');
         toast.addEventListener('animationend', () => toast.remove());
@@ -193,42 +179,22 @@ function showToast(message, type = 'info') {
 
 // --- Modal State ---
 let currentStep = 1;
-// Extended configuration object for all V86 possibilities
 let newVMCreationData = { 
-    // Primary Boot
-    primaryFile: null, 
-    sourceType: 'cd', // 'cd', 'floppy', 'hda'
-    
-    // Extra Drives
-    fdbFile: null,
-    hdbFile: null,
-    
-    // Kernel / System
-    bzimageFile: null,
-    initrdFile: null,
-    cmdline: '',
-    biosFile: null,
-    vgaBiosFile: null,
-    
-    // Hardware
-    ram: 64, // Reduced default for stability on Potato devices
-    vram: 4,
-    network: false, 
-    
-    // Advanced
-    bootOrder: 0x213,
-    cpuProfile: 'potato', // Default to potato for safety on mobile
-    acpi: true,
-    graphicsScale: 'pixelated',
-    
+    primaryFile: null, sourceType: 'cd', 
+    fdbFile: null, hdbFile: null, 
+    bzimageFile: null, initrdFile: null, cmdline: '',
+    biosFile: null, vgaBiosFile: null,
+    ram: 64, vram: 4, network: false, 
+    bootOrder: 0x213, cpuProfile: 'potato', 
+    acpi: true, graphicsScale: 'pixelated',
     name: '' 
 };
 
 let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 64, maxAllowed: 256, isPotato: false };
 
-// --- Smart Device Detection (Updated for Infinix/Low End) ---
+// --- Smart Device Detection ---
 function detectSystemSpecs() {
-    const memory = navigator.deviceMemory || 2; // iOS often hides exact RAM, assume low
+    const memory = navigator.deviceMemory || 2;
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent);
     const cores = navigator.hardwareConcurrency || 4;
@@ -237,19 +203,16 @@ function detectSystemSpecs() {
     let maxAllowed = 256;
     let isPotato = false;
 
-    // Detect Low End (Infinix, older iPhones, 4GB RAM Androids with heavy OS)
-    // 4GB RAM is often reported as 4 by navigator.deviceMemory
     if (isMobile) {
         if (memory <= 4 || cores <= 4) {
-            isPotato = true; // Force Potato mode
-            maxAllowed = 1024; // User requested 1GB
-            recommended = 64; // Safe default for DOS
+            isPotato = true; 
+            maxAllowed = 1024; 
+            recommended = 64; 
         } else {
-            maxAllowed = 1024; // User requested 1GB
+            maxAllowed = 2048; 
             recommended = 256;
         }
     } else {
-        // Desktop
         if (memory >= 8) {
             maxAllowed = 4096;
             recommended = 1024;
@@ -267,7 +230,6 @@ function detectSystemSpecs() {
         isPotato: isPotato
     };
 
-    // Set defaults based on detection
     newVMCreationData.ram = recommended;
     newVMCreationData.cpuProfile = isPotato ? 'potato' : 'balanced';
 
@@ -280,22 +242,47 @@ function detectSystemSpecs() {
     }
 }
 
-// --- DB Init ---
+// --- Robust Database Initialization ---
 function initDB() {
     return new Promise((resolve, reject) => {
+        // Explicitly close if exists to prevent blocking
+        if (db) {
+            try { db.close(); } catch(e) {}
+        }
+
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onerror = () => reject("Error opening DB");
+        
+        request.onblocked = () => {
+             console.warn("DB Blocked. Please close other VM tabs.");
+             showToast("Database blocked! Close other tabs.", "warning");
+        };
+
+        request.onerror = (e) => {
+            console.error("DB Open Error", e);
+            reject("Error opening DB: " + e.target.error);
+        };
+
         request.onsuccess = (event) => {
             db = event.target.result;
+            
+            // Handle generic errors on db instance
+            db.onversionchange = () => {
+                db.close();
+                console.log("Database is outdated, closing.");
+            };
+
             resolve(db);
-            // Run a check on boot
-            checkForGhosts();
-            updateStorageDisplay();
+            // Run side effects AFTER resolve
+            setTimeout(() => {
+                updateStorageDisplay();
+                checkForGhosts(); 
+            }, 1000);
         };
+
         request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            const database = event.target.result;
+            if (!database.objectStoreNames.contains(STORE_NAME)) {
+                database.createObjectStore(STORE_NAME, { keyPath: 'id' });
             }
         };
     });
@@ -303,21 +290,52 @@ function initDB() {
 
 function storeInDB(storeName, data) {
     return new Promise((resolve, reject) => {
-        if (!db) { reject("DB not initialized"); return; }
-        const transaction = db.transaction([storeName], 'readwrite');
-        const store = transaction.objectStore(storeName);
-        const request = store.put(data);
-        request.onsuccess = () => {
-            resolve();
-            updateStorageDisplay();
-        };
-        request.onerror = (e) => reject("Error storing data: " + e.target.error);
+        if (!db) { 
+            // Try to reconnect
+            initDB().then(() => storeInDB(storeName, data).then(resolve).catch(reject)).catch(reject);
+            return;
+        }
+        
+        try {
+            const transaction = db.transaction([storeName], 'readwrite');
+            
+            transaction.onabort = (e) => {
+                const error = e.target.error;
+                if (error && error.name === 'QuotaExceededError') {
+                    reject("Storage Full! Browser denied saving file.");
+                } else {
+                    reject("Transaction Aborted: " + (error ? error.message : "Unknown"));
+                }
+            };
+            
+            transaction.onerror = (e) => {
+                reject("DB Error: " + e.target.error);
+            };
+
+            const store = transaction.objectStore(storeName);
+            const request = store.put(data);
+            
+            request.onsuccess = () => {
+                resolve();
+                updateStorageDisplay();
+            };
+            request.onerror = (e) => {
+                // Specific check for quota
+                if (e.target.error.name === 'QuotaExceededError') {
+                    reject("Storage Full! Cannot save file.");
+                } else {
+                    reject("Error storing data: " + e.target.error);
+                }
+            };
+        } catch (e) {
+            reject("Transaction Failed: " + e.message);
+        }
     });
 }
 
 function deleteFromDB(id) {
     return new Promise((resolve, reject) => {
-        if (!db) { reject("DB not initialized"); return; }
+        if (!db) { resolve(); return; } // If no DB, assume deleted
         const transaction = db.transaction([STORE_NAME], 'readwrite');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.delete(id);
@@ -326,7 +344,10 @@ function deleteFromDB(id) {
             resolve();
             updateStorageDisplay();
         };
-        request.onerror = (e) => reject("Delete error: " + e.target.error);
+        request.onerror = (e) => {
+            console.warn("Delete error (ignorable):", e);
+            resolve(); // Don't block flow on delete error
+        };
     });
 }
 
@@ -347,7 +368,6 @@ async function updateStorageDisplay() {
 async function checkForGhosts() {
     if (!db) return;
     
-    // 1. Get valid IDs from LocalStorage
     let validIDs = new Set();
     try {
         const stored = JSON.parse(localStorage.getItem('web_emulator_machines') || '[]');
@@ -358,7 +378,7 @@ async function checkForGhosts() {
 
     const transaction = db.transaction([STORE_NAME], 'readonly');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.getAllKeys(); // Get all IDs in DB
+    const request = store.getAllKeys();
 
     request.onsuccess = (event) => {
         const dbKeys = event.target.result;
@@ -399,13 +419,11 @@ async function nukeGhostFiles() {
         if (cursor) {
             const key = String(cursor.key);
             if (!validIDs.has(key)) {
-                console.log(`Nuking ghost: ${key}`);
                 cursor.delete();
                 deletedCount++;
             }
             cursor.continue();
         } else {
-            // Done
             setTimeout(() => {
                 showToast(`Deleted ${deletedCount} files.`, "success");
                 elements.nukeGhostsBtn.innerHTML = 'Delete Ghost Files';
@@ -426,7 +444,6 @@ channel.onmessage = async (event) => {
     
     if (type === 'VM_WINDOW_CLOSED' || type === 'stopped') {
         if (shouldDelete && id) {
-            // Signal from child process to delete the temp data
             deleteFromDB(id).catch(console.error);
         }
         
@@ -501,7 +518,6 @@ function renderMachineItem(machine) {
         typeLabel = 'ISO';
     }
     
-    // Check if it's a linux kernel boot
     if (machine.bzimageFile) {
         iconClass = 'fa-linux';
         typeLabel = 'Linux';
@@ -546,20 +562,35 @@ function updatePlaceholderVisibility() {
 
 // --- Event Handlers ---
 function setupEventListeners() {
+    // FIXED: Factory Reset now explicitly closes connections to prevent "Blocked" state
     elements.resetAppBtn.addEventListener('click', async () => {
-        if(confirm("Factory Reset: Delete ALL machines and clear storage?")) {
-            localStorage.clear();
-            if (db) db.close();
+        if(confirm("Factory Reset: Delete ALL machines and clear storage?\n\nThis will refresh the page.")) {
+            // 1. Close current connection
+            if (db) {
+                db.close();
+                db = null;
+            }
+
+            // 2. Try delete
             const req = indexedDB.deleteDatabase(DB_NAME);
-            req.onsuccess = () => window.location.reload();
+            
+            req.onblocked = () => {
+                alert("Database is blocked by another tab. Please close any open VM windows and try again.");
+                window.location.reload();
+            };
+
+            req.onsuccess = () => {
+                localStorage.clear();
+                window.location.reload();
+            };
+
             req.onerror = () => {
-                alert("Could not delete DB. Please clear browser data manually.");
+                alert("Could not delete DB. Please clear browser data manually via settings.");
                 window.location.reload();
             };
         }
     });
     
-    // Manual Clean Button
     if (elements.cleanStorageBtn) {
         elements.cleanStorageBtn.addEventListener('click', async () => {
              showToast("Checking storage...", "info");
@@ -567,7 +598,6 @@ function setupEventListeners() {
         });
     }
     
-    // Nuke Button
     if (elements.nukeGhostsBtn) {
         elements.nukeGhostsBtn.addEventListener('click', nukeGhostFiles);
     }
@@ -602,13 +632,12 @@ function setupEventListeners() {
                 saveMachines();
                 item.remove();
                 
-                // Also clean from DB immediately
                 deleteFromDB(idToDelete);
                 
                 showToast("Machine deleted", "success");
                 if(elements.vmCountBadge) elements.vmCountBadge.textContent = machines.length;
                 updatePlaceholderVisibility();
-                checkForGhosts(); // Update ghost count
+                checkForGhosts();
             }
             return;
         }
@@ -631,17 +660,14 @@ function setupEventListeners() {
     elements.modalNextBtn.addEventListener('click', () => changeStep(currentStep + 1));
     elements.modalCreateBtn.addEventListener('click', createVMFromModal);
     
-    // Step 1 Inputs
     elements.bootDriveType.addEventListener('change', (e) => {
         newVMCreationData.sourceType = e.target.value;
-        // Visual feedback could be added here to change icon
     });
     elements.primaryUpload.addEventListener('change', e => {
         if (e.target.files[0]) {
             newVMCreationData.primaryFile = e.target.files[0];
             elements.primaryNameDisplay.textContent = e.target.files[0].name;
             
-            // Auto-fill name if empty
             if (!elements.vmNameInput.value) {
                 const cleanName = e.target.files[0].name.replace(/\.(iso|img|bin|dsk)$/i, '').replace(/[-_]/g, ' ');
                 elements.vmNameInput.value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
@@ -650,7 +676,6 @@ function setupEventListeners() {
         }
     });
     
-    // Additional Drive Inputs
     const handleGenericFileSelect = (element, key) => {
         element.addEventListener('change', e => {
             if(e.target.files[0]) newVMCreationData[key] = e.target.files[0];
@@ -665,7 +690,6 @@ function setupEventListeners() {
     
     elements.cmdlineInput.addEventListener('input', e => newVMCreationData.cmdline = e.target.value);
 
-    // Step 2 Inputs
     elements.ramSlider.addEventListener('input', () => {
         const val = parseInt(elements.ramSlider.value, 10);
         elements.ramValue.textContent = `${val} MB`;
@@ -678,7 +702,6 @@ function setupEventListeners() {
         newVMCreationData.vram = val;
     });
     
-    // Advanced Handlers
     elements.bootOrderSelect.addEventListener('change', (e) => newVMCreationData.bootOrder = parseInt(e.target.value));
     elements.cpuProfileSelect.addEventListener('change', (e) => newVMCreationData.cpuProfile = e.target.value);
     elements.graphicsScaleSelect.addEventListener('change', (e) => newVMCreationData.graphicsScale = e.target.value);
@@ -713,7 +736,6 @@ function handleSnapshotUpload(e) {
             id: `snapshot-${Date.now()}`,
             sourceType: 'snapshot',
             network: false,
-            // Defaults for snapshots
             cpuProfile: detectedSystemSpecs.isPotato ? 'potato' : 'balanced',
             graphicsScale: 'pixelated'
         };
@@ -730,7 +752,6 @@ function resetModal() {
     currentStep = 1;
     const defaultRam = detectedSystemSpecs.recommendedRam || 64;
     
-    // Reset Data Object
     newVMCreationData = { 
         primaryFile: null, sourceType: 'cd', 
         fdbFile: null, hdbFile: null, 
@@ -744,7 +765,6 @@ function resetModal() {
         graphicsScale: 'pixelated'
     };
     
-    // Reset DOM
     elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
     elements.ramMaxLabel.textContent = `${detectedSystemSpecs.maxAllowed}MB`;
     elements.ramSlider.value = defaultRam;
@@ -764,7 +784,6 @@ function resetModal() {
     elements.bootDriveType.value = 'cd';
     elements.primaryNameDisplay.textContent = 'Tap to browse files';
     
-    // Clear all file inputs
     const inputs = [
         elements.primaryUpload, elements.fdbUpload, elements.hdbUpload, 
         elements.bzimageUpload, elements.initrdUpload, elements.biosUpload, elements.vgaBiosUpload
@@ -772,9 +791,7 @@ function resetModal() {
     inputs.forEach(el => el.value = null);
     elements.cmdlineInput.value = '';
     
-    // Close any open details
     document.querySelectorAll('details').forEach(d => d.removeAttribute('open'));
-    
     updateModalUI();
 }
 
@@ -801,7 +818,6 @@ function updateModalUI() {
     elements.modalNextBtn.classList.toggle('hidden', currentStep === 3);
     elements.modalCreateBtn.classList.toggle('hidden', currentStep !== 3);
     
-    // Logic for enabling Next button
     const step1Valid = !!newVMCreationData.primaryFile || !!newVMCreationData.bzimageFile;
     elements.modalNextBtn.disabled = (currentStep === 1 && !step1Valid);
     elements.modalCreateBtn.disabled = (currentStep === 3 && !elements.vmNameInput.value.trim());
@@ -826,29 +842,23 @@ function createVMFromModal() {
         id: `local-${Date.now()}`, 
         isLocal: true,
         name,
-        // Core Config
         ram: newVMCreationData.ram,
         vram: newVMCreationData.vram, 
         network: newVMCreationData.network,
         sourceType: newVMCreationData.sourceType,
-        
-        // Advanced
         bootOrder: newVMCreationData.bootOrder,
         acpi: newVMCreationData.acpi,
         cpuProfile: newVMCreationData.cpuProfile,
         graphicsScale: newVMCreationData.graphicsScale,
         
-        // Files
         cdromFile: newVMCreationData.sourceType === 'cd' ? newVMCreationData.primaryFile : null,
         fdaFile: newVMCreationData.sourceType === 'floppy' ? newVMCreationData.primaryFile : null,
         hdaFile: newVMCreationData.sourceType === 'hda' ? newVMCreationData.primaryFile : null,
         
         fdbFile: newVMCreationData.fdbFile,
         hdbFile: newVMCreationData.hdbFile,
-        
         biosFile: newVMCreationData.biosFile,
         vgaBiosFile: newVMCreationData.vgaBiosFile,
-        
         bzimageFile: newVMCreationData.bzimageFile,
         initrdFile: newVMCreationData.initrdFile,
         cmdline: newVMCreationData.cmdline
@@ -858,12 +868,12 @@ function createVMFromModal() {
     renderMachineItem(newMachine);
     updatePlaceholderVisibility();
     elements.createVmModal.classList.add('hidden');
-    showToast("Machine created!", "success");
+    showToast("Machine ready to start", "success");
 }
 
 function openEditModal(machineId) {
     const machine = machines.find(m => m.id === machineId);
-    if (!machine) return; // Allow editing for all types now
+    if (!machine) return;
 
     document.getElementById('edit-vm-id').value = machineId;
     document.getElementById('edit-vm-name-input').value = machine.name;
@@ -904,13 +914,19 @@ async function startVM(machineId) {
     const selectedOS = machines.find(m => m.id === machineId);
     if (!selectedOS) return;
 
-    showToast("Preparing VM...", "info");
+    showToast("Reading file into storage...", "info");
 
     try {
         await storeInDB(STORE_NAME, selectedOS);
     } catch(e) {
-        showToast("Storage failed", "error");
+        // DETAILED Error message for user
         console.error(e);
+        if (typeof e === 'string' && e.includes("Storage Full")) {
+            showToast(e, "error");
+            alert("Error: Storage Full (Quota Exceeded).\n\nMobile browsers have strict limits. Try:\n1. Deleting other VMs\n2. Using a smaller ISO file.");
+        } else {
+            showToast("Failed to write to DB", "error");
+        }
         return;
     }
 
@@ -945,11 +961,14 @@ function updateUIAfterVMStop(machineId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     detectSystemSpecs();
-    initDB().then(loadMachines).catch(e => {
-        console.error("DB Init Error:", e);
-    });
+    initDB()
+        .then(() => {
+            loadMachines(); // Only load UI after DB is ready
+        })
+        .catch(e => {
+            console.error("Critical DB Init Error:", e);
+            showToast("Database Error - Reset might be needed", "error");
+        });
     setupEventListeners();
-    
-    // Start automatic update checker (simulated)
     notifier.initAutoUpdateCheck();
 });

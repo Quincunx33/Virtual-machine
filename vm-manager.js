@@ -1,5 +1,4 @@
 
-
 // --- Event Manager Class (The Memory Police) ---
 class EventManager {
     constructor() {
@@ -13,17 +12,13 @@ class EventManager {
     }
 
     removeAll() {
-        // Safe removal without logging to prevent IO lag during shutdown
         for (const l of this.listeners) {
             try {
                 l.target.removeEventListener(l.type, l.listener, l.options);
-            } catch (e) {
-                // Ignore removal errors during shutdown
-            }
+            } catch (e) { }
         }
         this.listeners.clear();
 
-        // Nullify global handlers
         window.onmousemove = null;
         window.ontouchmove = null;
         window.onmouseup = null;
@@ -43,7 +38,7 @@ let selectedOS = null;
 let isShuttingDown = false;
 let db = null;
 let channel = new BroadcastChannel('vm_channel');
-let activeBlobUrls = []; // Track Blob URLs to release memory
+let activeBlobUrls = []; 
 let cpuProfile = 'balanced';
 let screenUpdateInterval = null;
 
@@ -66,34 +61,26 @@ function fullCleanup() {
     if (isShuttingDown) return;
     isShuttingDown = true;
     
-    // Stop custom intervals
     if (screenUpdateInterval) clearInterval(screenUpdateInterval);
     
-    // 1. Force Revoke Blob URLs IMMEDIATELY (Critical for Storage/RAM)
     cleanupBlobUrls();
 
-    // 2. SIGNAL PARENT: Critical for No-Polling architecture
     if (channel) {
         try {
             const vmId = selectedOS ? selectedOS.id : null;
-            // Check if this was a temporary/local machine (not saved in dashboard)
-            // If so, tell dashboard to delete it from DB immediately to free disk space
             const shouldDelete = selectedOS && selectedOS.isLocal;
             channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: vmId, shouldDelete: shouldDelete });
         } catch(e) { console.warn("Failed to signal close"); }
     }
 
-    // 3. Stop Emulator Core & Destroy WebAssembly Instance
     if (emulator) {
         try {
             if (emulator.is_running()) {
                 emulator.stop();
             }
-            // Force destroy if method exists (depends on libv86 version, but safe to try)
             if (typeof emulator.destroy === 'function') {
                 emulator.destroy();
             }
-            // Break references manually
             emulator.screen_adapter = null;
             emulator.keyboard_adapter = null;
             emulator.mouse_adapter = null;
@@ -104,54 +91,50 @@ function fullCleanup() {
         emulator = null;
     }
 
-    // 4. Kill Broadcast Channel
     if (channel) {
         try { channel.close(); } catch(e) {}
         channel = null;
     }
 
-    // 5. Destroy Canvas & DOM
     if (elements.screenContainer) {
         while (elements.screenContainer.firstChild) {
             elements.screenContainer.removeChild(elements.screenContainer.firstChild);
         }
     }
 
-    // 6. Release ALL Listeners
     eventManager.removeAll();
 
-    // 7. DB Connection
+    // CRITICAL FIX: Explicitly close DB to prevent locking Dashboard
     if (db) {
         try { db.close(); } catch(e) {}
         db = null;
     }
     
-    // 8. Clear Global References
     selectedOS = null;
-    
-    // 9. Force Garbage Collection Hint (by nullifying everything accessible)
     window.emulator = null;
 }
 
 function cleanupBlobUrls() {
     if (activeBlobUrls.length > 0) {
         const count = activeBlobUrls.length;
-        // Iterate backwards to safely remove
         while(activeBlobUrls.length > 0) {
             const url = activeBlobUrls.pop();
             try {
                 URL.revokeObjectURL(url);
             } catch(e) {}
         }
-        console.log(`Cleaned up ${count} blob storage references.`);
     }
 }
 
 // --- DB Logic ---
 function initDB() {
     return new Promise((resolve, reject) => {
+        // Try close existing
+        if(db) try { db.close(); } catch(e) {}
+
         const request = indexedDB.open('WebEmulatorDB', 1);
         request.onerror = () => reject("Error opening DB");
+        request.onblocked = () => reject("DB Blocked");
         request.onsuccess = (event) => { db = event.target.result; resolve(db); };
     });
 }
@@ -169,12 +152,17 @@ function getFromDB(key) {
 
 // --- Config Loading ---
 async function loadConfig(id) {
-    const instantData = await getFromDB(id);
-    if (instantData) return instantData;
+    try {
+        // Attempt immediate fetch
+        const instantData = await getFromDB(id);
+        if (instantData) return instantData;
+    } catch(e) {
+        console.warn("Direct DB fetch failed, waiting for sync", e);
+    }
 
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            reject(new Error("Timeout waiting for VM data from manager."));
+            reject(new Error("Timeout waiting for VM data. Dashboard might be closed or DB locked."));
         }, 10000); 
 
         const handler = async (e) => {
@@ -196,12 +184,8 @@ async function loadConfig(id) {
 
 // --- Initialization Flow ---
 async function init() {
-    // TRIPLE SAFETY NET for cleanup
-    // `beforeunload` is best for Desktop
     eventManager.add(window, 'beforeunload', fullCleanup);
-    // `pagehide` is best for Mobile (iOS/Android)
     eventManager.add(window, 'pagehide', fullCleanup);
-    // `unload` is a fallback for older browsers
     eventManager.add(window, 'unload', fullCleanup);
     
     eventManager.add(elements.reloadBtn, 'click', () => location.reload());
@@ -229,14 +213,13 @@ async function init() {
     }
 }
 
-// --- Screen Scaling Logic (Improved) ---
+// --- Screen Scaling Logic ---
 function fitScreen() {
     requestAnimationFrame(() => {
         const container = elements.screenContainer;
         if (!container || isShuttingDown) return;
 
         let target = null;
-        
         for (let i = 0; i < container.children.length; i++) {
             const child = container.children[i];
             if (child.style.display === 'none') continue;
@@ -246,10 +229,7 @@ function fitScreen() {
             }
         }
         
-        if (!target) {
-            target = container.querySelector('canvas') || container.querySelector('div');
-        }
-
+        if (!target) target = container.querySelector('canvas') || container.querySelector('div');
         if (!target) return;
 
         target.style.transform = 'none';
@@ -270,51 +250,36 @@ function fitScreen() {
         target.style.transformOrigin = 'center center';
         target.style.transform = `scale(${scale})`;
         
-        // Apply scaling preference
         const scaleMode = selectedOS ? selectedOS.graphicsScale : 'pixelated';
-        if (scaleMode === 'smooth') {
-             target.style.imageRendering = 'auto';
-        } else {
-             target.style.imageRendering = scale > 1.5 ? 'pixelated' : 'auto';
-        }
+        target.style.imageRendering = (scaleMode === 'smooth') ? 'auto' : (scale > 1.5 ? 'pixelated' : 'auto');
     });
 }
 
-// --- Emulator Startup with Robust Error Handling ---
+// --- Emulator Startup ---
 async function startEmulator(config) {
     if (isShuttingDown) return;
     
-    // CPU/Battery Profile Logic
     cpuProfile = config.cpuProfile || 'balanced';
     
-    // MOBILE OVERRIDE: If user didn't explicitly choose 'high', and it's a phone, force low/balanced.
     const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
     if (isMobile && cpuProfile !== 'high' && cpuProfile !== 'potato') {
-        cpuProfile = 'low'; // Force Low power on mobile default
+        cpuProfile = 'low'; 
     }
-    
-    // POTATO MODE FORCE
-    // Check hardware concurrency to detect very low end devices (e.g. 4 core low clocks)
     if(navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4 && isMobile) {
         cpuProfile = 'potato';
     }
     
-    // Base configuration
     let v86Config = {
         wasm_path: "v86.wasm",
         screen_container: elements.screenContainer,
         autostart: true,
         disable_mouse: false,
         disable_keyboard: false,
-        // memory_size is removed from default so it can be auto-detected for snapshots
         bios: { url: "seabios.bin" },
         vga_bios: { url: "vgabios.bin" },
         acpi: !!config.acpi
     };
 
-    // FIX: Only set memory if NOT loading a state.
-    // If loading a state, libv86 reads the memory size from the state header.
-    // Setting it explicitly to the wrong value causes boot failure.
     if (config.sourceType !== 'snapshot') {
         v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
         v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
@@ -326,7 +291,6 @@ async function startEmulator(config) {
             activeBlobUrls.push(blobUrl);
             v86Config.initial_state = { url: blobUrl };
         } else {
-            // Helper to load file into config
             const addFile = (fileObj, configKey) => {
                 if (fileObj) {
                     const url = URL.createObjectURL(fileObj);
@@ -335,48 +299,34 @@ async function startEmulator(config) {
                 }
             };
 
-            // Custom BIOS support
             addFile(config.biosFile, 'bios');
             addFile(config.vgaBiosFile, 'vga_bios');
-
-            // Standard Drives
             addFile(config.cdromFile, 'cdrom');
             addFile(config.fdaFile, 'fda');
             addFile(config.fdbFile, 'fdb');
             addFile(config.hdaFile, 'hda');
             addFile(config.hdbFile, 'hdb');
-            
-            // Linux Boot
             addFile(config.bzimageFile, 'bzimage');
             addFile(config.initrdFile, 'initrd');
-            if (config.cmdline) {
-                v86Config.cmdline = config.cmdline;
-            }
-
-            // Set Boot Order
-            // 0x213 = CD, Floppy, HDD (Default)
-            // 0x123 = Floppy, HDD, CD
-            // 0x312 = HDD, CD, Floppy
+            
+            if (config.cmdline) v86Config.cmdline = config.cmdline;
             v86Config.boot_order = config.bootOrder || 0x213;
 
             if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
 
-        // --- CRITICAL MEMORY FIX ---
-        // Release heavy file references immediately from the config object
-        // The V86 instance has likely already read the blob URL or buffered it.
+        // HEAVY MEMORY CLEANUP
         ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'].forEach(k => {
             if (config[k]) config[k] = null;
             if (selectedOS && selectedOS[k]) selectedOS[k] = null;
         });
-        // ---------------------------
 
         if (isShuttingDown) return;
 
         try {
             emulator = new V86(v86Config);
         } catch (initError) {
-            cleanupBlobUrls(); // MEMORY FIX: Clean up blobs if boot fails immediately
+            cleanupBlobUrls();
             handleCriticalError(initError);
             return;
         }
@@ -385,8 +335,6 @@ async function startEmulator(config) {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
             
-            // Release Blob URLs - Browser has likely buffered it by now
-            // Doing this here ensures we don't hold dual copies (Blob + Buffer) for long
             cleanupBlobUrls();
 
             const interactionHandler = () => {
@@ -403,11 +351,7 @@ async function startEmulator(config) {
                     );
 
                     if (supportsPointerLock) {
-                        try {
-                            emulator.lock_mouse();
-                        } catch(e) {
-                            // Silent fail on mobile
-                        }
+                        try { emulator.lock_mouse(); } catch(e) {}
                     }
                 }
             };
@@ -415,22 +359,16 @@ async function startEmulator(config) {
             eventManager.add(elements.screenContainer, 'click', interactionHandler);
             eventManager.add(elements.screenContainer, 'touchstart', interactionHandler);
             
-            // Apply Initial Fit
             fitScreen();
             
-            // Apply Performance Profile Logic (Throttle resize/redraw events)
-            // POTATO MODE: 1000ms check interval = 1 FPS max for resizing checks.
-            // This drastically reduces main thread load on Infinix devices.
-            let checkInterval = 200; // Default
-            
+            let checkInterval = 200; 
             if (cpuProfile === 'high') checkInterval = 50;
             else if (cpuProfile === 'low') checkInterval = 2000;
-            else if (cpuProfile === 'potato') checkInterval = 3000; // Extremely lazy UI updates
+            else if (cpuProfile === 'potato') checkInterval = 3000; 
             else checkInterval = 500;
             
             let checkCount = 0;
             screenUpdateInterval = setInterval(() => {
-                // Only fit screen if dimensions changed or first few seconds
                 if (checkCount < 5 || window.wasResized) {
                     fitScreen();
                     window.wasResized = false;
@@ -450,35 +388,27 @@ async function startEmulator(config) {
     }
 }
 
-// Add Global Resize Listener
 eventManager.add(window, 'resize', () => { window.wasResized = true; fitScreen(); });
 
-// --- Save Snapshot (Paused & Optimized) ---
+// --- Save Snapshot ---
 async function saveSnapshot() {
     if (!emulator) return;
     
-    // 1. Pause execution to stabilize state and stop new memory allocations
     const wasRunning = emulator.is_running();
     if (wasRunning) {
-        try {
-            emulator.stop(); 
-        } catch(e) { console.warn("Could not stop emulator", e); }
+        try { emulator.stop(); } catch(e) {}
     }
 
-    // UI Feedback
     const originalText = elements.loadingText.textContent;
     elements.loadingIndicator.classList.remove('hidden');
     elements.loadingText.textContent = "Pausing & Compressing...";
     
-    // Yield to UI thread
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
-        // 2. Generate State (Heavy Operation)
         let state = await emulator.save_state();
         const fileName = `snapshot-${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.bin`;
 
-        // 3. Strategy A: File System Access API
         if (window.showSaveFilePicker) {
             elements.loadingText.textContent = "Writing to storage...";
             try {
@@ -493,20 +423,18 @@ async function saveSnapshot() {
                 const writable = await handle.createWritable();
                 await writable.write(state);
                 await writable.close();
-                state = null; // Free memory
+                state = null; 
                 
-                // 4. Prompt for Cleanup
                 if (confirm("Snapshot saved successfully!\n\nDo you want to close this window now to clean up storage and memory?")) {
                     fullCleanup();
                     window.close();
-                    return; // Stop here, don't resume
+                    return; 
                 }
 
             } catch (fsError) {
                 if (fsError.name !== 'AbortError') throw fsError;
             }
         } 
-        // 5. Strategy B: Legacy Blob
         else {
             elements.loadingText.textContent = "Preparing Download...";
             
@@ -519,7 +447,7 @@ async function saveSnapshot() {
             }
 
             const blob = new Blob([state], { type: 'application/octet-stream' });
-            state = null; // Release buffer
+            state = null; 
             
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -531,7 +459,6 @@ async function saveSnapshot() {
             
             setTimeout(() => URL.revokeObjectURL(url), 100);
 
-            // 4. Prompt for Cleanup (Legacy)
             if (confirm("Download started!\n\nOnce the download finishes, do you want to close this machine to free up storage?")) {
                 fullCleanup();
                 window.close();
@@ -548,24 +475,18 @@ async function saveSnapshot() {
         elements.loadingIndicator.classList.add('hidden');
         elements.loadingText.textContent = originalText;
         
-        // Resume if we aren't shutting down
         if (wasRunning && emulator && !isShuttingDown) {
-            try {
-                emulator.run();
-            } catch(e) { console.warn("Failed to resume", e); }
+            try { emulator.run(); } catch(e) {}
         }
     }
 }
 
-// --- Error Handling (Robust) ---
+// --- Error Handling ---
 function handleCriticalError(error) {
     const msg = error.message || error.toString();
     console.error("Critical VM Error:", error);
     
-    if (msg.includes("requestPointerLock") || msg.includes("pointer lock")) {
-        // Suppress
-        return;
-    }
+    if (msg.includes("requestPointerLock") || msg.includes("pointer lock")) return;
 
     if (msg.includes("WebAssembly") || msg.includes("memory") || msg.includes("OOM")) {
         if (selectedOS && selectedOS.sourceType === 'snapshot') {
@@ -587,7 +508,6 @@ function showError(msg) {
     elements.loadingIndicator.classList.add('hidden');
 }
 
-// Global Safety Net
 window.onerror = (msg, url, line, col, error) => {
     if (!isShuttingDown) {
         const errorMsg = (typeof msg === 'string' ? msg : error?.message || "Unknown error");
@@ -666,14 +586,12 @@ function dragEnd() {
     window.removeEventListener('touchend', dragEnd);
 }
 
-// Bind Assistive Touch
 eventManager.add(elements.mainAssistiveBtn, 'mousedown', dragStart);
 eventManager.add(elements.mainAssistiveBtn, 'touchstart', dragStart, { passive: false });
 eventManager.add(elements.mainAssistiveBtn, 'click', () => {
     if (!hasDragged) elements.menuContainer.classList.toggle('expanded');
 });
 
-// Menu Actions
 eventManager.add(document.getElementById('vm-power-btn'), 'click', () => { fullCleanup(); window.close(); });
 eventManager.add(document.getElementById('vm-reset-btn'), 'click', () => emulator?.restart());
 eventManager.add(document.getElementById('vm-fullscreen-btn'), 'click', () => document.documentElement.requestFullscreen().catch(console.error));
@@ -681,7 +599,6 @@ eventManager.add(document.getElementById('vm-keyboard-btn'), 'click', () => elem
 eventManager.add(document.getElementById('vm-cad-btn'), 'click', () => emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]));
 eventManager.add(document.getElementById('vm-save-btn'), 'click', saveSnapshot);
 
-// Virtual Keyboard
 function handleKey(e, isPress) {
     const key = e.target.closest('.key');
     if (!key || !emulator) return;
@@ -711,5 +628,4 @@ eventManager.add(elements.virtualKeyboard, 'mouseleave', keyRelease);
 eventManager.add(elements.virtualKeyboard, 'touchstart', keyPress, { passive: false });
 eventManager.add(elements.virtualKeyboard, 'touchend', keyRelease);
 
-// Start
 document.addEventListener('DOMContentLoaded', init);
