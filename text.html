@@ -159,7 +159,7 @@
     <div id="overlay" class="fixed inset-0 bg-black/50 z-20 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
 
     <!-- Sidebar -->
-    <aside class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col fixed lg:static h-full z-30 transition-transform transform -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
+    <aside id="sidebar" class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col fixed lg:static h-full z-30 transition-transform transform -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
         <div class="p-6 border-b border-gray-700 flex items-center justify-between">
             <h1 class="text-2xl font-bold flex items-center gap-3">
                 <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
@@ -167,7 +167,7 @@
                 </div>
                 Web<span class="text-indigo-400">VM</span>
             </h1>
-            <button id="menu-toggle-btn" class="lg:hidden text-gray-400 hover:text-white">
+            <button id="menu-close-btn" class="lg:hidden text-gray-400 hover:text-white p-2">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -229,7 +229,7 @@
         <!-- Header -->
         <header class="h-16 bg-gray-800/50 border-b border-gray-700 flex items-center justify-between px-6 backdrop-blur-sm lg:hidden">
             <span class="font-bold text-lg">My Machines</span>
-            <button onclick="document.getElementById('menu-toggle-btn').click()" class="text-white">
+            <button id="menu-open-btn" class="text-white p-2">
                 <i class="fas fa-bars"></i>
             </button>
         </header>

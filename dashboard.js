@@ -1,4 +1,5 @@
 
+
 // --- Global Crash Protection ---
 window.onerror = function(msg, url, line) {
     console.error("Global Error:", msg, line);
@@ -103,8 +104,9 @@ const elements = {
     storageItemsList: getEl('storage-items-list'),
     storageManagerSummary: getEl('storage-manager-summary'),
 
-    menuToggleBtn: getEl('menu-toggle-btn'),
-    sidebar: document.querySelector('aside'),
+    menuOpenBtn: getEl('menu-open-btn'),
+    menuCloseBtn: getEl('menu-close-btn'),
+    sidebar: getEl('sidebar'),
     overlay: getEl('overlay'),
     systemRamDisplay: getEl('system-ram-display'),
     lowEndBadge: getEl('low-end-badge'),
@@ -580,11 +582,19 @@ function setupEventListeners() {
         }
     });
 
-    safeAdd(elements.menuToggleBtn, 'click', () => {
-        elements.sidebar.classList.toggle('-translate-x-full');
-        elements.overlay.classList.toggle('hidden');
+    // Mobile Menu Logic - Distinct Open/Close
+    safeAdd(elements.menuOpenBtn, 'click', () => {
+        if(elements.sidebar) elements.sidebar.classList.remove('-translate-x-full');
+        if(elements.overlay) elements.overlay.classList.remove('hidden');
     });
-    safeAdd(elements.overlay, 'click', () => elements.menuToggleBtn.click());
+
+    const closeMenu = () => {
+        if(elements.sidebar) elements.sidebar.classList.add('-translate-x-full');
+        if(elements.overlay) elements.overlay.classList.add('hidden');
+    };
+
+    safeAdd(elements.menuCloseBtn, 'click', closeMenu);
+    safeAdd(elements.overlay, 'click', closeMenu);
 
     safeAdd(elements.createVmBtn, 'click', () => {
         resetModal();
