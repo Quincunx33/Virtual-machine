@@ -3,407 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Stricter CSP -->
+    <!-- Stricter CSP: scripts only from self and trusted CDNs, no unsafe-inline for logic -->
+    <!-- FIX: Added 'wasm-unsafe-eval' and 'blob:' to support future features and consistency -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
-    <title>Web VM Control Deck</title>
+    <title>Web VM Emulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #1a1c23; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom Scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .source-type-card.border-indigo-500 { box-shadow: 0 0 0 2px #6366f1; }
         
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-        
-        /* 3D Panel Styles */
-        .panel-3d {
-            background: #232732;
-            box-shadow: 
-                8px 8px 16px #13151b, 
-                -8px -8px 16px #333949;
-            border-radius: 1rem;
+        /* Toast Notification Animation */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .toast { animation: slideIn 0.3s ease-out forwards; }
+        .toast.hiding { animation: fadeOut 0.3s ease-out forwards; }
 
-        .panel-inset {
-            background: #1a1c23;
-            box-shadow: 
-                inset 5px 5px 10px #0e0f13, 
-                inset -5px -5px 10px #262933;
-            border-radius: 0.75rem;
-            border: 1px solid rgba(255,255,255,0.02);
-        }
-
-        /* 3D Inputs */
-        .input-depth {
-            background: #16181d;
-            border: none;
-            box-shadow: inset 3px 3px 6px #0b0c0f, inset -3px -3px 6px #21242b;
-            color: #e2e8f0;
-            transition: all 0.2s ease;
-        }
-        .input-depth:focus {
-            box-shadow: inset 4px 4px 8px #090a0c, inset -4px -4px 8px #23262e, 0 0 0 2px #6366f1;
-            outline: none;
-        }
-
-        /* 3D Buttons */
-        .btn-3d {
-            transition: all 0.1s ease;
-            position: relative;
-            transform: translateY(0);
-            border-radius: 0.75rem;
-            font-family: 'Space Grotesk', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .btn-3d:active:not(:disabled) {
-            transform: translateY(3px);
-            box-shadow: none !important;
-        }
-        
-        .btn-primary-3d {
-            background: linear-gradient(145deg, #4f46e5, #4338ca);
-            box-shadow: 0 4px 0 #312e81, 0 8px 15px rgba(0,0,0,0.3);
-            color: white;
-            border-top: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .btn-secondary-3d {
-            background: linear-gradient(145deg, #374151, #1f2937);
-            box-shadow: 0 4px 0 #111827, 0 5px 10px rgba(0,0,0,0.2);
-            color: #d1d5db;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        /* Sidebar Styling */
-        .sidebar-gradient {
-            background: linear-gradient(180deg, #1f222a 0%, #15171e 100%);
-        }
-
-        /* VM List Item 3D */
-        .vm-card {
-            background: linear-gradient(145deg, #2a2e3b, #232732);
-            box-shadow: 5px 5px 10px #16181f, -5px -5px 10px #303645;
-            border-left: 4px solid transparent;
-            transition: all 0.2s;
-        }
-        .vm-card:hover {
-            transform: translateX(4px);
-        }
-        .vm-card.active {
-            border-left-color: #6366f1;
-            background: #232732;
-            box-shadow: inset 4px 4px 8px #16181f, inset -4px -4px 8px #303645;
-        }
-
-        /* Range Slider Styling */
-        input[type=range] {
-            -webkit-appearance: none; 
-            background: transparent; 
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #6366f1;
-            box-shadow: 0 0 10px rgba(99,102,241,0.5);
-            cursor: pointer;
-            margin-top: -8px; 
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: #111827;
-            border-radius: 4px;
-            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.5);
-        }
+        /* Accordion Styles */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary ~ * { animation: sweep .3s ease-in-out; }
+        @keyframes sweep { 0% {opacity: 0; transform: translateY(-10px)} 100% {opacity: 1; transform: translateY(0)} }
     </style>
 </head>
-<body class="bg-[#1a1c23] text-gray-300 flex h-screen overflow-hidden antialiased selection:bg-indigo-500 selection:text-white">
+<body class="bg-gray-900 text-gray-300 flex h-screen overflow-hidden antialiased">
 
-    <div id="overlay" class="fixed inset-0 bg-black/80 z-30 hidden lg:hidden backdrop-blur-sm"></div>
+    <div id="overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm"></div>
     
     <!-- Toast Container -->
-    <div id="toast-container" class="fixed top-6 right-6 z-[60] flex flex-col space-y-3 pointer-events-none"></div>
+    <div id="toast-container" class="fixed top-4 right-4 z-[60] flex flex-col space-y-2 pointer-events-none"></div>
 
-    <!-- Left Sidebar Control Panel -->
-    <aside class="w-80 sidebar-gradient border-r border-gray-800 flex flex-col fixed lg:static inset-y-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-[10px_0_30px_rgba(0,0,0,0.5)]">
-        
-        <!-- Header -->
-        <header class="p-6 border-b border-gray-800/50 flex items-center justify-between flex-shrink-0 bg-[#1f222a] shadow-lg relative z-10">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-lg bg-[#1a1c23] shadow-[inset_2px_2px_4px_#0e0f13,inset_-2px_-2px_4px_#262933] flex items-center justify-center text-indigo-500">
-                    <i class="fas fa-server"></i>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold text-white tracking-wide font-[Space_Grotesk]">WebEmulator</h1>
-                    <div class="flex items-center space-x-1">
-                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <span class="text-[10px] text-gray-500 uppercase font-bold">System Online</span>
-                    </div>
-                </div>
+    <!-- Left Sidebar -->
+    <aside class="w-72 bg-gray-800/90 backdrop-blur-md border-r border-gray-700/50 flex flex-col fixed lg:static inset-y-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
+        <header class="p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-server text-indigo-500"></i>
+                <h1 class="text-lg font-bold text-white">Web Emulator</h1>
             </div>
             <button class="lg:hidden text-gray-400 hover:text-white" onclick="document.getElementById('overlay').click()">
-                <i class="fas fa-times text-xl"></i>
+                <i class="fas fa-times"></i>
             </button>
         </header>
         
-        <div class="p-5 flex-shrink-0">
-            <h2 class="text-xs text-gray-500 uppercase font-bold tracking-wider flex justify-between items-center mb-2 pl-1">
-                Active Instances
-                <span id="vm-count-badge" class="bg-[#111] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.8)] text-gray-400 px-2 py-0.5 rounded text-[10px]">0</span>
+        <div class="p-4 flex-shrink-0">
+            <h2 class="text-xs text-gray-400 uppercase font-semibold tracking-wider flex justify-between items-center">
+                Virtual Machines
+                <span id="vm-count-badge" class="bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full text-[10px]">0</span>
             </h2>
         </div>
 
-        <nav id="vm-list" class="flex-grow overflow-y-auto px-5 space-y-3 pb-4 custom-scrollbar">
-            <div id="empty-list-placeholder" class="text-center text-gray-600 mt-12 hidden flex flex-col items-center">
-                <div class="w-24 h-24 bg-[#1f222a] rounded-full flex items-center justify-center shadow-[inset_5px_5px_10px_#16181f,inset_-5px_-5px_10px_#2a2e3b] mb-4">
-                    <i class="fas fa-box-open text-3xl opacity-50"></i>
+        <nav id="vm-list" class="flex-grow overflow-y-auto px-4 space-y-2 pb-4">
+            <div id="empty-list-placeholder" class="text-center text-gray-500 text-sm mt-8 hidden">
+                <div class="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-box-open text-2xl"></i>
                 </div>
-                <p class="font-medium">No Environments Found</p>
-                <p class="text-xs mt-1 opacity-70">Initialize a new machine to begin.</p>
+                <p>No machines yet.</p>
+                <p class="text-xs mt-1">Tap "Create New" to start.</p>
             </div>
             <!-- Dynamically added VM items will go here -->
         </nav>
 
-        <!-- Footer Actions -->
-        <div class="p-5 border-t border-gray-800/50 mt-auto flex-shrink-0 space-y-3 bg-[#181a20]">
-            <button id="create-vm-btn" class="w-full btn-primary-3d py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-sm">
+        <div class="p-4 border-t border-gray-700/50 mt-auto flex-shrink-0 space-y-2 bg-gray-800/50">
+            <button id="create-vm-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
                 <i class="fas fa-plus-circle"></i>
-                Initialize New System
+                Create New Machine
             </button>
-            <div class="grid grid-cols-2 gap-3">
-                <button id="load-snapshot-btn" class="w-full btn-secondary-3d py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs font-bold">
-                    <i class="fas fa-upload"></i> Load State
+            <div class="grid grid-cols-2 gap-2">
+                <button id="load-snapshot-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
+                    <i class="fas fa-upload"></i> Load
                 </button>
-                <button id="clean-storage-btn" class="w-full btn-secondary-3d py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs font-bold">
-                    <i class="fas fa-broom"></i> Purge Temp
+                <button id="clean-storage-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
+                    <i class="fas fa-broom"></i> Clean
                 </button>
             </div>
             
-            <div class="pt-3 flex justify-between items-center text-[10px] text-gray-500 font-mono border-t border-gray-800">
-                <span id="storage-display" class="flex items-center"><i class="fas fa-hdd mr-2"></i>Calibrating...</span>
-                <button id="reset-app-btn" class="text-red-900 hover:text-red-500 transition-colors uppercase font-bold">Factory Reset</button>
+            <!-- Storage Info & Full Reset -->
+            <div class="pt-2 border-t border-gray-700/30 flex justify-between items-center text-[10px] text-gray-500 font-mono">
+                <span id="storage-display"><i class="fas fa-hdd mr-1"></i>Calculating...</span>
+                <button id="reset-app-btn" class="text-red-400 hover:text-red-300 transition-colors">Factory Reset</button>
             </div>
         </div>
     </aside>
 
     <!-- Main Content Wrapper -->
-    <div class="flex-1 flex flex-col min-w-0 relative bg-[#1a1c23]">
+    <div class="flex-1 flex flex-col min-w-0 relative">
         <!-- Mobile Header -->
-        <header class="lg:hidden p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-[#1f222a] shadow-md sticky top-0 z-20">
+        <header class="lg:hidden p-4 border-b border-gray-700/50 flex items-center justify-between flex-shrink-0 bg-gray-900/80 backdrop-blur-md sticky top-0 z-20">
              <div class="flex items-center space-x-2">
                  <i class="fas fa-microchip text-indigo-500"></i>
-                 <h1 class="text-lg font-bold text-white font-[Space_Grotesk]">WebVM Manager</h1>
+                 <h1 class="text-lg font-bold text-white">VM Manager</h1>
              </div>
-             <button id="menu-toggle-btn" class="w-10 h-10 bg-[#1a1c23] shadow-[5px_5px_10px_#13151b,-5px_-5px_10px_#272b35] rounded-lg flex items-center justify-center text-gray-300 hover:text-white active:shadow-inner">
+             <button id="menu-toggle-btn" class="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-gray-300 hover:text-white border border-gray-700 active:bg-gray-700">
                 <i class="fas fa-bars"></i>
             </button>
         </header>
 
-        <main class="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 overflow-y-auto">
-             <div class="text-center text-gray-600 max-w-lg mx-auto p-10 rounded-3xl panel-inset">
-                <div class="relative inline-block mb-8">
-                    <div class="absolute inset-0 bg-indigo-500 blur-3xl opacity-10 rounded-full animate-pulse"></div>
-                    <i class="fas fa-desktop text-8xl relative z-10 text-[#232732] drop-shadow-[0_2px_1px_rgba(255,255,255,0.1)]"></i>
+        <main class="flex-1 flex flex-col items-center justify-center bg-gray-900 p-4 sm:p-8 overflow-y-auto">
+             <div class="text-center text-gray-600 max-w-md mx-auto">
+                <div class="relative inline-block mb-6">
+                    <div class="absolute inset-0 bg-indigo-500 blur-3xl opacity-10 rounded-full"></div>
+                    <i class="fas fa-desktop text-7xl sm:text-8xl relative z-10 text-gray-800"></i>
                 </div>
-                <h2 class="text-3xl font-bold text-white mb-4 font-[Space_Grotesk]">System Ready</h2>
-                <p class="text-gray-400 text-sm leading-relaxed mb-8">
-                    Select a virtual machine from the left control panel to launch the environment. 
-                    Ensure popup permissions are enabled for display output.
+                <h2 class="text-2xl sm:text-3xl font-bold text-white mb-3">Ready to Emulate</h2>
+                <p class="text-gray-400 text-sm sm:text-base leading-relaxed">
+                    Select a machine from the sidebar or create a new one to launch your operating system.
                 </p>
-                <div class="flex flex-wrap justify-center gap-3 text-xs text-gray-400 font-mono">
-                    <span class="bg-[#16181d] px-4 py-2 rounded-full shadow-[inset_2px_2px_4px_#0e0f13] flex items-center gap-2">
-                        <i class="fas fa-memory text-indigo-500"></i> <span id="system-ram-display">Detecting Host...</span>
-                    </span>
-                    <span class="bg-[#16181d] px-4 py-2 rounded-full shadow-[inset_2px_2px_4px_#0e0f13] flex items-center gap-2">
-                         <i class="fas fa-tachometer-alt text-green-500"></i> Optimized Mode
-                    </span>
+                <div class="mt-8 flex flex-wrap justify-center gap-3 text-xs text-gray-500 font-mono">
+                    <span class="bg-gray-800 px-3 py-1 rounded-full border border-gray-700"><i class="fas fa-memory mr-1"></i> <span id="system-ram-display">Detecting...</span></span>
+                    <span class="bg-gray-800 px-3 py-1 rounded-full border border-gray-700"><i class="fas fa-mobile-alt mr-1"></i> Mobile Optimized</span>
                 </div>
             </div>
         </main>
     </div>
     
-    <!-- Create VM Modal (3D Style) -->
-    <div id="create-vm-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 hidden p-4">
-        <div class="panel-3d w-full max-w-lg flex flex-col max-h-[90vh] border border-gray-700/50">
+    <!-- Create VM Modal (Responsive) -->
+    <div id="create-vm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <!-- Modal Container: Added max-h and flex-col for proper scrolling on mobile -->
+        <div class="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh] animate-fade-in-up">
             
-            <!-- Modal Header -->
-            <div class="p-6 border-b border-gray-800 flex justify-between items-center flex-shrink-0 bg-[#1f222a] rounded-t-2xl shadow-lg z-10">
-                <div>
-                    <h3 class="text-xl font-bold text-white font-[Space_Grotesk]">Initialize Environment</h3>
-                    <p class="text-xs text-gray-500 uppercase tracking-wider">Configuration Wizard</p>
-                </div>
-                <button id="close-modal-btn" class="w-10 h-10 rounded-full bg-[#1a1c23] shadow-[5px_5px_10px_#13151b,-5px_-5px_10px_#272b35] text-gray-400 hover:text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 active:shadow-inner">
+            <!-- Header (Fixed) -->
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center flex-shrink-0 bg-gray-800 rounded-t-2xl">
+                <h3 class="text-lg font-bold text-white">New Machine</h3>
+                <button id="close-modal-btn" class="w-8 h-8 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
 
-            <!-- 3D Steps -->
-            <div class="px-8 py-6 bg-[#181a20] flex justify-between items-center relative z-0">
-                <div class="absolute top-1/2 left-8 right-8 h-1 bg-[#111] rounded -z-10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)]"></div>
-                
-                <div id="step-indicator-1" class="flex flex-col items-center gap-2 text-indigo-400 font-bold transition-all">
-                    <div class="w-10 h-10 rounded-full bg-[#1a1c23] border-2 border-indigo-500 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.5)] z-10 text-white">1</div>
-                    <span class="text-[10px] uppercase bg-[#181a20] px-2">Media</span>
+            <!-- Steps (Fixed) -->
+            <div class="px-5 py-4 bg-gray-800/50 flex justify-center items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                <div id="step-indicator-1" class="flex items-center text-indigo-400 text-xs sm:text-sm font-medium">
+                    <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-indigo-600 border-2 border-indigo-400 mr-2 text-white">1</div>
+                    Media
                 </div>
-                
-                <div id="step-indicator-2" class="flex flex-col items-center gap-2 text-gray-600 transition-all">
-                    <div class="w-10 h-10 rounded-full bg-[#16181d] border-2 border-gray-700 flex items-center justify-center z-10 shadow-lg">2</div>
-                    <span class="text-[10px] uppercase bg-[#181a20] px-2">Hardware</span>
+                <div class="w-8 sm:w-16 h-px bg-gray-600"></div>
+                <div id="step-indicator-2" class="flex items-center text-gray-500 text-xs sm:text-sm font-medium">
+                    <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600 mr-2">2</div>
+                    Hardware
                 </div>
-                
-                <div id="step-indicator-3" class="flex flex-col items-center gap-2 text-gray-600 transition-all">
-                    <div class="w-10 h-10 rounded-full bg-[#16181d] border-2 border-gray-700 flex items-center justify-center z-10 shadow-lg">3</div>
-                    <span class="text-[10px] uppercase bg-[#181a20] px-2">Launch</span>
+                <div class="w-8 sm:w-16 h-px bg-gray-600"></div>
+                <div id="step-indicator-3" class="flex items-center text-gray-500 text-xs sm:text-sm font-medium">
+                    <div class="rounded-full h-6 w-6 sm:h-8 sm:w-8 flex items-center justify-center bg-gray-700 border-2 border-gray-600 mr-2">3</div>
+                    Done
                 </div>
             </div>
 
-            <!-- Content -->
-            <div class="p-8 overflow-y-auto custom-scrollbar bg-[#1a1c23]">
+            <!-- Content (Scrollable) -->
+            <div class="p-6 overflow-y-auto custom-scrollbar">
                 
-                <!-- Step 1: Media -->
+                <!-- Step 1: Storage & Media -->
                 <div id="modal-step-1">
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-gray-400 uppercase mb-3 ml-1">Boot Media Source</label>
-                        <div class="relative">
-                            <select id="boot-drive-type" class="w-full input-depth p-4 rounded-xl text-white text-sm appearance-none cursor-pointer">
-                                <option value="cd">CD-ROM Image (.iso)</option>
-                                <option value="floppy">Floppy Disk Image (.img)</option>
-                                <option value="hda">Hard Drive Image (.img/.bin)</option>
-                            </select>
-                            <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-500">
-                                <i class="fas fa-chevron-down text-xs"></i>
-                            </div>
-                        </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-white mb-2">Primary Boot Drive</label>
+                        <select id="boot-drive-type" class="w-full bg-gray-700 border-gray-600 rounded-xl text-white text-sm p-3 mb-3 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="cd">CD-ROM (.iso)</option>
+                            <option value="floppy">Floppy Drive (.img)</option>
+                            <option value="hda">Hard Drive (.img/.bin)</option>
+                        </select>
 
-                        <div class="mt-4">
-                            <label for="primary-upload" class="group flex flex-col items-center justify-center w-full h-40 rounded-xl cursor-pointer panel-inset border-2 border-transparent hover:border-indigo-500/50 transition-all relative overflow-hidden">
-                                <div class="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div class="flex flex-col items-center justify-center z-10">
-                                    <div class="w-16 h-16 bg-[#16181d] rounded-full flex items-center justify-center shadow-[inset_3px_3px_6px_#0b0c0f,inset_-3px_-3px_6px_#21242b] mb-3 group-hover:scale-110 transition-transform">
-                                        <i class="fas fa-cloud-upload-alt text-2xl text-gray-400 group-hover:text-indigo-400"></i>
-                                    </div>
-                                    <p id="primary-name-display" class="text-sm text-gray-300 font-medium px-6 text-center break-all">Select Boot File</p>
-                                    <p class="text-[10px] text-gray-600 mt-1 uppercase tracking-wide">Click to Browse Device</p>
-                                </div>
-                                <input id="primary-upload" type="file" class="hidden"/>
-                            </label>
-                        </div>
+                        <label for="primary-upload" class="group flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-xl cursor-pointer bg-gray-700/30 hover:bg-gray-700/60 transition-all hover:border-indigo-500">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 group-hover:text-indigo-400 mb-3 transition-colors"></i>
+                                <p id="primary-name-display" class="text-sm text-gray-400 group-hover:text-white text-center px-4 break-all">Tap to browse files...</p>
+                            </div>
+                            <input id="primary-upload" type="file" class="hidden"/>
+                        </label>
                     </div>
 
-                    <!-- Additional Options -->
-                    <div class="space-y-3">
-                        <details class="panel-inset p-1">
-                            <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white select-none">
-                                <span class="flex items-center"><i class="fas fa-hdd w-6 text-indigo-500"></i>Extra Drives</span>
-                                <i class="fas fa-plus-circle text-gray-500"></i>
-                            </summary>
-                            <div class="p-4 border-t border-gray-800 space-y-4">
-                                <div class="space-y-2">
-                                    <label class="text-xs text-gray-500 uppercase font-bold">Floppy Drive B</label>
-                                    <input type="file" id="fdb-upload" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#232732] file:text-white hover:file:bg-indigo-600 file:transition-colors file:cursor-pointer"/>
-                                </div>
-                                <div class="space-y-2">
-                                    <label class="text-xs text-gray-500 uppercase font-bold">Hard Drive B</label>
-                                    <input type="file" id="hdb-upload" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#232732] file:text-white hover:file:bg-indigo-600 file:transition-colors file:cursor-pointer"/>
-                                </div>
+                    <!-- Additional Drives Accordion -->
+                    <details class="bg-gray-700/30 rounded-xl border border-gray-700 mb-2">
+                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
+                            <span><i class="fas fa-hdd mr-2 text-indigo-400"></i>Additional Drives</span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Floppy B (fdb)</label>
+                                <input type="file" id="fdb-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
                             </div>
-                        </details>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Hard Disk B (hdb)</label>
+                                <input type="file" id="hdb-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                        </div>
+                    </details>
 
-                        <details class="panel-inset p-1">
-                            <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white select-none">
-                                <span class="flex items-center"><i class="fab fa-linux w-6 text-yellow-500"></i>Kernel Direct Boot</span>
-                                <i class="fas fa-plus-circle text-gray-500"></i>
-                            </summary>
-                            <div class="p-4 border-t border-gray-800 space-y-4">
-                                <input type="file" id="bzimage-upload" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#232732] file:text-white hover:file:bg-indigo-600 file:cursor-pointer mb-2"/>
-                                <input type="file" id="initrd-upload" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#232732] file:text-white hover:file:bg-indigo-600 file:cursor-pointer mb-2"/>
-                                <input type="text" id="cmdline-input" placeholder="Kernel Parameters (e.g. root=/dev/sda1 console=ttyS0)" class="w-full input-depth p-3 rounded-lg text-xs text-white"/>
+                    <!-- Linux Kernel Accordion -->
+                    <details class="bg-gray-700/30 rounded-xl border border-gray-700">
+                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
+                            <span><i class="fab fa-linux mr-2 text-yellow-500"></i>Linux Kernel Boot</span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">bzImage</label>
+                                <input type="file" id="bzimage-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
                             </div>
-                        </details>
-                    </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Initrd</label>
+                                <input type="file" id="initrd-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">Command Line (cmdline)</label>
+                                <input type="text" id="cmdline-input" placeholder="e.g. root=/dev/sda1" class="w-full bg-gray-800 border border-gray-600 rounded-lg p-2 text-xs text-white"/>
+                            </div>
+                        </div>
+                    </details>
                 </div>
 
-                <!-- Step 2: Hardware -->
+                <!-- Step 2: Configuration & Hardware -->
                 <div id="modal-step-2" class="hidden">
-                    <h4 class="text-sm font-bold uppercase text-gray-400 mb-6 tracking-wider">System Resources</h4>
+                    <h4 class="text-md font-semibold mb-4 text-white flex items-center">
+                        <i class="fas fa-microchip mr-2 text-indigo-400"></i> System Resources
+                    </h4>
                     
-                    <div class="panel-inset p-6 mb-6">
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="text-sm font-bold text-white flex items-center"><i class="fas fa-memory mr-2 text-indigo-500"></i> System RAM</span>
-                            <span id="ram-value" class="font-mono text-indigo-300 font-bold bg-[#111] shadow-[inset_2px_2px_4px_#000] px-3 py-1 rounded text-xs">128 MB</span>
+                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600 mb-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-sm text-gray-400">System RAM</span>
+                            <span id="ram-value" class="font-mono text-indigo-300 font-bold bg-gray-800 px-3 py-1 rounded-lg border border-gray-700">128 MB</span>
                         </div>
-                        <input id="ram-slider" type="range" min="64" max="512" value="128" step="32" class="w-full">
-                        <div class="flex justify-between text-[10px] text-gray-500 mt-3 font-mono">
+                        <input id="ram-slider" type="range" min="64" max="512" value="128" step="32" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                        <div class="flex justify-between text-[10px] text-gray-500 mt-2 font-mono">
                             <span id="ram-min-label">64MB</span>
                             <span id="ram-max-label">512MB</span>
                         </div>
                     </div>
 
-                    <div class="panel-inset p-6 mb-6">
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="text-sm font-bold text-white flex items-center"><i class="fas fa-film mr-2 text-pink-500"></i> Video Memory</span>
-                            <span id="vram-value" class="font-mono text-pink-300 font-bold bg-[#111] shadow-[inset_2px_2px_4px_#000] px-3 py-1 rounded text-xs">8 MB</span>
+                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600 mb-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-sm text-gray-400">Video RAM (VRAM)</span>
+                            <span id="vram-value" class="font-mono text-pink-300 font-bold bg-gray-800 px-3 py-1 rounded-lg border border-gray-700">8 MB</span>
                         </div>
-                        <input id="vram-slider" type="range" min="1" max="64" value="8" step="1" class="w-full">
+                        <input id="vram-slider" type="range" min="1" max="64" value="8" step="1" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-pink-500">
                     </div>
 
-                    <div class="panel-inset p-4 flex items-center justify-between">
-                        <div>
-                            <span class="block text-sm font-bold text-white">Networking Relay</span>
-                            <span class="text-xs text-gray-500">WebSockets Internet Bridge</span>
+                    <!-- System BIOS Accordion -->
+                    <details class="bg-gray-700/30 rounded-xl border border-gray-700 mb-4">
+                        <summary class="flex justify-between items-center p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-xl select-none">
+                            <span><i class="fas fa-code mr-2 text-green-400"></i>Custom BIOS</span>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </summary>
+                        <div class="p-4 border-t border-gray-700 space-y-4 text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">System BIOS</label>
+                                <input type="file" id="bios-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">VGA BIOS</label>
+                                <input type="file" id="vga-bios-upload" class="block w-full text-xs text-gray-400 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"/>
+                            </div>
+                        </div>
+                    </details>
+
+                    <div class="flex items-center justify-between p-4 rounded-xl bg-gray-700/50 border border-gray-600">
+                        <div class="flex flex-col">
+                            <span class="font-medium text-white text-sm">Network Adapter</span>
+                            <span class="text-xs text-gray-400">Internet access</span>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="network-toggle" class="sr-only peer">
-                            <div class="w-12 h-7 bg-[#111] shadow-inner rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-gray-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-900 peer-checked:after:bg-indigo-400"></div>
+                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                         </label>
                     </div>
                 </div>
 
-                <!-- Step 3: Name & Confirm -->
+                <!-- Step 3: VM Name -->
                 <div id="modal-step-3" class="hidden">
-                    <div class="text-center mb-8">
-                         <div class="w-20 h-20 bg-[#1f222a] shadow-[5px_5px_10px_#16181f,-5px_-5px_10px_#2a2e3b] rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-tag text-3xl text-indigo-400"></i>
+                    <div class="text-center mb-6">
+                         <div class="w-16 h-16 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                            <i class="fas fa-tag"></i>
                         </div>
-                        <h4 class="text-xl font-bold text-white font-[Space_Grotesk]">Identity Configuration</h4>
+                        <h4 class="text-lg font-semibold text-white">Name Your Machine</h4>
                     </div>
                     
-                    <div class="mb-8">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Machine Name</label>
-                        <input type="text" id="vm-name-input" placeholder="e.g., Alpine Linux 3.18"
-                        class="w-full input-depth p-4 rounded-xl text-white font-medium placeholder-gray-600 focus:text-indigo-300 text-center">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-laptop text-gray-500"></i>
+                        </div>
+                        <input type="text" id="vm-name-input" placeholder="e.g., My Linux VM"
+                        class="w-full pl-10 bg-gray-900 border border-gray-600 text-white text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 placeholder-gray-600 transition-all">
                     </div>
                     
-                    <div class="p-6 bg-[#181a20] rounded-xl border border-gray-800 text-sm space-y-3 font-mono">
-                        <div class="flex justify-between border-b border-gray-800 pb-2">
-                            <span class="text-gray-500">Media:</span>
-                            <span class="text-white truncate max-w-[180px]" id="summary-source">-</span>
+                    <div class="mt-6 p-4 bg-gray-700/30 rounded-xl border border-gray-700 text-sm space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Boot:</span>
+                            <span class="text-white font-medium truncate max-w-[150px]" id="summary-source">-</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-500">Allocation:</span>
-                            <span class="text-green-400" id="summary-ram">-</span>
+                            <span class="text-gray-400">Memory:</span>
+                            <span class="text-white font-medium" id="summary-ram">-</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Footer -->
-            <div class="p-6 bg-[#1f222a] border-t border-gray-800 flex justify-between rounded-b-2xl shadow-[0_-5px_15px_rgba(0,0,0,0.3)] z-10">
-                <button id="modal-back-btn" class="px-6 py-3 btn-secondary-3d rounded-xl font-bold disabled:opacity-50 disabled:shadow-none text-xs">
-                    BACK
+            <!-- Footer (Fixed) -->
+            <div class="p-5 bg-gray-800 border-t border-gray-700 flex justify-between rounded-b-2xl flex-shrink-0">
+                <button id="modal-back-btn" class="px-5 py-2.5 bg-gray-700 text-white font-medium rounded-xl hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
+                    Back
                 </button>
                 <div>
-                    <button id="modal-next-btn" class="px-8 py-3 btn-primary-3d rounded-xl font-bold disabled:opacity-50 disabled:shadow-none text-xs">
-                        NEXT STEP <i class="fas fa-arrow-right ml-2"></i>
+                    <button id="modal-next-btn" class="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 transition-all text-sm">
+                        Next <i class="fas fa-arrow-right ml-1"></i>
                     </button>
-                    <button id="modal-create-btn" class="px-8 py-3 btn-primary-3d bg-gradient-to-br from-green-600 to-green-700 shadow-[0_4px_0_#14532d] text-white rounded-xl font-bold hidden text-xs">
-                        INITIALIZE <i class="fas fa-rocket ml-2"></i>
+                    <button id="modal-create-btn" class="px-6 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-500 hidden disabled:opacity-50 shadow-lg shadow-green-500/30 transition-all text-sm">
+                        Launch <i class="fas fa-rocket ml-1"></i>
                     </button>
                 </div>
             </div>
@@ -412,39 +327,47 @@
     
     <input type="file" id="snapshot-upload" class="hidden" accept=".bin,.v86state,.86state" />
 
-    <!-- Edit VM Modal -->
-    <div id="edit-vm-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 hidden p-4">
-        <div class="panel-3d w-full max-w-md border border-gray-700 flex flex-col">
-            <div class="p-6 border-b border-gray-800 bg-[#1f222a] rounded-t-2xl">
-                <h3 class="text-lg font-bold text-white font-[Space_Grotesk]">Modify Configuration</h3>
+    <!-- Edit VM Modal (Similar Response Improvements) -->
+    <div id="edit-vm-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-gray-800 rounded-2xl shadow-xl w-full max-w-md border border-gray-700 flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-gray-800 rounded-t-2xl">
+                <h3 class="text-lg font-semibold text-white">Edit Machine</h3>
+                <button id="close-edit-modal-btn" class="text-gray-400 hover:text-white text-xl">&times;</button>
             </div>
-            <div class="p-6 space-y-6 bg-[#1a1c23]">
+            <div class="p-6 space-y-4 overflow-y-auto">
                 <input type="hidden" id="edit-vm-id">
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Display Name</label>
-                    <input type="text" id="edit-vm-name-input" class="w-full input-depth p-3 rounded-lg text-sm">
+                    <label for="edit-vm-name-input" class="block text-xs font-bold text-gray-400 uppercase mb-2">VM Name</label>
+                    <input type="text" id="edit-vm-name-input" class="w-full bg-gray-900 border border-gray-600 text-white text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Memory Allocation</label>
-                    <div class="panel-inset p-4">
-                        <div class="flex items-center justify-between mb-4">
-                             <i class="fas fa-memory text-indigo-400"></i>
-                             <span id="edit-ram-value" class="font-mono text-indigo-300 font-bold text-xs"></span>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Allocate Memory (RAM)</label>
+                    <div class="bg-gray-700/50 p-4 rounded-xl border border-gray-600">
+                        <div class="flex items-center justify-between mb-2">
+                             <i class="fas fa-memory text-indigo-400 text-lg"></i>
+                             <span id="edit-ram-value" class="font-mono text-indigo-300 font-bold bg-gray-800 px-2 py-1 rounded text-xs"></span>
                         </div>
-                        <input id="edit-ram-slider" type="range" min="64" max="512" step="32" class="w-full">
+                        <input id="edit-ram-slider" type="range" min="64" max="512" step="32" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                         <div class="flex justify-between text-[10px] text-gray-500 mt-2 font-mono">
+                            <span id="edit-ram-min-label">64MB</span>
+                            <span id="edit-ram-max-label">512MB</span>
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center justify-between panel-inset p-4">
-                    <span class="text-sm font-bold text-gray-300">Network Bridge</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="edit-network-toggle" class="sr-only peer">
-                        <div class="w-10 h-6 bg-[#111] shadow-inner rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-900 peer-checked:after:bg-indigo-400"></div>
-                    </label>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Network</label>
+                     <div class="flex items-center justify-between p-4 rounded-xl bg-gray-700/50 border border-gray-600">
+                        <span class="font-medium text-gray-300 text-sm">Enable Adapter</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="edit-network-toggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
                 </div>
             </div>
-            <div class="p-5 bg-[#1f222a] border-t border-gray-800 flex justify-end gap-3 rounded-b-2xl">
-                <button id="cancel-edit-btn" class="px-5 py-2 btn-secondary-3d rounded-lg text-xs font-bold">CANCEL</button>
-                <button id="save-changes-btn" class="px-5 py-2 btn-primary-3d rounded-lg text-xs font-bold">SAVE CHANGES</button>
+            <div class="p-5 bg-gray-800 border-t border-gray-700 flex justify-end rounded-b-2xl">
+                <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-700 text-white rounded-xl hover:bg-gray-600 mr-2 text-sm">Cancel</button>
+                <button id="save-changes-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-bold">Save Changes</button>
             </div>
         </div>
     </div>
