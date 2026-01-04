@@ -1,5 +1,7 @@
 
 
+
+
 // --- Robustness: Polyfill for BroadcastChannel ---
 if (!window.BroadcastChannel) {
     window.BroadcastChannel = class {
@@ -80,6 +82,9 @@ function fullCleanup() {
     if (isShuttingDown) return;
     isShuttingDown = true;
     
+    // Stop auto-saver
+    autoSaver.stop();
+
     if (screenUpdateInterval) clearInterval(screenUpdateInterval);
     if (statusCheckInterval) clearInterval(statusCheckInterval);
     
@@ -370,6 +375,9 @@ async function startEmulator(config) {
             
             cleanupBlobUrls();
             
+            // Start Auto-Saver
+            autoSaver.start();
+            
             setTimeout(() => {
                 if(!emulator.is_running()) {
                     console.log("Kickstarting Emulator...");
@@ -443,22 +451,67 @@ async function startEmulator(config) {
 
 eventManager.add(window, 'resize', () => { window.wasResized = true; fitScreen(); });
 
+// --- Auto-Save System ---
+class AutoSaveManager {
+    constructor() {
+        this.interval = null;
+        this.isSaving = false;
+    }
+
+    start() {
+        if (this.interval) clearInterval(this.interval);
+        
+        // Save periodically (every 60 seconds)
+        this.interval = setInterval(() => {
+            if (emulator && emulator.is_running() && !document.hidden) {
+                saveSnapshot(true); // silent auto-save
+            }
+        }, 60000);
+
+        // Save on visibility change (User switches tab -> Save immediately)
+        // This is crucial for mobile browser "OOM Killer" protection
+        eventManager.add(document, 'visibilitychange', () => {
+            if (document.hidden && emulator && emulator.is_running()) {
+                console.log("App hidden, triggering emergency auto-save...");
+                saveSnapshot(true);
+            }
+        });
+    }
+
+    stop() {
+        if (this.interval) clearInterval(this.interval);
+        this.interval = null;
+    }
+}
+
+const autoSaver = new AutoSaveManager();
+
 // --- Save Snapshot ---
-async function saveSnapshot() {
+async function saveSnapshot(isAuto = false) {
     if (!emulator) return;
+    if (autoSaver.isSaving) return; // Prevent overlapping saves
+
+    autoSaver.isSaving = true;
 
     const wasRunning = emulator.is_running();
+    
+    // For manual saves, we stop UI to be safe. For auto-saves, try to stay running if possible,
+    // but stopping ensures consistency.
     if (wasRunning) emulator.stop();
 
-    elements.loadingIndicator.classList.remove('hidden');
-    elements.loadingText.textContent = "Compressing memory state...";
+    if (!isAuto) {
+        elements.loadingIndicator.classList.remove('hidden');
+        elements.loadingText.textContent = "Compressing memory state...";
+    }
     
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Give UI a moment to update
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     try {
         let state = await emulator.save_state(); // This returns an ArrayBuffer
 
-        elements.loadingText.textContent = "Writing to local database...";
+        if (!isAuto) elements.loadingText.textContent = "Writing to local database...";
+        
         await initDB();
 
         const snapshotData = {
@@ -476,21 +529,27 @@ async function saveSnapshot() {
             request.onerror = (e) => reject("DB Write Error: " + e.target.error.message);
         });
 
-        state = null;
+        state = null; // Free memory
 
-        channel.postMessage({ type: 'SNAPSHOT_SAVED', id: selectedOS.id });
-
-        if (confirm("Snapshot saved successfully!\n\nDo you want to close this machine now?")) {
-            fullCleanup();
-            window.close();
-            return;
+        if (isAuto) {
+            channel.postMessage({ type: 'AUTO_SAVE_COMPLETE', id: selectedOS.id });
+        } else {
+            channel.postMessage({ type: 'SNAPSHOT_SAVED', id: selectedOS.id });
+            if (confirm("Snapshot saved successfully!\n\nDo you want to close this machine now?")) {
+                fullCleanup();
+                window.close();
+                return;
+            }
         }
 
     } catch (e) {
         console.error("Save failed", e);
-        alert("Failed to save snapshot. Your browser may be out of storage space. Error: " + e);
+        if (!isAuto) alert("Failed to save snapshot. Error: " + e);
     } finally {
-        elements.loadingIndicator.classList.add('hidden');
+        autoSaver.isSaving = false;
+        if (!isAuto) elements.loadingIndicator.classList.add('hidden');
+        
+        // Resume execution
         if (wasRunning && emulator && !isShuttingDown) {
             emulator.run();
         }
@@ -616,7 +675,7 @@ if(document.getElementById('vm-reset-btn')) eventManager.add(document.getElement
 if(document.getElementById('vm-fullscreen-btn')) eventManager.add(document.getElementById('vm-fullscreen-btn'), 'click', () => document.documentElement.requestFullscreen().catch(console.error));
 if(document.getElementById('vm-keyboard-btn')) eventManager.add(document.getElementById('vm-keyboard-btn'), 'click', () => elements.virtualKeyboard.classList.toggle('hidden'));
 if(document.getElementById('vm-cad-btn')) eventManager.add(document.getElementById('vm-cad-btn'), 'click', () => emulator?.keyboard_send_scancodes([0x1D, 0x38, 0xE0, 0x53, 0xE0, 0xD3, 0xB8, 0x9D]));
-if(document.getElementById('vm-save-btn')) eventManager.add(document.getElementById('vm-save-btn'), 'click', saveSnapshot);
+if(document.getElementById('vm-save-btn')) eventManager.add(document.getElementById('vm-save-btn'), 'click', () => saveSnapshot(false));
 
 function handleKey(e, isPress) {
     const key = e.target.closest('.key');
