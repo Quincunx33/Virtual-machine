@@ -286,8 +286,10 @@ async function startEmulator(config) {
     try {
         if (config.sourceType === 'snapshot') {
             // --- SNAPSHOT MODE ---
-            // Fix: Do NOT load bios, vga_bios, or set memory size for snapshots.
-            // The snapshot state contains all of this. Loading them again causes conflicts/OOM.
+            // FIX: Explicitly set memory size even for snapshots.
+            // If the snapshot state is larger than the default 64MB, V86 will crash without this.
+            v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
+            v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
             
             const blobUrl = URL.createObjectURL(config.file);
             activeBlobUrls.push(blobUrl);
@@ -312,8 +314,8 @@ async function startEmulator(config) {
                 }
             };
 
-            addFile(config.biosFile, 'bios'); // Custom BIOS override
-            addFile(config.vgaBiosFile, 'vga_bios'); // Custom VGA override
+            addFile(config.biosFile, 'bios'); 
+            addFile(config.vgaBiosFile, 'vga_bios');
             addFile(config.cdromFile, 'cdrom');
             addFile(config.fdaFile, 'fda');
             addFile(config.fdbFile, 'fdb');
@@ -335,15 +337,15 @@ async function startEmulator(config) {
         }
 
         // --- Memory Cleanup Phase ---
-        // We delete the config references *after* starting the emulator.
-        // V86 has started fetching the blobs by now.
+        // Increase delay to 1s to ensure V86 has time to process the config on slow devices
+        // before we nuke the file references from memory.
         setTimeout(() => {
             const heavyKeys = ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
             heavyKeys.forEach(k => {
                 if (config[k]) { try { delete config[k]; } catch(e) { config[k] = null; } }
                 if (selectedOS && selectedOS[k]) { try { delete selectedOS[k]; } catch(e) { selectedOS[k] = null; } }
             });
-        }, 500); // 500ms delay to allow V86 constructor to process the Blob URLs
+        }, 1000); 
 
         emulator.add_listener("emulator-ready", () => {
             if (isShuttingDown) return;
