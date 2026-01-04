@@ -388,17 +388,20 @@
 </dict>
 </plist>`;
 
-                        // Force navigation to Data URI to trigger iOS Profile Handler
+                        // Force navigation to Blob URI to trigger iOS Profile Handler (The only working method on iOS 17+)
                         try {
-                            const base64Content = btoa(unescape(encodeURIComponent(mobileConfig)));
-                            const dataUri = `data:application/x-apple-aspen-config;charset=utf-8;base64,${base64Content}`;
+                            const blob = new Blob([mobileConfig], { type: 'application/x-apple-aspen-config' });
+                            const blobUrl = URL.createObjectURL(blob);
                             
-                            // Important: Navigating directly to the Data URI forces Safari to hand off to Settings
-                            window.location.href = dataUri;
+                            // Important: Use window.location.href directly to the Blob URL.
+                            // Do NOT use a download attribute or <a> tag click.
+                            window.location.href = blobUrl;
                             
+                            // Clean up after 10 seconds (giving Safari time to handle it)
                             setTimeout(() => {
+                                URL.revokeObjectURL(blobUrl);
                                 btn.innerHTML = originalText;
-                                alert("1. Tap 'Allow' to download the configuration profile.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' at the top.\n4. Tap 'Install'.");
+                                alert("1. If prompted, tap 'Allow'.\n2. Open Settings app.\n3. Tap 'Profile Downloaded' near the top.\n4. Tap 'Install'.");
                             }, 500);
                         } catch(e) {
                             console.error(e);
