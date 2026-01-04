@@ -1,4 +1,5 @@
 
+
 // --- State Management ---
 let machines = [];
 const DB_NAME = 'WebEmulatorDB';
@@ -170,20 +171,20 @@ function detectSystemSpecs() {
     if (isMobile) {
         if (memory <= 4 || cores <= 4) {
             isPotato = true; // Force Potato mode
-            maxAllowed = 128; // Strict Cap
-            recommended = 48; // Safe default for DOS
+            maxAllowed = 1024; // User requested 1GB
+            recommended = 64; // Safe default for DOS
         } else {
-            maxAllowed = 512;
-            recommended = 128;
+            maxAllowed = 1024; // User requested 1GB
+            recommended = 256;
         }
     } else {
         // Desktop
         if (memory >= 8) {
+            maxAllowed = 4096;
+            recommended = 1024;
+        } else {
             maxAllowed = 2048;
             recommended = 512;
-        } else {
-            maxAllowed = 512;
-            recommended = 128;
         }
     }
 
