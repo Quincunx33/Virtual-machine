@@ -274,30 +274,36 @@ async function startEmulator(config) {
         cpuProfile = 'potato';
     }
     
+    // Base configuration shared by all modes
     let v86Config = {
         wasm_path: "v86.wasm",
         screen_container: elements.screenContainer,
         autostart: true,
         disable_mouse: false,
         disable_keyboard: false,
-        bios: { url: "seabios.bin" },
-        vga_bios: { url: "vgabios.bin" },
-        acpi: !!config.acpi
     };
 
-    if (config.sourceType !== 'snapshot') {
-        v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
-        v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
-    }
-
     try {
-        // --- Memory Optimization Phase ---
-        // 1. Convert files to Blob URLs
         if (config.sourceType === 'snapshot') {
+            // --- SNAPSHOT MODE ---
+            // Fix: Do NOT load bios, vga_bios, or set memory size for snapshots.
+            // The snapshot state contains all of this. Loading them again causes conflicts/OOM.
+            
             const blobUrl = URL.createObjectURL(config.file);
             activeBlobUrls.push(blobUrl);
             v86Config.initial_state = { url: blobUrl };
+            
         } else {
+            // --- BOOT MODE ---
+            v86Config.bios = { url: "seabios.bin" };
+            v86Config.vga_bios = { url: "vgabios.bin" };
+            v86Config.acpi = !!config.acpi;
+            v86Config.memory_size = (config.ram || 64) * 1024 * 1024;
+            v86Config.vga_memory_size = (config.vram || 4) * 1024 * 1024;
+            v86Config.boot_order = config.bootOrder || 0x213;
+            
+            if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
+
             const addFile = (fileObj, configKey) => {
                 if (fileObj) {
                     const url = URL.createObjectURL(fileObj);
@@ -306,8 +312,8 @@ async function startEmulator(config) {
                 }
             };
 
-            addFile(config.biosFile, 'bios');
-            addFile(config.vgaBiosFile, 'vga_bios');
+            addFile(config.biosFile, 'bios'); // Custom BIOS override
+            addFile(config.vgaBiosFile, 'vga_bios'); // Custom VGA override
             addFile(config.cdromFile, 'cdrom');
             addFile(config.fdaFile, 'fda');
             addFile(config.fdbFile, 'fdb');
@@ -317,31 +323,9 @@ async function startEmulator(config) {
             addFile(config.initrdFile, 'initrd');
             
             if (config.cmdline) v86Config.cmdline = config.cmdline;
-            v86Config.boot_order = config.bootOrder || 0x213;
-
-            if (config.network) v86Config.network_relay_url = "wss://relay.widgetry.org/";
         }
 
-        // 2. AGGRESSIVE CLEANUP: Remove JS references to large files NOW
-        // This allows the Garbage Collector to free the original File objects
-        // before V86 instantiates WASM memory.
-        const heavyKeys = ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
-        
-        heavyKeys.forEach(k => {
-            if (config[k]) { 
-                try { delete config[k]; } catch(e) { config[k] = null; } 
-            }
-            if (selectedOS && selectedOS[k]) { 
-                try { delete selectedOS[k]; } catch(e) { selectedOS[k] = null; } 
-            }
-        });
-        
-        // 3. Pause for GC cycle
-        await new Promise(resolve => setTimeout(resolve, 150));
-
-        if (isShuttingDown) return;
-
-        // 4. Initialize V86
+        // Initialize V86
         try {
             emulator = new V86(v86Config);
         } catch (initError) {
@@ -349,7 +333,18 @@ async function startEmulator(config) {
             handleCriticalError(initError);
             return;
         }
-        
+
+        // --- Memory Cleanup Phase ---
+        // We delete the config references *after* starting the emulator.
+        // V86 has started fetching the blobs by now.
+        setTimeout(() => {
+            const heavyKeys = ['file', 'cdromFile', 'fdaFile', 'fdbFile', 'hdaFile', 'hdbFile', 'bzimageFile', 'initrdFile', 'biosFile', 'vgaBiosFile'];
+            heavyKeys.forEach(k => {
+                if (config[k]) { try { delete config[k]; } catch(e) { config[k] = null; } }
+                if (selectedOS && selectedOS[k]) { try { delete selectedOS[k]; } catch(e) { selectedOS[k] = null; } }
+            });
+        }, 500); // 500ms delay to allow V86 constructor to process the Blob URLs
+
         emulator.add_listener("emulator-ready", () => {
             if (isShuttingDown) return;
             elements.loadingIndicator.classList.add('hidden');
