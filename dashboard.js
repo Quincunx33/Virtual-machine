@@ -271,7 +271,9 @@ function deleteFromDB(store, id) {
 function getAllConfigsFromDB() {
     return new Promise((resolve) => {
         if (!db) { resolve([]); return; }
-        db.transaction([STORE_CONFIGS], 'readonly').objectStore(STORE_CONFIGS).getAll().onsuccess = (e) => resolve(e.target.result || []);
+        const tx = db.transaction([STORE_CONFIGS], 'readonly');
+        tx.objectStore(STORE_CONFIGS).getAll().onsuccess = (e) => resolve(e.target.result || []);
+        tx.onerror = () => resolve([]);
     });
 }
 
@@ -482,7 +484,7 @@ async function renderStorageManager() {
     if (!db) await initDB();
     
     const snapshots = await getAllSnapshotsMetadata();
-    const configs = machines;
+    const configs = await getAllConfigsFromDB(); // Always fetch fresh data from DB
     const snapshotMap = new Map(snapshots.map(s => [s.id, s]));
     
     let totalSize = 0;
@@ -623,10 +625,15 @@ async function getAllSnapshotsMetadata() {
         t.objectStore(STORE_SNAPSHOTS).openCursor().onsuccess = (event) => {
             const cursor = event.target.result;
             if (cursor) {
-                metadata.push({ id: cursor.value.id, timestamp: cursor.value.timestamp, size: cursor.value.size });
+                if (cursor.value && cursor.value.id) {
+                    metadata.push({ id: cursor.value.id, timestamp: cursor.value.timestamp, size: cursor.value.size || 0 });
+                }
                 cursor.continue();
-            } else resolve(metadata);
+            } else {
+                resolve(metadata);
+            }
         };
+        t.onerror = () => resolve([]);
     });
 }
 
