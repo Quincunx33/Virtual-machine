@@ -216,10 +216,14 @@ function showToast(message, type = 'info') {
 
     elements.toastContainer.appendChild(toast);
 
+    // FIXED: Strict removal logic. Animationend is unreliable if tab is hidden.
     setTimeout(() => {
         if (toast.isConnected) {
             toast.classList.add('hiding');
-            toast.addEventListener('animationend', () => toast.remove());
+            // Give CSS animation 350ms to finish, then Nuke it.
+            setTimeout(() => {
+                if(toast.isConnected) toast.remove();
+            }, 350);
         }
     }, duration);
 }

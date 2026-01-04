@@ -2,6 +2,8 @@
 
 
 
+
+
 // --- Robustness: Polyfill for BroadcastChannel ---
 if (!window.BroadcastChannel) {
     window.BroadcastChannel = class {
@@ -74,8 +76,43 @@ const elements = {
     assistiveTouch: document.getElementById('assistive-touch'),
     mainAssistiveBtn: document.getElementById('main-assistive-btn'),
     statusLed: document.getElementById('status-led'),
-    statusText: document.getElementById('status-text')
+    statusText: document.getElementById('status-text'),
+    toastContainer: document.getElementById('toast-container') // New
 };
+
+// --- Toast System (Ported to VM Manager) ---
+function showToast(message, type = 'info') {
+    if (!elements.toastContainer) return;
+
+    const toast = document.createElement('div');
+    
+    const styles = {
+        error: { class: 'toast-error', icon: 'fa-exclamation-circle' },
+        success: { class: 'toast-success', icon: 'fa-check' },
+        info: { class: 'toast-info', icon: 'fa-info' }
+    };
+    
+    const style = styles[type] || styles.info;
+    const duration = 3000; 
+
+    toast.className = `toast ${style.class}`;
+    toast.innerHTML = `
+        <i class="fas ${style.icon} toast-icon"></i>
+        <span class="text-sm font-semibold">${message}</span>
+        <div class="toast-progress" style="animation-duration: ${duration}ms"></div>
+    `;
+
+    elements.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.isConnected) {
+            toast.classList.add('hiding');
+            setTimeout(() => {
+                if(toast.isConnected) toast.remove();
+            }, 350);
+        }
+    }, duration);
+}
 
 // --- Nuclear Cleanup & Signaling ---
 function fullCleanup() {
@@ -533,18 +570,23 @@ async function saveSnapshot(isAuto = false) {
 
         if (isAuto) {
             channel.postMessage({ type: 'AUTO_SAVE_COMPLETE', id: selectedOS.id });
+            showToast("Auto-saved successfully", "success");
         } else {
             channel.postMessage({ type: 'SNAPSHOT_SAVED', id: selectedOS.id });
-            if (confirm("Snapshot saved successfully!\n\nDo you want to close this machine now?")) {
-                fullCleanup();
-                window.close();
-                return;
-            }
+            showToast("Snapshot saved successfully", "success");
+            
+            setTimeout(() => {
+                if (confirm("Snapshot saved! Do you want to close this machine now?")) {
+                    fullCleanup();
+                    window.close();
+                    return;
+                }
+            }, 500);
         }
 
     } catch (e) {
         console.error("Save failed", e);
-        if (!isAuto) alert("Failed to save snapshot. Error: " + e);
+        if (!isAuto) showToast("Failed to save: " + e, "error");
     } finally {
         autoSaver.isSaving = false;
         if (!isAuto) elements.loadingIndicator.classList.add('hidden');
