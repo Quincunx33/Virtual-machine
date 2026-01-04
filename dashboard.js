@@ -91,33 +91,104 @@ const elements = {
     ]
 };
 
-// --- Toast Notification Logic ---
+// --- Advanced Notification System (Native + Toast) ---
+class NotificationSystem {
+    constructor() {
+        this.permission = Notification.permission;
+        this.isSupported = 'Notification' in window;
+    }
+
+    async requestPermission() {
+        if (!this.isSupported) return false;
+        try {
+            this.permission = await Notification.requestPermission();
+            if (this.permission === 'granted') {
+                showToast("Push Notifications Enabled", "success");
+            }
+            return this.permission === 'granted';
+        } catch(e) {
+            console.error(e);
+            return false;
+        }
+    }
+
+    notify(title, message, type = 'info') {
+        // 1. Show In-App Toast
+        showToast(message, type);
+
+        // 2. Show Native Push Notification (if backgrounded or requested)
+        if (this.isSupported && this.permission === 'granted') {
+            if (document.visibilityState === 'hidden' || type === 'update') {
+                try {
+                    new Notification(title, {
+                        body: message,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/2645/2645897.png', // Generic CPU icon
+                        tag: 'web-vm-notification'
+                    });
+                } catch(e) {}
+            }
+        }
+    }
+
+    // Simulate "Real" Updates from a server
+    initAutoUpdateCheck() {
+        console.log("Initializing Update Listener...");
+        setTimeout(() => {
+            // Fake an update event coming from "Server"
+            this.notify(
+                "System Update Available", 
+                "New version v2.1.0 is ready. Performance improvements for Android 13+.", 
+                "update"
+            );
+        }, 5000); // 5 seconds after load
+    }
+}
+
+const notifier = new NotificationSystem();
+
+// --- Refactored Toast Logic ---
 function showToast(message, type = 'info') {
     if (!elements.toastContainer) return;
 
     const toast = document.createElement('div');
-    const colors = type === 'error' ? 'bg-red-900/90 border-red-700 text-red-100' :
-                   type === 'success' ? 'bg-green-900/90 border-green-700 text-green-100' :
-                   'bg-gray-800/90 border-gray-600 text-gray-200';
     
-    const icon = type === 'error' ? '<i class="fas fa-exclamation-circle text-red-400"></i>' :
-                 type === 'success' ? '<i class="fas fa-check-circle text-green-400"></i>' :
-                 '<i class="fas fa-info-circle text-indigo-400"></i>';
+    // Map types to icons and classes
+    const styles = {
+        error: { class: 'toast-error', icon: 'fa-exclamation-circle text-red-400' },
+        success: { class: 'toast-success', icon: 'fa-check-circle text-green-400' },
+        warning: { class: 'toast-warning', icon: 'fa-exclamation-triangle text-yellow-400' },
+        update: { class: 'toast-update', icon: 'fa-cloud-download-alt text-blue-400' },
+        info: { class: 'toast-info', icon: 'fa-info-circle text-indigo-400' }
+    };
+    
+    const style = styles[type] || styles.info;
+    const duration = type === 'update' ? 6000 : 3000; // Updates stay longer
 
-    toast.className = `toast flex items-center w-full max-w-xs p-4 mb-2 text-sm rounded-lg shadow-lg border backdrop-blur-sm pointer-events-auto ${colors}`;
+    toast.className = `toast ${style.class}`;
     toast.innerHTML = `
-        <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg bg-black/20 mr-3">
-            ${icon}
+        <div class="mr-3 mt-0.5 text-lg">
+            <i class="fas ${style.icon}"></i>
         </div>
-        <div class="ml-auto text-xs font-medium">${message}</div>
+        <div class="flex-1">
+            <h4 class="font-bold text-xs uppercase tracking-wider opacity-70 mb-0.5">${type}</h4>
+            <p class="text-sm font-medium leading-tight">${message}</p>
+        </div>
+        ${type === 'update' ? '<button class="ml-2 text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 transition" onclick="this.closest(\'.toast\').remove()">OK</button>' : ''}
+        <div class="toast-progress" style="animation-duration: ${duration}ms"></div>
     `;
+
+    // Click to enable push if update type
+    if(type === 'update' && Notification.permission === 'default') {
+        toast.onclick = () => notifier.requestPermission();
+    }
 
     elements.toastContainer.appendChild(toast);
 
+    // Auto remove
     setTimeout(() => {
         toast.classList.add('hiding');
         toast.addEventListener('animationend', () => toast.remove());
-    }, 3000);
+    }, duration);
 }
 
 // --- Modal State ---
@@ -878,4 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("DB Init Error:", e);
     });
     setupEventListeners();
+    
+    // Start automatic update checker (simulated)
+    notifier.initAutoUpdateCheck();
 });
