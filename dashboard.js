@@ -255,10 +255,16 @@ function storeInDB(storeName, data) {
 }
 
 function deleteFromDB(store, id) {
-    return new Promise((resolve) => {
-        if (!db) { resolve(); return; }
-        const t = db.transaction([store], 'readwrite');
-        t.objectStore(store).delete(id).onsuccess = () => { resolve(); updateStorageDisplay(); };
+    return new Promise((resolve, reject) => {
+        if (!db) return initDB().then(() => deleteFromDB(store, id).then(resolve).catch(reject));
+        const transaction = db.transaction([store], 'readwrite');
+        transaction.onabort = (e) => reject("Transaction Aborted: " + e.target.error);
+        transaction.onerror = (e) => reject("DB Error on delete: " + e.target.error);
+        const request = transaction.objectStore(store).delete(id);
+        request.onsuccess = () => {
+            updateStorageDisplay();
+            resolve();
+        };
     });
 }
 
@@ -297,8 +303,11 @@ function changeStep(step) {
     
     // Validation before moving to step 2
     if (step === 2 && currentStep === 1) {
-        if (newVMCreationData.sourceType !== 'hda' && !newVMCreationData.primaryFile) {
-            showToast("Please select a boot file", "warning");
+        const hasPrimaryBoot = !!newVMCreationData.primaryFile;
+        const hasKernelBoot = !!newVMCreationData.bzimageFile;
+
+        if (!hasPrimaryBoot && !hasKernelBoot) {
+            showToast("Please provide a bootable file (ISO, IMG, HDD) or a Linux kernel.", "warning");
             return;
         }
     }
@@ -384,6 +393,21 @@ async function createVMFromModal() {
     } catch(e) {
         showToast("Failed to create VM: " + e, "error");
         elements.modalCreateBtn.innerHTML = 'Create Machine';
+    }
+}
+
+async function deleteMachineCompletely(id) {
+    try {
+        // Deleting a non-existent key is a success in indexedDB, so no need for checks
+        await deleteFromDB(STORE_CONFIGS, id);
+        await deleteFromDB(STORE_SNAPSHOTS, id); 
+        
+        machines = machines.filter(m => m.id !== id);
+        renderAllMachineItems();
+        updatePlaceholderVisibility();
+        showToast("Machine permanently deleted", "success");
+    } catch (err) {
+        showToast(`Deletion failed: ${err}`, 'error');
     }
 }
 
@@ -484,7 +508,7 @@ async function renderStorageManager() {
                 <td class="p-4 text-sm text-gray-400">Machine Config</td>
                 <td class="p-4 text-sm text-gray-400 font-mono">${formatBytes(totalItemSize)}</td>
                 <td class="p-4 text-right">
-                    <button onclick="deleteFromDB('${STORE_CONFIGS}', '${config.id}').then(() => { machines = machines.filter(m => m.id !== '${config.id}'); renderStorageManager(); loadMachinesFromDB(); })" class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/20">
+                    <button data-action="delete-machine" data-id="${config.id}" class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/20">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </td>
@@ -503,7 +527,7 @@ async function renderStorageManager() {
                 <td class="p-4 text-sm text-gray-400">Snapshot File</td>
                 <td class="p-4 text-sm text-gray-400 font-mono">${formatBytes(snap.size)}</td>
                 <td class="p-4 text-right">
-                    <button onclick="deleteFromDB('${STORE_SNAPSHOTS}', '${snap.id}').then(() => renderStorageManager())" class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/20">
+                    <button data-action="delete-orphan" data-id="${snap.id}" data-store="${STORE_SNAPSHOTS}" class="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-900/20">
                         <i class="fas fa-trash-alt"></i>
                     </button>
                 </td>
@@ -713,13 +737,24 @@ function setupEventListeners() {
     safeAdd(elements.bootDriveType, 'change', (e) => newVMCreationData.sourceType = e.target.value);
     
     // File Inputs
-    const bindFile = (el, key) => {
-        if(el) el.addEventListener('change', e => { if(e.target.files[0]) newVMCreationData[key] = e.target.files[0]; updateModalUI(); });
+    const bindFile = (el, key, isPrimary = false) => {
+        if(el) el.addEventListener('change', e => { 
+            const file = e.target.files[0];
+            newVMCreationData[key] = file || null;
+            if (isPrimary && elements.primaryNameDisplay) {
+                elements.primaryNameDisplay.textContent = file ? file.name : "Tap to browse files";
+            }
+            updateModalUI(); 
+        });
     };
-    bindFile(elements.primaryUpload, 'primaryFile');
+    bindFile(elements.primaryUpload, 'primaryFile', true);
     bindFile(elements.fdbUpload, 'fdbFile');
     bindFile(elements.hdbUpload, 'hdbFile');
+    bindFile(elements.bzimageUpload, 'bzimageFile');
+    bindFile(elements.initrdUpload, 'initrdFile');
     bindFile(elements.biosUpload, 'biosFile');
+    bindFile(elements.vgaBiosUpload, 'vgaBiosFile');
+
 
     safeAdd(elements.ramSlider, 'input', () => { 
         elements.ramValue.textContent = elements.ramSlider.value + " MB"; 
@@ -740,12 +775,35 @@ function setupEventListeners() {
         if (btn.classList.contains('start-vm-btn')) startVM(id);
         if (btn.classList.contains('edit-vm-btn')) openEditModal(id);
         if (btn.classList.contains('remove-vm-btn')) {
-            if(confirm("Delete machine?")) {
-                deleteFromDB(STORE_CONFIGS, id).then(() => {
-                    machines = machines.filter(m => m.id !== id);
-                    renderAllMachineItems();
-                    updatePlaceholderVisibility();
+            if(confirm("Delete machine and its snapshot? This cannot be undone.")) {
+                deleteMachineCompletely(id);
+            }
+        }
+    });
+    
+    // Storage Manager Actions
+    safeAdd(elements.storageItemsList, 'click', e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        if (!action) return;
+
+        const id = btn.dataset.id;
+
+        if (action === 'delete-machine') {
+            if (confirm("Delete machine and its snapshot? This cannot be undone.")) {
+                deleteMachineCompletely(id).then(() => {
+                    renderStorageManager(); // Re-render storage manager after deletion
                 });
+            }
+        } else if (action === 'delete-orphan') {
+            const store = btn.dataset.store;
+            if (confirm("Delete this orphaned snapshot?")) {
+                deleteFromDB(store, id).then(() => {
+                    renderStorageManager();
+                    showToast("Orphaned snapshot deleted.", "success");
+                }).catch(err => showToast(`Error: ${err}`, 'error'));
             }
         }
     });
