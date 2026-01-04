@@ -21,51 +21,85 @@
         ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
         .source-type-card.border-indigo-500 { box-shadow: 0 0 0 2px #6366f1; }
         
-        /* --- Advanced Notification Styles --- */
+        /* --- Premium Notification System --- */
         #toast-container {
             position: fixed;
-            top: 1rem;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-            width: 90%;
-            max-width: 400px;
-            pointer-events: none; /* Let clicks pass through container */
+            z-index: 10000;
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
+            pointer-events: none; /* Let clicks pass through empty areas */
+        }
+
+        /* Responsive Positioning */
+        @media (min-width: 768px) {
+            #toast-container {
+                top: 1.5rem;
+                right: 1.5rem;
+                width: 380px;
+                align-items: flex-end; /* Stack to right */
+            }
+        }
+
+        @media (max-width: 767px) {
+            #toast-container {
+                top: 1rem;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+                align-items: stretch; /* Full width on mobile */
+            }
         }
 
         .toast {
             pointer-events: auto;
             position: relative;
             overflow: hidden;
-            border-radius: 1rem;
-            background: rgba(17, 24, 39, 0.85); /* Gray-900 with opacity */
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-            transform-origin: top center;
-            animation: toastEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            border-radius: 12px;
+            background: rgba(23, 23, 23, 0.95); /* Extremely dark grey, almost black */
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 
+                0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                0 2px 4px -1px rgba(0, 0, 0, 0.06),
+                0 20px 25px -5px rgba(0, 0, 0, 0.5); /* Deep shadow */
+            padding: 1rem;
+            color: #e5e7eb;
             display: flex;
             align-items: start;
-            padding: 1rem;
-            color: white;
+            transform-origin: top center;
+            animation: toastSlideIn 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+            transition: all 0.3s ease;
+        }
+
+        .toast:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.6);
+            border-color: rgba(255, 255, 255, 0.15);
         }
 
         .toast.hiding {
-            animation: toastExit 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
+            animation: toastSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            pointer-events: none;
         }
 
-        @keyframes toastEnter {
-            0% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+        @keyframes toastSlideIn {
+            0% { opacity: 0; transform: translateY(-1rem) scale(0.95); }
             100% { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        @keyframes toastExit {
-            0% { opacity: 1; transform: translateY(0) scale(1); }
-            100% { opacity: 0; transform: translateY(-20px) scale(0.9); }
+        @keyframes toastSlideOut {
+            0% { opacity: 1; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(100%); }
+        }
+
+        /* Mobile specific animation adjustment */
+        @media (max-width: 767px) {
+            @keyframes toastSlideOut {
+                0% { opacity: 1; transform: translateY(0); }
+                100% { opacity: 0; transform: translateY(-100%); }
+            }
         }
 
         /* Toast Progress Bar */
@@ -74,10 +108,11 @@
             bottom: 0;
             left: 0;
             height: 3px;
-            background: linear-gradient(90deg, #6366f1, #a855f7);
             width: 100%;
             transform-origin: left;
             animation: progress linear forwards;
+            background: linear-gradient(90deg, currentColor, transparent);
+            opacity: 0.3;
         }
 
         @keyframes progress {
@@ -85,12 +120,30 @@
             to { transform: scaleX(0); }
         }
 
-        /* Notification Types */
-        .toast-update { border-left: 4px solid #3b82f6; background: rgba(30, 58, 138, 0.9); }
-        .toast-success { border-left: 4px solid #22c55e; }
+        /* Notification Types Styling */
+        .toast-success { border-left: 4px solid #10b981; }
+        .toast-success .toast-icon { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+        
         .toast-error { border-left: 4px solid #ef4444; }
+        .toast-error .toast-icon { color: #f87171; background: rgba(239, 68, 68, 0.1); }
+        
         .toast-warning { border-left: 4px solid #f59e0b; }
+        .toast-warning .toast-icon { color: #fbbf24; background: rgba(245, 158, 11, 0.1); }
+        
         .toast-info { border-left: 4px solid #6366f1; }
+        .toast-info .toast-icon { color: #818cf8; background: rgba(99, 102, 241, 0.1); }
+
+        .toast-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-right: 12px;
+            margin-top: 2px;
+        }
 
         /* Performance Mode Styles */
         body.potato-mode * {
@@ -106,7 +159,7 @@
 
     <div id="overlay" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden backdrop-blur-sm"></div>
     
-    <!-- Toast Container (Centered Top) -->
+    <!-- Toast Container (Positioned via CSS) -->
     <div id="toast-container"></div>
 
     <!-- Left Sidebar -->

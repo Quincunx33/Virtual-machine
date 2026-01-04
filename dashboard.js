@@ -1,4 +1,5 @@
 
+
 // --- Global Crash Protection ---
 window.onerror = function(msg, url, line) {
     console.error("Global Error:", msg, line);
@@ -168,29 +169,36 @@ const notifier = new NotificationSystem();
 function showToast(message, type = 'info') {
     if (!elements.toastContainer) return;
 
+    // Limit visible toasts to 3 to prevent crowding on mobile
+    while (elements.toastContainer.children.length >= 3) {
+        elements.toastContainer.removeChild(elements.toastContainer.firstChild);
+    }
+
     const toast = document.createElement('div');
     
     const styles = {
-        error: { class: 'toast-error', icon: 'fa-exclamation-circle text-red-400' },
-        success: { class: 'toast-success', icon: 'fa-check-circle text-green-400' },
-        warning: { class: 'toast-warning', icon: 'fa-exclamation-triangle text-yellow-400' },
-        update: { class: 'toast-update', icon: 'fa-cloud-download-alt text-blue-400' },
-        info: { class: 'toast-info', icon: 'fa-info-circle text-indigo-400' }
+        error: { class: 'toast-error', icon: 'fa-exclamation-circle' },
+        success: { class: 'toast-success', icon: 'fa-check' },
+        warning: { class: 'toast-warning', icon: 'fa-exclamation-triangle' },
+        update: { class: 'toast-update', icon: 'fa-cloud-download-alt' },
+        info: { class: 'toast-info', icon: 'fa-info' }
     };
     
     const style = styles[type] || styles.info;
-    const duration = type === 'update' ? 6000 : 3000; 
+    const duration = type === 'update' ? 6000 : 3500; 
 
     toast.className = `toast ${style.class}`;
     toast.innerHTML = `
-        <div class="mr-3 mt-0.5 text-lg">
+        <div class="toast-icon">
             <i class="fas ${style.icon}"></i>
         </div>
-        <div class="flex-1">
-            <h4 class="font-bold text-xs uppercase tracking-wider opacity-70 mb-0.5">${type}</h4>
-            <p class="text-sm font-medium leading-tight">${message}</p>
+        <div class="flex-1 min-w-0">
+            <h4 class="font-bold text-[10px] uppercase tracking-wider opacity-60 mb-0.5 text-gray-400">${type}</h4>
+            <p class="text-sm font-semibold leading-tight text-white/90 break-words">${message}</p>
         </div>
-        ${type === 'update' ? '<button class="ml-2 text-xs bg-blue-600 px-2 py-1 rounded hover:bg-blue-500 transition" onclick="this.closest(\'.toast\').remove()">OK</button>' : ''}
+        <button class="ml-3 text-gray-500 hover:text-white transition-colors" onclick="this.closest('.toast').classList.add('hiding'); setTimeout(() => this.closest('.toast').remove(), 300);">
+            <i class="fas fa-times text-sm"></i>
+        </button>
         <div class="toast-progress" style="animation-duration: ${duration}ms"></div>
     `;
 
@@ -201,8 +209,10 @@ function showToast(message, type = 'info') {
     elements.toastContainer.appendChild(toast);
 
     setTimeout(() => {
-        toast.classList.add('hiding');
-        toast.addEventListener('animationend', () => toast.remove());
+        if (toast.isConnected) {
+            toast.classList.add('hiding');
+            toast.addEventListener('animationend', () => toast.remove());
+        }
     }, duration);
 }
 
@@ -286,8 +296,6 @@ function initDB() {
         request.onblocked = () => {
              console.warn("DB Blocked. Please close other VM tabs.");
              showToast("Database blocked by another tab", "warning");
-             // Don't reject, but maybe UI won't load perfectly. 
-             // We allow it to hang rather than crash logic, but listeners should still work.
         };
 
         request.onerror = (e) => {
@@ -745,6 +753,16 @@ function setupEventListeners() {
 function handleSnapshotUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+
+    // WARN ON LOW RAM DEVICES
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (detectedSystemSpecs.isPotato && fileSizeMB > 100) {
+        if (!confirm(`Warning: This snapshot is large (${Math.round(fileSizeMB)}MB) and may crash your device. Continue?`)) {
+            e.target.value = null;
+            return;
+        }
+    }
+
     const defaultName = file.name.replace(/\.(bin|v86state|86state)$/i, "") || "Snapshot";
     const name = prompt("Snapshot Name:", defaultName);
 
