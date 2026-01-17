@@ -647,8 +647,6 @@ async function loadConfig(id) {
         // First try direct load
         const directData = await getFromDB(id);
         if (directData) {
-            // Clean up any file references immediately
-            cleanupFileReferences(directData);
             return directData;
         }
     } catch(e) {
