@@ -584,38 +584,72 @@
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <div class="p-6 overflow-y-auto">
-                <div class="space-y-6">
-                    <div>
-                        <h4 class="text-indigo-400 font-bold mb-2">Getting Started</h4>
-                        <p class="text-gray-300 text-sm leading-relaxed">
-                            WebVM allows you to run virtual machines directly in your browser using WebAssembly. 
-                            Click "Create New Machine" to start. You will need a bootable ISO image (like Linux) or a disk image.
+            <div class="p-6 overflow-y-auto text-sm">
+                <div class="space-y-3">
+
+                    <details class="group bg-gray-700/50 p-3 rounded-lg border border-gray-700 open:bg-gray-700/80 transition-colors" open>
+                        <summary class="font-semibold text-white cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fas fa-question-circle text-indigo-400 w-6 text-center"></i> What is this?</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="text-gray-300 mt-3 pt-3 border-t border-gray-600/50 leading-relaxed">
+                            WebVM lets you run virtual machines (like old operating systems) directly in your browser. It uses a technology called WebAssembly to emulate a computer's hardware. All files and data are stored locally on your device, never sent to a server.
                         </p>
-                    </div>
-                    <div>
-                        <h4 class="text-indigo-400 font-bold mb-2">How do I use an ISO?</h4>
-                        <p class="text-gray-300 text-sm leading-relaxed">
-                            In the creation wizard, select "CD-ROM" and upload your .iso file. Common lightweight Linux distributions like Alpine Linux, TinyCore, or Arch Linux work best.
-                        </p>
-                    </div>
-                    <div>
-                        <h4 class="text-indigo-400 font-bold mb-2">Saving Progress</h4>
-                        <p class="text-gray-300 text-sm leading-relaxed">
-                            While running a VM, tap the "Assistive Touch" button (bottom right) and click the "Save" icon. This saves the entire RAM state to your browser's local storage.
-                        </p>
-                    </div>
-                    <div>
-                        <h4 class="text-indigo-400 font-bold mb-2">Troubleshooting</h4>
-                        <ul class="list-disc list-inside text-gray-300 text-sm leading-relaxed space-y-1">
-                            <li><strong>Black Screen?</strong> Wait a few seconds. If it persists, your device might not have enough RAM. Try allocating less RAM (e.g., 64MB).</li>
-                            <li><strong>No Internet?</strong> Networking requires a WebSocket relay and is experimental.</li>
-                            <li><strong>Slow?</strong> This is emulation. It will be slower than native. Use "Potato Mode" for older devices.</li>
+                    </details>
+                    
+                     <details class="group bg-gray-700/50 p-3 rounded-lg border border-gray-700 open:bg-gray-700/80 transition-colors">
+                        <summary class="font-semibold text-white cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fas fa-rocket text-indigo-400 w-6 text-center"></i> Getting Started</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="text-gray-300 mt-3 pt-3 border-t border-gray-600/50 leading-relaxed space-y-2">
+                             <p>1. Click <strong>"Create New Machine"</strong>.</p>
+                             <p>2. Select a source type (e.g., CD-ROM for a <strong>.iso</strong> file).</p>
+                             <p>3. Upload your bootable image file. Lightweight Linux distributions like Alpine Linux, TinyCore, or Arch Linux work best.</p>
+                             <p>4. Configure RAM and other hardware settings, then give it a name and click Create!</p>
+                        </div>
+                    </details>
+
+                    <details class="group bg-gray-700/50 p-3 rounded-lg border border-gray-700 open:bg-gray-700/80 transition-colors">
+                        <summary class="font-semibold text-white cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fas fa-gamepad text-indigo-400 w-6 text-center"></i> Controls & Features</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="text-gray-300 mt-3 pt-3 border-t border-gray-600/50 leading-relaxed space-y-2">
+                             <p><strong><i class="fas fa-hand-pointer"></i> Assistive Touch:</strong> While a VM is running, use the floating button (bottom-right) to access key controls like Fullscreen, Virtual Keyboard, Ctrl+Alt+Del, and Save State.</p>
+                             <p><strong><i class="fas fa-save"></i> Saving Progress:</strong> Click the "Save" icon in the Assistive Touch menu to save a complete snapshot of the VM's current state. You can then close the window and resume later by starting the same machine.</p>
+                        </div>
+                    </details>
+                    
+                    <details class="group bg-gray-700/50 p-3 rounded-lg border border-gray-700 open:bg-gray-700/80 transition-colors">
+                        <summary class="font-semibold text-white cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fas fa-bug text-indigo-400 w-6 text-center"></i> Troubleshooting</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                         <ul class="list-disc list-inside text-gray-300 mt-3 pt-3 border-t border-gray-600/50 leading-relaxed space-y-2">
+                            <li><strong>Black Screen?</strong> The most common cause is not enough memory. Try creating the machine again with less RAM (e.g., 64MB or 128MB). Some operating systems also take a while to boot.</li>
+                            <li><strong>Slow Performance?</strong> This is emulation, so it will be slower than a real computer. For low-spec devices, use the "Potato Mode" CPU profile in the advanced hardware options.</li>
+                             <li><strong>No Internet?</strong> Networking is experimental and requires a public WebSocket relay. It may not always be reliable.</li>
                         </ul>
-                    </div>
+                    </details>
+
+                    <details class="group bg-gray-700/50 p-3 rounded-lg border border-gray-700 open:bg-gray-700/80 transition-colors">
+                        <summary class="font-semibold text-white cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fas fa-database text-indigo-400 w-6 text-center"></i> Data & Reset</span>
+                            <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                         <div class="text-gray-300 mt-3 pt-3 border-t border-gray-600/50 leading-relaxed space-y-2">
+                           <p>All your machines and snapshots are stored in your browser's local <strong>IndexedDB</strong>. No data is ever uploaded.</p>
+                           <p>You can manage individual files using the <strong>Storage Manager</strong>.</p>
+                           <p class="p-2 bg-red-900/20 text-red-300 border border-red-500/30 rounded-md">
+                               <strong>Factory Reset:</strong> This option will completely wipe the app's database, deleting ALL machines and snapshots. This is permanent and cannot be undone.
+                           </p>
+                        </div>
+                    </details>
+
                 </div>
             </div>
-            <div class="p-6 border-t border-gray-700 bg-gray-800/50 text-center">
+            <div class="p-4 border-t border-gray-700 bg-gray-800/50 text-center">
                 <p class="text-xs text-gray-500">WebVM v2.0 • Powered by libv86</p>
             </div>
         </div>
