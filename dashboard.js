@@ -97,6 +97,7 @@ const elements = {
     saveChangesBtn: getEl('save-changes-btn'),
     editRamSlider: getEl('edit-ram-slider'),
     editRamValue: getEl('edit-ram-value'),
+    editRamMaxLabel: getEl('edit-ram-max-label'),
     editNetworkToggle: getEl('edit-network-toggle'),
     editVmNameInput: getEl('edit-vm-name-input'),
     editVmId: getEl('edit-vm-id'),
@@ -292,7 +293,7 @@ async function renderStorageManager() {
         
         // 1. Update Summary Bar
         if (estimate) {
-            const percent = Math.min(((estimate.usage / estimate.quota) * 100), 100).toFixed(1);
+            const percent = estimate.quota > 0 ? Math.min(((estimate.usage / estimate.quota) * 100), 100).toFixed(1) : 0;
             elements.storageManagerSummary.innerHTML = `
                 <div class="flex justify-between text-sm mb-2 text-gray-300">
                     <span>${formatBytes(estimate.usage)} used of ${formatBytes(estimate.quota)}</span>
@@ -302,6 +303,8 @@ async function renderStorageManager() {
                     <div class="h-full bg-indigo-500 transition-all duration-500" style="width: ${percent}%"></div>
                 </div>
             `;
+        } else {
+             elements.storageManagerSummary.innerHTML = `<p class="text-sm text-gray-400">Could not retrieve storage estimate.</p>`;
         }
 
         // 2. Render List
@@ -319,7 +322,7 @@ async function renderStorageManager() {
                     <td class="p-4 text-sm font-medium text-white">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-indigo-400">
-                                <i class="fas fa-desktop"></i>
+                                <i class="fas ${config.sourceType === 'snapshot' ? 'fa-file-import' : 'fa-desktop'}"></i>
                             </div>
                             ${config.name || 'Unnamed VM'}
                         </div>
@@ -371,16 +374,7 @@ async function renderStorageManager() {
         }
         
         elements.storageItemsList.innerHTML = html;
-        
-        // Update Doctor Panel
-        if (elements.storageDoctorPanel) {
-            if (ghosts.length > 0) {
-                elements.storageDoctorPanel.classList.remove('hidden');
-                if (elements.ghostFileCount) elements.ghostFileCount.textContent = ghosts.length;
-            } else {
-                elements.storageDoctorPanel.classList.add('hidden');
-            }
-        }
+        checkGhostFiles();
 
     } catch(e) {
         console.error(e);
@@ -420,22 +414,37 @@ async function nukeGhostFiles() {
 }
 
 // --- VM Logic ---
-let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 64, maxAllowed: 256, isPotato: false };
+let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 128, maxAllowed: 512, isPotato: false };
 
 function detectSystemSpecs() {
     try {
         const memory = navigator.deviceMemory || 4;
         const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+        const maxAllowed = memory >= 8 ? 2048 : (memory >= 4 ? 1024 : 512);
+        
         detectedSystemSpecs = {
             ram: memory,
             isMobile: isMobile,
-            recommendedRam: isMobile ? 64 : 128,
-            maxAllowed: memory >= 8 ? 1024 : 256,
+            recommendedRam: isMobile ? 128 : 256,
+            maxAllowed: maxAllowed,
             isPotato: isMobile && memory <= 4
         };
+        
         if(elements.systemRamDisplay) elements.systemRamDisplay.textContent = `Host: ${memory}GB RAM`;
         if(elements.lowEndBadge && detectedSystemSpecs.isPotato) elements.lowEndBadge.classList.remove('hidden');
         if(detectedSystemSpecs.isPotato) document.body.classList.add('potato-mode');
+
+        // Update RAM sliders
+        if (elements.ramSlider) {
+            elements.ramSlider.max = maxAllowed;
+            const maxLabel = document.getElementById('ram-max-label');
+            if(maxLabel) maxLabel.textContent = `${maxAllowed}MB`;
+        }
+         if (elements.editRamSlider) {
+            elements.editRamSlider.max = maxAllowed;
+            if(elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${maxAllowed}MB`;
+        }
+
     } catch(e) {}
 }
 
@@ -459,6 +468,7 @@ async function deleteMachineCompletely(id) {
         machines = machines.filter(m => m.id !== id);
         await renderAllMachineItems();
         await renderStorageManager(); // Update if open
+        await updateStorageDisplay();
         showToast('Machine deleted', 'success');
     } catch(e) {
         showToast('Delete failed', 'error');
@@ -480,9 +490,9 @@ async function renderAllMachineItems() {
             const hasSnap = !!snap;
             
             const html = `
-                <div class="vm-list-item group flex items-center p-3 rounded-xl hover:bg-gray-700/50 transition-colors relative cursor-pointer mb-2 bg-gray-800/40 border border-gray-700/50" data-id="${machine.id}">
+                <div class="vm-list-item group flex items-center p-3 rounded-xl hover:bg-gray-700/50 transition-colors relative mb-2 bg-gray-800/40 border border-gray-700/50" data-id="${machine.id}">
                     <div class="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0 border border-gray-700">
-                        <i class="fas ${machine.sourceType === 'snapshot' ? 'fa-clock-rotate-left text-purple-400' : 'fa-desktop text-indigo-400'} text-xl"></i>
+                        <i class="fas ${machine.sourceType === 'snapshot' ? 'fa-file-import text-purple-400' : 'fa-desktop text-indigo-400'} text-xl"></i>
                     </div>
                     <div class="flex-1 overflow-hidden min-w-0">
                         <p class="font-semibold text-white truncate">${machine.name}</p>
@@ -492,10 +502,13 @@ async function renderAllMachineItems() {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                        <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-lg transition-colors">
+                        <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-lg transition-colors" title="Start VM">
                             <i class="fas fa-play text-xs"></i>
                         </button>
-                        <button class="remove-vm-btn bg-gray-700 hover:bg-red-900/80 text-gray-400 hover:text-red-200 w-9 h-9 rounded-lg flex items-center justify-center transition-colors">
+                        <button class="edit-vm-btn bg-gray-700 hover:bg-blue-900/80 text-gray-400 hover:text-blue-200 w-9 h-9 rounded-lg flex items-center justify-center transition-colors" title="Edit VM">
+                            <i class="fas fa-pencil-alt text-xs"></i>
+                        </button>
+                        <button class="remove-vm-btn bg-gray-700 hover:bg-red-900/80 text-gray-400 hover:text-red-200 w-9 h-9 rounded-lg flex items-center justify-center transition-colors" title="Delete VM">
                             <i class="fas fa-trash text-xs"></i>
                         </button>
                     </div>
@@ -513,7 +526,7 @@ async function renderAllMachineItems() {
 }
 
 // --- Creation Modal Logic (Simplified) ---
-let newVM = { name: '', ram: 64, sourceType: 'cd' };
+let newVM = { name: '', ram: 128, sourceType: 'cd' };
 let currentStep = 1;
 
 function resetModal() {
@@ -579,25 +592,26 @@ async function createVM() {
         const config = {
             id, name, created: Date.now(),
             ram: parseInt(newVM.ram),
+            vram: parseInt(elements.vramSlider.value),
+            network: elements.networkToggle.checked,
             sourceType: newVM.sourceType,
             cdromFile: newVM.sourceType === 'cd' ? newVM.primaryFile : null,
             hdaFile: newVM.sourceType === 'hda' ? newVM.primaryFile : null,
             fdaFile: newVM.sourceType === 'floppy' ? newVM.primaryFile : null
         };
         
-        // Grab extras
         if(elements.fdbUpload && elements.fdbUpload.files[0]) config.fdbFile = elements.fdbUpload.files[0];
         if(elements.hdbUpload && elements.hdbUpload.files[0]) config.hdbFile = elements.hdbUpload.files[0];
         if(elements.bzimageUpload && elements.bzimageUpload.files[0]) config.bzimageFile = elements.bzimageUpload.files[0];
         if(elements.initrdUpload && elements.initrdUpload.files[0]) config.initrdFile = elements.initrdUpload.files[0];
         if(elements.cmdlineInput) config.cmdline = elements.cmdlineInput.value;
-        if(elements.networkToggle) config.network = elements.networkToggle.checked;
         if(elements.cpuProfileSelect) config.cpuProfile = elements.cpuProfileSelect.value;
 
         await dbManager.store(STORE_CONFIGS, config);
         machines.push(config);
         
         await renderAllMachineItems();
+        await updateStorageDisplay();
         elements.createVmModal.classList.add('hidden');
         showToast('Machine created!', 'success');
         resetModal();
@@ -606,66 +620,188 @@ async function createVM() {
     }
 }
 
+// --- Edit Modal ---
+function openEditModal(id) {
+    const machine = machines.find(m => m.id === id);
+    if (!machine) return;
+
+    elements.editVmId.value = id;
+    elements.editVmNameInput.value = machine.name;
+    elements.editRamSlider.value = machine.ram;
+    elements.editRamValue.textContent = `${machine.ram} MB`;
+    elements.editNetworkToggle.checked = machine.network || false;
+    
+    elements.editVmModal.classList.remove('hidden');
+}
+
+async function saveVmChanges() {
+    const id = elements.editVmId.value;
+    const index = machines.findIndex(m => m.id === id);
+    if (index === -1) {
+        showToast('Error: VM not found to save.', 'error');
+        return;
+    }
+
+    const machine = machines[index];
+    machine.name = elements.editVmNameInput.value;
+    machine.ram = parseInt(elements.editRamSlider.value, 10);
+    machine.network = elements.editNetworkToggle.checked;
+
+    try {
+        await dbManager.store(STORE_CONFIGS, machine);
+        
+        await renderAllMachineItems();
+        elements.editVmModal.classList.add('hidden');
+        showToast('VM updated successfully!', 'success');
+    } catch (e) {
+        showToast('Failed to save changes: ' + e.message, 'error');
+    }
+}
+
+// --- Snapshot Import ---
+async function importSnapshot(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    showToast('Importing snapshot...', 'info');
+    try {
+        const state = await file.arrayBuffer();
+        const id = `vm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const name = `Imported-${file.name.split('.')[0]}`;
+        
+        const config = {
+            id, name, created: Date.now(),
+            ram: 128,
+            sourceType: 'snapshot',
+        };
+
+        const snapshotData = { id, state, timestamp: Date.now(), size: state.byteLength };
+
+        await dbManager.store(STORE_CONFIGS, config);
+        await dbManager.store(STORE_SNAPSHOTS, snapshotData);
+        
+        machines.push(config);
+        await renderAllMachineItems();
+        await updateStorageDisplay();
+        
+        showToast(`Imported '${name}' successfully!`, 'success');
+    } catch (e) {
+        showToast('Snapshot import failed: ' + e.message, 'error');
+    } finally {
+        event.target.value = '';
+    }
+}
+
+// --- App Status Updates ---
+async function updateStorageDisplay() {
+    const estimate = await dbManager.getStorageEstimate();
+    if (estimate && elements.storageDisplay) {
+        elements.storageDisplay.textContent = `Storage: ${formatBytes(estimate.usage, 0)}`;
+    } else if (elements.storageDisplay) {
+        elements.storageDisplay.textContent = 'Storage: N/A';
+    }
+}
+
+async function checkGhostFiles() {
+    try {
+        const [configs, snapshots] = await Promise.all([
+            dbManager.getAll(STORE_CONFIGS),
+            dbManager.getAll(STORE_SNAPSHOTS)
+        ]);
+        const configIds = new Set(configs.map(c => c.id));
+        const ghosts = snapshots.filter(s => !configIds.has(s.id));
+        if (elements.storageDoctorPanel) {
+            if (ghosts.length > 0) {
+                elements.storageDoctorPanel.classList.remove('hidden');
+                if (elements.ghostFileCount) elements.ghostFileCount.textContent = ghosts.length;
+            } else {
+                elements.storageDoctorPanel.classList.add('hidden');
+            }
+        }
+    } catch (e) {}
+}
+
+
 // --- Initialization ---
 async function initApp() {
     detectSystemSpecs();
     
     // Listeners
-    if(elements.createVmBtn) elements.createVmBtn.onclick = () => { resetModal(); elements.createVmModal.classList.remove('hidden'); };
-    if(elements.closeModalBtn) elements.closeModalBtn.onclick = () => elements.createVmModal.classList.add('hidden');
-    if(elements.modalBackBtn) elements.modalBackBtn.onclick = () => { currentStep--; updateStepUI(); };
-    if(elements.modalNextBtn) elements.modalNextBtn.onclick = () => { 
-        // Validate Step 1
-        if(currentStep === 1 && !newVM.primaryFile && newVM.sourceType !== 'hda') return showToast('Select a file first', 'warning');
-        currentStep++; 
-        // Auto name
-        if(currentStep === 3 && !newVM.name) newVM.name = `VM-${Date.now().toString().slice(-4)}`;
-        updateStepUI(); 
+    elements.createVmBtn.onclick = () => { resetModal(); elements.createVmModal.classList.remove('hidden'); };
+    elements.closeModalBtn.onclick = () => elements.createVmModal.classList.add('hidden');
+    elements.modalBackBtn.onclick = () => { if(currentStep > 1) { currentStep--; updateStepUI(); }};
+    elements.modalNextBtn.onclick = () => { 
+        if (currentStep === 1 && newVM.sourceType !== 'hda' && !newVM.primaryFile) return showToast('Select a boot file first', 'warning');
+        if (currentStep < 3) {
+            currentStep++;
+            if (currentStep === 3 && !elements.vmNameInput.value && newVM.primaryFile) {
+                elements.vmNameInput.value = newVM.primaryFile.name.split('.')[0];
+                newVM.name = elements.vmNameInput.value;
+            }
+            updateStepUI();
+        }
     };
-    if(elements.modalCreateBtn) elements.modalCreateBtn.onclick = createVM;
+    elements.modalCreateBtn.onclick = createVM;
+    elements.loadSnapshotBtn.onclick = () => elements.snapshotUpload.click();
+    elements.snapshotUpload.onchange = importSnapshot;
 
     // Inputs
     document.querySelectorAll('input[name="source-type"]').forEach(r => {
         r.onchange = (e) => newVM.sourceType = e.target.value;
     });
-    if(elements.primaryUpload) elements.primaryUpload.onchange = (e) => {
+    elements.primaryUpload.onchange = (e) => {
         newVM.primaryFile = e.target.files[0];
         if(elements.primaryNameDisplay) elements.primaryNameDisplay.textContent = e.target.files[0].name;
     };
-    if(elements.ramSlider) elements.ramSlider.oninput = (e) => {
+    elements.ramSlider.oninput = (e) => {
         newVM.ram = e.target.value;
         elements.ramValue.textContent = e.target.value + ' MB';
     };
-    if(elements.vmNameInput) elements.vmNameInput.oninput = (e) => newVM.name = e.target.value;
+    elements.vramSlider.oninput = (e) => {
+        elements.vramValue.textContent = e.target.value + ' MB';
+    };
+    elements.vmNameInput.oninput = (e) => newVM.name = e.target.value;
 
     // Sidebar
-    if(elements.menuOpenBtn) elements.menuOpenBtn.onclick = () => { elements.sidebar.classList.remove('-translate-x-full'); elements.overlay.classList.remove('hidden'); };
-    if(elements.menuCloseBtn) elements.menuCloseBtn.onclick = () => { elements.sidebar.classList.add('-translate-x-full'); elements.overlay.classList.add('hidden'); };
-    if(elements.overlay) elements.overlay.onclick = () => { elements.sidebar.classList.add('-translate-x-full'); elements.overlay.classList.add('hidden'); };
+    elements.menuOpenBtn.onclick = () => { elements.sidebar.classList.remove('-translate-x-full'); elements.overlay.classList.remove('hidden'); };
+    elements.menuCloseBtn.onclick = () => { elements.sidebar.classList.add('-translate-x-full'); elements.overlay.classList.add('hidden'); };
+    elements.overlay.onclick = () => { elements.sidebar.classList.add('-translate-x-full'); elements.overlay.classList.add('hidden'); };
 
     // VM List Actions
-    if(elements.vmList) elements.vmList.onclick = (e) => {
+    elements.vmList.onclick = (e) => {
         const btn = e.target.closest('button');
         const item = e.target.closest('.vm-list-item');
-        if(!btn || !item) return;
+        if(!item) return; // Allow clicking on item itself later
         const id = item.dataset.id;
+        if (!btn) return;
+
         if(btn.classList.contains('start-vm-btn')) startVM(id);
         if(btn.classList.contains('remove-vm-btn')) deleteMachineCompletely(id);
+        if(btn.classList.contains('edit-vm-btn')) openEditModal(id);
     };
 
     // Storage Manager
-    if(elements.storageManagerBtn) elements.storageManagerBtn.onclick = async () => {
+    elements.storageManagerBtn.onclick = async () => {
         elements.storageManagerModal.classList.remove('hidden');
         await renderStorageManager();
     };
-    if(elements.closeStorageManagerBtn) elements.closeStorageManagerBtn.onclick = () => elements.storageManagerModal.classList.add('hidden');
-    if(elements.nukeGhostsBtn) elements.nukeGhostsBtn.onclick = nukeGhostFiles;
+    elements.closeStorageManagerBtn.onclick = () => elements.storageManagerModal.classList.add('hidden');
+    elements.nukeGhostsBtn.onclick = nukeGhostFiles;
+
+    // Edit Modal
+    elements.cancelEditBtn.onclick = () => elements.editVmModal.classList.add('hidden');
+    elements.saveChangesBtn.onclick = saveVmChanges;
+    elements.editRamSlider.oninput = (e) => {
+        elements.editRamValue.textContent = `${e.target.value} MB`;
+    };
 
     // Load Data
     try {
         await dbManager.init();
         machines = await dbManager.getAll(STORE_CONFIGS);
         await renderAllMachineItems();
+        await updateStorageDisplay();
+        await checkGhostFiles();
     } catch(e) {
         console.error("Failed to load", e);
     }

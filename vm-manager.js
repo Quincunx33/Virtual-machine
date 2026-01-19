@@ -285,14 +285,30 @@ function initDB() {
     });
 }
 
-async function loadConfig(id) {
-    await initDB();
+function getFromDB(store, key) {
     return new Promise((resolve, reject) => {
-        const tx = db.transaction([STORE_CONFIGS], 'readonly');
-        const req = tx.objectStore(STORE_CONFIGS).get(id);
-        req.onsuccess = (e) => resolve(e.target.result);
-        req.onerror = (e) => reject(e);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
     });
+}
+
+async function loadData(id) {
+    await initDB();
+    const tx = db.transaction([STORE_CONFIGS, STORE_SNAPSHOTS], 'readonly');
+    const configStore = tx.objectStore(STORE_CONFIGS);
+    const snapshotStore = tx.objectStore(STORE_SNAPSHOTS);
+
+    const [config, snapshot] = await Promise.all([
+        getFromDB(configStore, id),
+        getFromDB(snapshotStore, id)
+    ]);
+    
+    if (config && snapshot && snapshot.state) {
+        config.initial_state_data = snapshot.state;
+    }
+    
+    return config;
 }
 
 async function saveSnapshot() {
@@ -329,7 +345,7 @@ async function saveSnapshot() {
 }
 
 async function startEmulator(config) {
-    if (!config) return;
+    if (!config) throw new Error("VM configuration is missing.");
     
     const v86Config = {
         wasm_path: "v86.wasm",
@@ -337,33 +353,34 @@ async function startEmulator(config) {
         bios: { url: "seabios.bin" },
         vga_bios: { url: "vgabios.bin" },
         memory_size: (config.ram || 64) * 1024 * 1024,
-        vga_memory_size: (config.vram || 4) * 1024 * 1024,
+        vga_memory_size: (config.vram || 8) * 1024 * 1024,
         autostart: true,
         network_relay_url: config.network ? "wss://relay.widgetry.org/" : undefined,
-        cmdline: config.cmdline
+        cmdline: config.cmdline || ""
     };
     
-    // Add media
     const addUrl = (obj, key) => {
-        if (obj instanceof Blob) {
+        if (obj instanceof Blob || obj instanceof File) {
             const url = URL.createObjectURL(obj);
             activeBlobUrls.add(url);
             v86Config[key] = { url };
         }
     };
     
-    if (config.sourceType === 'cd') addUrl(config.cdromFile, 'cdrom');
-    if (config.sourceType === 'floppy') { addUrl(config.fdaFile, 'fda'); addUrl(config.fdbFile, 'fdb'); }
-    if (config.sourceType === 'hda') { addUrl(config.hdaFile, 'hda'); addUrl(config.hdbFile, 'hdb'); }
-    
+    addUrl(config.cdromFile, 'cdrom');
+    addUrl(config.fdaFile, 'fda');
+    addUrl(config.fdbFile, 'fdb');
+    addUrl(config.hdaFile, 'hda');
+    addUrl(config.hdbFile, 'hdb');
     addUrl(config.bzimageFile, 'bzimage');
     addUrl(config.initrdFile, 'initrd');
     
-    // Snapshot restore
-    if (config.initialStateFile || config.initial_state_data) {
-        const state = config.initial_state_data || config.initialStateFile;
-        if (state instanceof ArrayBuffer) v86Config.initial_state = { buffer: state };
-        else addUrl(state, 'initial_state');
+    if (config.initial_state_data) {
+        if (config.initial_state_data instanceof ArrayBuffer) {
+            v86Config.initial_state = { buffer: config.initial_state_data };
+        } else {
+            addUrl(config.initial_state_data, 'initial_state');
+        }
     }
     
     try {
@@ -372,13 +389,11 @@ async function startEmulator(config) {
         emulator.add_listener("emulator-ready", () => {
             elements.loadingIndicator.classList.add('hidden');
             
-            // Interaction handler for pointer lock
             const lockHandler = () => {
                 if(emulator && emulator.is_running()) emulator.lock_mouse();
             };
             eventManager.add(elements.screenContainer, 'click', lockHandler);
             
-            // Screen Fit
             const fit = () => {
                 const canvas = elements.screenContainer.querySelector('canvas');
                 if(!canvas) return;
@@ -387,8 +402,8 @@ async function startEmulator(config) {
             };
             emulator.add_listener("screen-set-mode", () => setTimeout(fit, 100));
             eventManager.add(window, 'resize', fit);
+            fit();
             
-            // Status Loop
             screenUpdateInterval = setInterval(() => {
                 if(elements.statusLed) {
                     const running = emulator.is_running();
@@ -397,9 +412,22 @@ async function startEmulator(config) {
                 }
             }, 1000);
         });
+
+        emulator.add_listener("emulator-error", (e) => {
+            console.error("V86 Error:", e);
+            fullCleanup();
+            if (elements.errorOverlay) {
+                elements.errorMessage.textContent = e.message || "An unknown emulator error occurred.";
+                elements.errorOverlay.classList.remove('hidden');
+            }
+        });
         
     } catch(e) {
-        alert("Emulator Crash: " + e.message);
+        console.error("Emulator instantiation failed:", e);
+        if (elements.errorOverlay) {
+            elements.errorMessage.textContent = "Failed to create V86 instance. Your browser might not be supported.";
+            elements.errorOverlay.classList.remove('hidden');
+        }
     }
 }
 
@@ -407,17 +435,31 @@ async function startEmulator(config) {
 async function init() {
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
-    if(!id) return alert("No VM ID");
+    if(!id) {
+        elements.errorMessage.textContent = "No VM ID specified in the URL.";
+        elements.errorOverlay.classList.remove('hidden');
+        return;
+    };
     
     try {
-        const config = await loadConfig(id);
+        const config = await loadData(id);
+        if (!config) throw new Error("VM configuration not found in the database.");
+        
         selectedOS = config;
         document.title = config.name || "WebVM";
-        startEmulator(config);
+        await startEmulator(config);
     } catch(e) {
-        alert("Boot Failed: " + e.message);
+        console.error("Boot failed:", e);
+        elements.errorMessage.textContent = "Boot Failed: " + e.message;
+        elements.errorOverlay.classList.remove('hidden');
     }
 }
 
-if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-else init();
+if (elements.reloadBtn) elements.reloadBtn.onclick = () => location.reload();
+window.onbeforeunload = fullCleanup;
+
+if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
