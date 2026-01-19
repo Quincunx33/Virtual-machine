@@ -411,17 +411,10 @@ async function startEmulator(config) {
 
                 if (!activeScreen) return;
 
-                let width, height;
-
-                // Get dimensions based on element type
-                if (activeScreen.tagName === 'CANVAS') {
-                    width = activeScreen.width;
-                    height = activeScreen.height;
-                } else {
-                    const rect = activeScreen.getBoundingClientRect();
-                    width = rect.width;
-                    height = rect.height;
-                }
+                // Use offsetWidth and offsetHeight as they give the element's layout size
+                // before any CSS transforms are applied. This is crucial for correct scaling.
+                const width = activeScreen.offsetWidth;
+                const height = activeScreen.offsetHeight;
                 
                 // If dimensions are invalid, do nothing
                 if (!width || !height || width <= 1 || height <= 1) {
