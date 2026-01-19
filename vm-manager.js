@@ -393,6 +393,9 @@ async function startEmulator(config) {
         
         emulator.add_listener("emulator-ready", () => {
             elements.loadingIndicator.classList.add('hidden');
+            if (channel) {
+                channel.postMessage({ type: 'VM_STARTED', id: config.id });
+            }
             
             const lockHandler = () => {
                 if(emulator && emulator.is_running()) emulator.lock_mouse();
@@ -401,10 +404,40 @@ async function startEmulator(config) {
             
             const fit = () => {
                 const canvas = elements.screenContainer.querySelector('canvas');
-                if(!canvas) return;
-                const scale = Math.min(window.innerWidth / canvas.width, window.innerHeight / canvas.height);
-                canvas.style.transform = `scale(${scale})`;
+                const textScreen = elements.screenContainer.querySelector('div');
+                
+                // Determine which screen is active
+                const activeScreen = (canvas && canvas.style.display !== 'none') ? canvas : textScreen;
+
+                if (!activeScreen) return;
+
+                let width, height;
+
+                // Get dimensions based on element type
+                if (activeScreen.tagName === 'CANVAS') {
+                    width = activeScreen.width;
+                    height = activeScreen.height;
+                } else {
+                    const rect = activeScreen.getBoundingClientRect();
+                    width = rect.width;
+                    height = rect.height;
+                }
+                
+                // If dimensions are invalid, do nothing
+                if (!width || !height || width <= 1 || height <= 1) {
+                    return;
+                }
+
+                const scale = Math.min(window.innerWidth / width, window.innerHeight / height);
+                activeScreen.style.transform = `scale(${scale})`;
+
+                // Ensure the other screen isn't scaled
+                const inactiveScreen = (activeScreen === canvas) ? textScreen : canvas;
+                if(inactiveScreen) {
+                    inactiveScreen.style.transform = '';
+                }
             };
+
             emulator.add_listener("screen-set-mode", () => setTimeout(fit, 100));
             eventManager.add(window, 'resize', fit);
             fit();
@@ -438,6 +471,17 @@ async function startEmulator(config) {
 
 // Entry Point
 async function init() {
+    try {
+        channel = new BroadcastChannel('webvm_channel');
+        channel.onmessage = (event) => {
+            if (event.data.type === 'REQUEST_VM_STATUS' && selectedOS?.id) {
+                channel.postMessage({ type: 'VM_STARTED', id: selectedOS.id });
+            }
+        };
+    } catch (e) {
+        console.error("VM BroadcastChannel failed to initialize.", e);
+    }
+    
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
     if(!id) {
