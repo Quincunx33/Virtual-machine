@@ -45,8 +45,9 @@ if (!window.BroadcastChannel) {
 
 // --- State Management ---
 let machines = [];
-let activeTransactions = new WeakSet(); 
 let db = null;
+const runningVmIds = new Set();
+let channel = null;
 
 const DB_NAME = 'WebEmulatorDB';
 const DB_VERSION = 3; 
@@ -133,21 +134,6 @@ function formatBytes(bytes, decimals = 1) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     if (i < 0) return '0 Bytes';
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
-}
-
-function cleanObjectReferences(obj) {
-    if (!obj || typeof obj !== 'object') return;
-    const largeFields = ['state', 'buffer', 'data', 'file', 'blob'];
-    largeFields.forEach(field => {
-        if (obj[field] && obj[field] instanceof ArrayBuffer) {
-            try {
-                if (obj[field].byteLength > 1048576) {
-                    new Uint8Array(obj[field]).fill(0);
-                }
-            } catch(e) {}
-            obj[field] = null;
-        }
-    });
 }
 
 // --- Notification System ---
@@ -488,9 +474,21 @@ async function renderAllMachineItems() {
         machines.forEach(machine => {
             const snap = snapshotMap.get(machine.id);
             const hasSnap = !!snap;
+            const isRunning = runningVmIds.has(machine.id);
+
+            const runningIndicatorHtml = isRunning ? `
+                <div class="absolute top-3 right-3 flex items-center gap-2 text-green-400 text-[10px] font-bold">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    RUNNING
+                </div>
+            ` : '';
             
             const html = `
-                <div class="vm-list-item group flex items-center p-3 rounded-xl hover:bg-gray-700/50 transition-colors relative mb-2 bg-gray-800/40 border border-gray-700/50" data-id="${machine.id}">
+                <div class="vm-list-item group flex items-center p-3 rounded-xl hover:bg-gray-700/50 transition-colors relative mb-2 bg-gray-800/40 border ${isRunning ? 'border-green-500/50' : 'border-gray-700/50'}" data-id="${machine.id}">
+                    ${runningIndicatorHtml}
                     <div class="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center mr-3 flex-shrink-0 border border-gray-700">
                         <i class="fas ${machine.sourceType === 'snapshot' ? 'fa-file-import text-purple-400' : 'fa-desktop text-indigo-400'} text-xl"></i>
                     </div>
@@ -502,13 +500,13 @@ async function renderAllMachineItems() {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
-                        <button class="start-vm-btn bg-indigo-600 hover:bg-indigo-500 text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-lg transition-colors" title="Start VM">
+                        <button class="start-vm-btn ${isRunning ? 'bg-gray-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500'} text-white w-9 h-9 rounded-lg flex items-center justify-center shadow-lg transition-colors" title="${isRunning ? 'VM is already running' : 'Start VM'}" ${isRunning ? 'disabled' : ''}>
                             <i class="fas fa-play text-xs"></i>
                         </button>
-                        <button class="edit-vm-btn bg-gray-700 hover:bg-blue-900/80 text-gray-400 hover:text-blue-200 w-9 h-9 rounded-lg flex items-center justify-center transition-colors" title="Edit VM">
+                        <button class="edit-vm-btn ${isRunning ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-blue-900/80 text-gray-400 hover:text-blue-200'} w-9 h-9 rounded-lg flex items-center justify-center transition-colors" title="${isRunning ? 'Cannot edit a running VM' : 'Edit VM'}" ${isRunning ? 'disabled' : ''}>
                             <i class="fas fa-pencil-alt text-xs"></i>
                         </button>
-                        <button class="remove-vm-btn bg-gray-700 hover:bg-red-900/80 text-gray-400 hover:text-red-200 w-9 h-9 rounded-lg flex items-center justify-center transition-colors" title="Delete VM">
+                        <button class="remove-vm-btn ${isRunning ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-red-900/80 text-gray-400 hover:text-red-200'} w-9 h-9 rounded-lg flex items-center justify-center transition-colors" title="${isRunning ? 'Cannot delete a running VM' : 'Delete VM'}" ${isRunning ? 'disabled' : ''}>
                             <i class="fas fa-trash text-xs"></i>
                         </button>
                     </div>
@@ -752,10 +750,35 @@ async function factoryReset() {
     }
 }
 
+// --- Inter-tab Communication ---
+function initBroadcastChannel() {
+    try {
+        channel = new BroadcastChannel('webvm_channel');
+        channel.onmessage = (event) => {
+            const { type, id } = event.data;
+            if (type === 'VM_STARTED') {
+                if (!runningVmIds.has(id)) {
+                    runningVmIds.add(id);
+                    renderAllMachineItems();
+                }
+            } else if (type === 'VM_WINDOW_CLOSED') {
+                if (runningVmIds.has(id)) {
+                    runningVmIds.delete(id);
+                    renderAllMachineItems();
+                }
+            }
+        };
+        // Ping for any open VM windows when the dashboard loads
+        channel.postMessage({ type: 'REQUEST_VM_STATUS' });
+    } catch (e) {
+        console.error("BroadcastChannel not supported or failed to initialize.", e);
+    }
+}
 
 // --- Initialization ---
 async function initApp() {
     detectSystemSpecs();
+    initBroadcastChannel();
     
     // Listeners
     elements.createVmBtn.onclick = () => { resetModal(); elements.createVmModal.classList.remove('hidden'); };
