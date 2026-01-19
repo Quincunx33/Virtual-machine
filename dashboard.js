@@ -606,6 +606,8 @@ async function createVM() {
         if(elements.initrdUpload && elements.initrdUpload.files[0]) config.initrdFile = elements.initrdUpload.files[0];
         if(elements.cmdlineInput) config.cmdline = elements.cmdlineInput.value;
         if(elements.cpuProfileSelect) config.cpuProfile = elements.cpuProfileSelect.value;
+        if(elements.biosUpload && elements.biosUpload.files[0]) config.biosFile = elements.biosUpload.files[0];
+        if(elements.vgaBiosUpload && elements.vgaBiosUpload.files[0]) config.vgaBiosFile = elements.vgaBiosUpload.files[0];
 
         await dbManager.store(STORE_CONFIGS, config);
         machines.push(config);
@@ -721,6 +723,35 @@ async function checkGhostFiles() {
     } catch (e) {}
 }
 
+async function factoryReset() {
+    const confirmation = prompt("This will permanently delete ALL virtual machines and data. This cannot be undone. Type 'DELETE' to confirm.");
+    if (confirmation === 'DELETE') {
+        try {
+            showToast('Resetting application...', 'warning');
+            dbManager.close();
+            
+            const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+            
+            deleteRequest.onsuccess = () => {
+                showToast('Application reset. Reloading...', 'success');
+                setTimeout(() => location.reload(), 1500);
+            };
+            deleteRequest.onerror = (e) => {
+                console.error("Error deleting database:", e);
+                showToast('Failed to reset application.', 'error');
+            };
+            deleteRequest.onblocked = () => {
+                showToast('Reset blocked. Close other app tabs and try again.', 'error');
+            };
+        } catch(e) {
+            console.error("Factory reset error:", e);
+            showToast('An error occurred during reset.', 'error');
+        }
+    } else {
+        showToast('Reset cancelled.', 'info');
+    }
+}
+
 
 // --- Initialization ---
 async function initApp() {
@@ -744,6 +775,10 @@ async function initApp() {
     elements.modalCreateBtn.onclick = createVM;
     elements.loadSnapshotBtn.onclick = () => elements.snapshotUpload.click();
     elements.snapshotUpload.onchange = importSnapshot;
+    elements.resetAppBtn.onclick = factoryReset;
+    elements.helpBtn.onclick = () => elements.helpModal.classList.remove('hidden');
+    elements.closeHelpBtn.onclick = () => elements.helpModal.classList.add('hidden');
+
 
     // Inputs
     document.querySelectorAll('input[name="source-type"]').forEach(r => {

@@ -367,6 +367,11 @@ async function startEmulator(config) {
         }
     };
     
+    // --- BUG FIX: Prioritize custom BIOS files over defaults ---
+    addUrl(config.biosFile, 'bios');
+    addUrl(config.vgaBiosFile, 'vga_bios');
+    // --- End Bug Fix ---
+    
     addUrl(config.cdromFile, 'cdrom');
     addUrl(config.fdaFile, 'fda');
     addUrl(config.fdbFile, 'fdb');
