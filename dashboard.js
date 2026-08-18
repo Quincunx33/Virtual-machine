@@ -69,6 +69,11 @@ const elements = {
     bootDriveType: getEl('boot-drive-type'),
     primaryUpload: getEl('primary-upload'),
     primaryNameDisplay: getEl('primary-name-display'),
+    createHddToggle: getEl('create-hdd-toggle'),
+    hddOptions: getEl('hdd-options'),
+    hddSizeSelect: getEl('hdd-size-select'),
+    hddStatus: getEl('hdd-status'),
+    summaryHdd: getEl('summary-hdd'),
     fdbUpload: getEl('fdb-upload'),
     hdbUpload: getEl('hdb-upload'),
     bzimageUpload: getEl('bzimage-upload'),
@@ -524,7 +529,7 @@ async function renderAllMachineItems() {
 }
 
 // --- Creation Modal Logic (Simplified) ---
-let newVM = { name: '', ram: 128, sourceType: 'cd' };
+let newVM = { name: '', ram: 128, sourceType: 'cd', createHdd: false, hddSize: 256 };
 let currentStep = 1;
 
 function resetModal() {
@@ -533,7 +538,9 @@ function resetModal() {
         name: '', 
         ram: detectedSystemSpecs.recommendedRam, 
         sourceType: 'cd',
-        primaryFile: null
+        primaryFile: null,
+        createHdd: false,
+        hddSize: 256
     };
     if(elements.ramSlider) {
         elements.ramSlider.value = newVM.ram;
@@ -541,6 +548,10 @@ function resetModal() {
         elements.ramValue.textContent = newVM.ram + ' MB';
     }
     if(elements.vmNameInput) elements.vmNameInput.value = '';
+    if(elements.createHddToggle) elements.createHddToggle.checked = false;
+    if(elements.hddOptions) elements.hddOptions.classList.add('hidden');
+    if(elements.hddSizeSelect) elements.hddSizeSelect.value = '256';
+    if(elements.hddStatus) elements.hddStatus.textContent = 'The disk will be attached as primary HDD (HDA).';
     updateStepUI();
 }
 
@@ -573,8 +584,9 @@ function updateStepUI() {
         if (currentStep === 3) {
             elements.modalNextBtn.classList.add('hidden');
             elements.modalCreateBtn.classList.remove('hidden');
-            if(elements.summarySource) elements.summarySource.textContent = newVM.primaryFile ? newVM.primaryFile.name : newVM.sourceType.toUpperCase();
+            if(elements.summarySource) elements.summarySource.textContent = newVM.primaryFile ? newVM.primaryFile.name : (newVM.createHdd ? 'Blank HDD' : newVM.sourceType.toUpperCase());
             if(elements.summaryRam) elements.summaryRam.textContent = newVM.ram + ' MB';
+            if(elements.summaryHdd) elements.summaryHdd.textContent = newVM.createHdd ? `${newVM.hddSize} MB writable` : 'None';
         } else {
             elements.modalNextBtn.classList.remove('hidden');
             elements.modalCreateBtn.classList.add('hidden');
@@ -582,8 +594,27 @@ function updateStepUI() {
     }
 }
 
+async function createBlankDisk(sizeMb) {
+    const size = Number(sizeMb) * 1024 * 1024;
+    if (!Number.isInteger(size) || size < 128 * 1024 * 1024 || size > 1024 * 1024 * 1024) {
+        throw new Error('Disk size must be between 128 MB and 1 GB.');
+    }
+    // ArrayBuffer is structured-cloneable and can be updated by the VM runtime.
+    return new ArrayBuffer(size);
+}
+
 async function createVM() {
     try {
+        if (newVM.createHdd) {
+            showToast(`Creating ${newVM.hddSize} MB virtual disk...`, 'info');
+            newVM.hddBuffer = await createBlankDisk(newVM.hddSize);
+        }
+        if (newVM.sourceType !== 'hda' && !newVM.primaryFile) {
+            throw new Error('Select installer media or choose HDD as the boot source.');
+        }
+        if (newVM.sourceType === 'hda' && !newVM.primaryFile && !newVM.createHdd) {
+            throw new Error('Select an HDD image or enable Create Virtual Hard Disk.');
+        }
         const id = `vm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const name = newVM.name || `VM-${id.slice(-6)}`;
         
@@ -594,8 +625,12 @@ async function createVM() {
             network: elements.networkToggle.checked,
             sourceType: newVM.sourceType,
             cdromFile: newVM.sourceType === 'cd' ? newVM.primaryFile : null,
-            hdaFile: newVM.sourceType === 'hda' ? newVM.primaryFile : null,
-            fdaFile: newVM.sourceType === 'floppy' ? newVM.primaryFile : null
+            hdaFile: (!newVM.createHdd && newVM.sourceType === 'hda') ? newVM.primaryFile : null,
+            hdaDisk: newVM.createHdd ? { size: newVM.hddSize * 1024 * 1024, buffer: newVM.hddBuffer } : null,
+            fdaFile: newVM.sourceType === 'floppy' ? newVM.primaryFile : null,
+            bootOrder: elements.bootOrderSelect ? Number(elements.bootOrderSelect.value) : 531,
+            acpi: elements.acpiToggle ? elements.acpiToggle.checked : true,
+            graphicsScale: elements.graphicsScaleSelect ? elements.graphicsScaleSelect.value : 'pixelated'
         };
         
         if(elements.fdbUpload && elements.fdbUpload.files[0]) config.fdbFile = elements.fdbUpload.files[0];
@@ -785,7 +820,7 @@ async function initApp() {
     elements.closeModalBtn.onclick = () => elements.createVmModal.classList.add('hidden');
     elements.modalBackBtn.onclick = () => { if(currentStep > 1) { currentStep--; updateStepUI(); }};
     elements.modalNextBtn.onclick = () => { 
-        if (currentStep === 1 && newVM.sourceType !== 'hda' && !newVM.primaryFile) return showToast('Select a boot file first', 'warning');
+        if (currentStep === 1 && !newVM.primaryFile && !newVM.createHdd) return showToast('Select boot media or enable a blank hard disk first', 'warning');
         if (currentStep < 3) {
             currentStep++;
             if (currentStep === 3 && !elements.vmNameInput.value && newVM.primaryFile) {
@@ -810,6 +845,15 @@ async function initApp() {
     elements.primaryUpload.onchange = (e) => {
         newVM.primaryFile = e.target.files[0];
         if(elements.primaryNameDisplay) elements.primaryNameDisplay.textContent = e.target.files[0].name;
+    };
+    if (elements.createHddToggle) elements.createHddToggle.onchange = (e) => {
+        newVM.createHdd = e.target.checked;
+        if (elements.hddOptions) elements.hddOptions.classList.toggle('hidden', !newVM.createHdd);
+        if (elements.hddStatus) elements.hddStatus.textContent = newVM.createHdd ? `A ${newVM.hddSize} MB writable disk will be attached as HDA.` : 'The disk will be attached as primary HDD (HDA).';
+    };
+    if (elements.hddSizeSelect) elements.hddSizeSelect.onchange = (e) => {
+        newVM.hddSize = Number(e.target.value);
+        if (elements.hddStatus && newVM.createHdd) elements.hddStatus.textContent = `A ${newVM.hddSize} MB writable disk will be attached as HDA.`;
     };
     elements.ramSlider.oninput = (e) => {
         newVM.ram = e.target.value;
