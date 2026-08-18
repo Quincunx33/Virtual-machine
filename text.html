@@ -2,22 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <!-- Stricter CSP: scripts only from self and trusted CDNs, no unsafe-inline for logic -->
     <!-- FIX: Added 'wasm-unsafe-eval' and 'blob:' to support future features and consistency -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
     <title>Web VM Emulator</title>
     
     <!-- App Icon & Manifest -->
-    <link rel="icon" href="IMG_1074.png">
-    <link rel="apple-touch-icon" href="IMG_1074.png">
+    <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg">
     <link rel="manifest" href="manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; min-height: 100vh; min-height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; }
+        :focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+        button, input, select, textarea { min-height: 2.25rem; }
+        @media (max-width: 767px) {
+            .modal-content, [role="dialog"] > div { max-height: calc(100dvh - 1rem); overflow-y: auto; overscroll-behavior: contain; }
+        }
+        @media (max-height: 560px) and (orientation: landscape) {
+            .modal-content, [role="dialog"] > div { max-height: calc(100dvh - 0.5rem); }
+        }
         /* Custom Scrollbar for dark theme */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
@@ -162,8 +170,8 @@
     <aside id="sidebar" class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col fixed lg:static h-full z-30 transition-transform transform -translate-x-full lg:translate-x-0 shadow-2xl lg:shadow-none">
         <div class="p-6 border-b border-gray-700 flex items-center justify-between">
             <h1 class="text-2xl font-bold flex items-center gap-3">
-                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <i class="fas fa-cube text-white text-sm"></i>
+                <div class="w-9 h-9 bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25 border border-indigo-400/30">
+                    <i class="fas fa-microchip text-white text-sm"></i>
                 </div>
                 Web<span class="text-indigo-400">VM</span>
             </h1>
@@ -173,24 +181,96 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
-            <!-- System Stats Card -->
-            <div class="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">System Status</span>
-                    <span id="low-end-badge" class="hidden bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded border border-yellow-500/30">Low Spec</span>
+            <!-- Enhanced System & Browser Status Card -->
+            <div class="bg-gray-750/70 rounded-xl p-3.5 border border-gray-650/80 shadow-md space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fas fa-microchip text-indigo-400"></i> Host Environment
+                    </span>
+                    <button id="sys-info-btn" class="text-[10px] px-2 py-0.5 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600 flex items-center gap-1 transition-colors" title="View Full System & Browser Diagnostics">
+                        <i class="fas fa-circle-info text-indigo-400"></i> Details
+                    </button>
                 </div>
-                <div class="flex items-center gap-3 mb-2">
-                    <i class="fas fa-microchip text-indigo-400"></i>
-                    <span id="system-ram-display" class="text-sm font-mono">Detecting...</span>
+
+                <!-- Detected OS & Browser Pills -->
+                <div class="grid grid-cols-2 gap-1.5 text-xs">
+                    <div id="sys-os-badge" class="bg-gray-800/90 border border-gray-700 rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-w-0">
+                        <span id="sys-os-icon" class="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                            <i class="fas fa-desktop text-indigo-400 text-sm"></i>
+                        </span>
+                        <span id="sys-os-text" class="text-white font-medium truncate text-[11px]">Detecting...</span>
+                    </div>
+                    <div id="sys-browser-badge" class="bg-gray-800/90 border border-gray-700 rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-w-0">
+                        <span id="sys-browser-icon" class="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                            <i class="fas fa-globe text-blue-400 text-sm"></i>
+                        </span>
+                        <span id="sys-browser-text" class="text-white font-medium truncate text-[11px]">Detecting...</span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-hdd text-emerald-400"></i>
-                    <span id="storage-display" class="text-sm font-mono">Storage: ...</span>
+
+                <!-- Hardware & Specs Grid -->
+                <div class="space-y-1.5 text-xs bg-gray-800/60 rounded-lg p-2.5 border border-gray-700/60">
+                    <div class="flex items-center justify-between text-gray-300">
+                        <span class="text-gray-400 text-[11px] flex items-center gap-1.5">
+                            <i class="fas fa-memory text-purple-400"></i> Memory (RAM)
+                        </span>
+                        <span id="system-ram-display" class="font-mono font-semibold text-white text-[11px]">Detecting...</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-gray-300">
+                        <span class="text-gray-400 text-[11px] flex items-center gap-1.5">
+                            <i class="fas fa-microchip text-cyan-400"></i> CPU Cores
+                        </span>
+                        <span id="sys-cores-display" class="font-mono font-semibold text-white text-[11px]">Detecting...</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-gray-300">
+                        <span class="text-gray-400 text-[11px] flex items-center gap-1.5">
+                            <i class="fas fa-hard-drive text-emerald-400"></i> Local Storage
+                        </span>
+                        <span id="storage-display" class="font-mono font-semibold text-white text-[11px]">...</span>
+                    </div>
                 </div>
+
+                <!-- Wasm & Engine Badge -->
+                <div class="flex items-center justify-between text-[10px] text-gray-400 pt-0.5 px-0.5">
+                    <div class="flex items-center gap-1.5">
+                        <span id="sys-wasm-badge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-mono">
+                            <i class="fas fa-check-circle text-[9px]"></i> WASM
+                        </span>
+                        <span id="sys-simd-badge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 font-mono">
+                            <i class="fas fa-bolt text-[9px]"></i> SIMD
+                        </span>
+                    </div>
+                    <span id="low-end-badge" class="hidden bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded border border-yellow-500/30 font-medium">Low Spec</span>
+                </div>
+
+                <!-- Offline Caching & PWA Panel -->
+                <div class="bg-gray-800/80 rounded-xl p-3 border border-gray-700/80 space-y-3 overflow-visible">
+                    <div class="flex min-h-7 items-center justify-between gap-3">
+                        <span class="min-w-0 text-xs font-semibold text-gray-200 flex items-center gap-1.5">
+                            <i class="fas fa-wifi text-emerald-400 text-xs"></i> Offline Caching
+                        </span>
+                        <!-- Toggle Switch Button -->
+                        <button id="offline-cache-toggle" class="offline-cache-switch relative inline-flex h-6 min-h-0 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-indigo-600" style="min-height:24px;height:24px;width:48px" role="switch" aria-checked="true">
+                            <span id="offline-cache-knob" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                        </button>
+                    </div>
+                    <div class="flex min-h-5 items-center justify-between gap-3 pt-0.5 text-[11px] leading-4">
+                        <span class="text-gray-400">Status:</span>
+                        <span id="offline-cache-status" class="font-mono text-emerald-400 font-semibold">ACTIVE</span>
+                    </div>
+
+                    <!-- Install PWA App Button -->
+                    <button id="pwa-install-btn" class="hidden w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-1.5 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-sm border border-indigo-400/30">
+                        <i class="fas fa-download"></i> Install App
+                    </button>
+                </div>
+
                 <!-- Ghost File Warning -->
-                <div id="storage-doctor-panel" class="hidden mt-3 pt-3 border-t border-gray-600">
+                <div id="storage-doctor-panel" class="hidden pt-2 border-t border-gray-700">
                     <div class="flex items-center gap-2 text-red-400 text-xs mb-2">
-                        <i class="fas fa-exclamation-triangle"></i>
+                        <i class="fas fa-triangle-exclamation"></i>
                         <span><span id="ghost-file-count">0</span> Orphaned Files Found</span>
                     </div>
                     <button id="nuke-ghosts-btn" class="w-full text-xs bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800 rounded py-1.5 transition-colors">
@@ -210,10 +290,10 @@
             <input type="file" id="snapshot-upload" accept=".bin,.v86state,.86state" class="hidden" />
 
             <div class="pt-4 border-t border-gray-700">
-                <button id="storage-manager-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
+                <button id="storage-manager-btn" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
                     <i class="fas fa-database"></i> Storage Manager
                 </button>
-                <button id="reset-app-btn" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors mt-2">
+                <button id="reset-app-btn" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors mt-1">
                     <i class="fas fa-trash-alt"></i> Factory Reset
                 </button>
             </div>
@@ -226,19 +306,39 @@
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col h-full relative">
-        <!-- Header -->
-        <header class="h-16 bg-gray-800/50 border-b border-gray-700 flex items-center justify-between px-6 backdrop-blur-sm lg:hidden">
-            <span class="font-bold text-lg">My Machines</span>
-            <button id="menu-open-btn" class="text-white p-2">
-                <i class="fas fa-bars"></i>
-            </button>
+        <!-- Header (Mobile/Tablet Top Bar) -->
+        <header class="h-16 bg-gray-800/80 border-b border-gray-700/80 flex items-center justify-between px-4 sm:px-6 backdrop-blur-md lg:hidden z-10 sticky top-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-500/20 border border-indigo-400/30">
+                    <i class="fas fa-microchip text-white text-xs"></i>
+                </div>
+                <span class="font-bold text-base text-white tracking-tight">Web<span class="text-indigo-400">VM</span></span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="header-logs-btn bg-gray-800 hover:bg-gray-750 text-emerald-400 border border-emerald-900/60 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95">
+                    <i class="fas fa-terminal text-emerald-400"></i>
+                    <span class="header-log-count-badge bg-emerald-950 text-emerald-300 text-[10px] px-1.5 py-0.2 rounded font-mono border border-emerald-500/30">0</span>
+                </button>
+                <button id="menu-open-btn" class="text-gray-200 hover:text-white px-3 py-1.5 rounded-lg bg-gray-750 hover:bg-gray-700 active:scale-95 transition-all flex items-center gap-2 text-xs font-semibold border border-gray-650" aria-label="Open menu">
+                    <i class="fas fa-bars text-sm"></i>
+                    <span>Menu</span>
+                </button>
+            </div>
         </header>
 
         <div class="flex-1 overflow-y-auto p-4 lg:p-8">
             <div class="max-w-5xl mx-auto">
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-2xl font-bold hidden lg:block">My Machines</h2>
-                    <span id="vm-count-badge" class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs font-mono border border-gray-600">0 Machines</span>
+                    <div class="flex items-center gap-2">
+                        <!-- Desktop-only logs button to prevent duplicates on tablet/mobile views -->
+                        <button class="header-logs-btn hidden lg:flex bg-gray-800 hover:bg-gray-750 text-emerald-400 border border-emerald-900/60 hover:border-emerald-500/50 px-3 py-1.5 rounded-lg text-xs font-semibold items-center gap-2 transition-all shadow-sm active:scale-95">
+                            <i class="fas fa-terminal text-emerald-400"></i>
+                            <span>Emulator Logs</span>
+                            <span class="header-log-count-badge bg-emerald-950 text-emerald-300 text-[10px] px-1.5 py-0.2 rounded font-mono border border-emerald-500/30">0</span>
+                        </button>
+                        <span id="vm-count-badge" class="bg-gray-700 text-gray-300 px-2.5 py-1.5 rounded-lg text-xs font-mono border border-gray-600">0 Machines</span>
+                    </div>
                 </div>
 
                 <div id="vm-list" class="space-y-3">
@@ -270,47 +370,47 @@
             
             <div class="p-6 overflow-y-auto custom-scrollbar">
                 <!-- Stepper -->
-                <div class="flex items-center justify-center mb-8">
-                    <div id="step-indicator-1" class="flex flex-col items-center gap-2 text-indigo-400">
-                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold border-2 border-indigo-400">1</div>
-                        <span class="text-xs font-medium">Media</span>
+                <div class="flex items-center justify-center mb-6 sm:mb-8">
+                    <div id="step-indicator-1" class="flex flex-col items-center gap-1.5 text-indigo-400">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold border-2 border-indigo-400 text-xs">1</div>
+                        <span class="text-[11px] font-medium">Media</span>
                     </div>
-                    <div class="w-16 h-0.5 bg-gray-600 mx-2"></div>
-                    <div id="step-indicator-2" class="flex flex-col items-center gap-2 text-gray-500">
-                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600">2</div>
-                        <span class="text-xs font-medium">Hardware</span>
+                    <div class="w-8 sm:w-16 h-0.5 bg-gray-600 mx-1 sm:mx-2"></div>
+                    <div id="step-indicator-2" class="flex flex-col items-center gap-1.5 text-gray-500">
+                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600 text-xs">2</div>
+                        <span class="text-[11px] font-medium">Hardware</span>
                     </div>
-                    <div class="w-16 h-0.5 bg-gray-600 mx-2"></div>
-                    <div id="step-indicator-3" class="flex flex-col items-center gap-2 text-gray-500">
-                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600">3</div>
-                        <span class="text-xs font-medium">Finish</span>
+                    <div class="w-8 sm:w-16 h-0.5 bg-gray-600 mx-1 sm:mx-2"></div>
+                    <div id="step-indicator-3" class="flex flex-col items-center gap-1.5 text-gray-500">
+                        <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600 text-xs">3</div>
+                        <span class="text-[11px] font-medium">Finish</span>
                     </div>
                 </div>
 
                 <!-- Step 1: Media Selection -->
-                <div id="modal-step-1" class="space-y-6">
+                <div id="modal-step-1" class="space-y-5">
                     <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">Boot Media Source</label>
-                        <div class="grid grid-cols-3 gap-3">
+                        <label class="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Boot Media Source</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                             <label class="cursor-pointer">
                                 <input type="radio" name="source-type" value="cd" class="peer hidden" checked onchange="document.getElementById('boot-drive-type').value='cd'">
-                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all">
-                                    <i class="fas fa-compact-disc text-2xl mb-2 text-indigo-400"></i>
-                                    <div class="text-sm font-medium">CD-ROM (ISO)</div>
+                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-3 sm:p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all flex sm:flex-col items-center justify-center gap-2 sm:gap-0">
+                                    <i class="fas fa-compact-disc text-xl sm:text-2xl sm:mb-2 text-indigo-400"></i>
+                                    <div class="text-xs sm:text-sm font-medium">CD-ROM (ISO)</div>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="source-type" value="floppy" class="peer hidden" onchange="document.getElementById('boot-drive-type').value='floppy'">
-                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all">
-                                    <i class="fas fa-floppy-disk text-2xl mb-2 text-yellow-500"></i>
-                                    <div class="text-sm font-medium">Floppy (IMG)</div>
+                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-3 sm:p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all flex sm:flex-col items-center justify-center gap-2 sm:gap-0">
+                                    <i class="fas fa-floppy-disk text-xl sm:text-2xl sm:mb-2 text-yellow-500"></i>
+                                    <div class="text-xs sm:text-sm font-medium">Floppy (IMG)</div>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="source-type" value="hda" class="peer hidden" onchange="document.getElementById('boot-drive-type').value='hda'">
-                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all">
-                                    <i class="fas fa-hard-drive text-2xl mb-2 text-blue-500"></i>
-                                    <div class="text-sm font-medium">HDD Image</div>
+                                <div class="source-type-card bg-gray-700/50 hover:bg-gray-700 p-3 sm:p-4 rounded-xl border border-gray-600 peer-checked:border-indigo-500 peer-checked:bg-indigo-900/20 text-center transition-all flex sm:flex-col items-center justify-center gap-2 sm:gap-0">
+                                    <i class="fas fa-hard-drive text-xl sm:text-2xl sm:mb-2 text-blue-500"></i>
+                                    <div class="text-xs sm:text-sm font-medium">HDD Image</div>
                                 </div>
                             </label>
                         </div>
@@ -321,8 +421,43 @@
                         <input type="file" id="primary-upload" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                         <div class="pointer-events-none">
                             <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2 group-hover:text-indigo-400 transition-colors"></i>
-                            <p class="text-sm font-medium text-white" id="primary-name-display">Tap to browse files</p>
-                            <p class="text-xs text-gray-500 mt-1">Supports .iso, .img, .bin</p>
+                            <p class="text-xs sm:text-sm font-medium text-white" id="primary-name-display">Tap to browse files</p>
+                            <p class="text-[11px] text-gray-500 mt-1" id="primary-upload-hint">Supports .iso, .img, .bin</p>
+                        </div>
+                    </div>
+
+                    <!-- Target Hard Disk for OS Installation -->
+                    <div id="target-disk-container" class="bg-gray-800/90 rounded-xl border border-gray-700/80 p-3.5 sm:p-4 space-y-3.5 transition-all">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-9 h-9 rounded-lg bg-indigo-950/70 border border-indigo-500/30 flex items-center justify-center flex-shrink-0 text-indigo-400">
+                                    <i class="fas fa-hard-drive text-sm"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-xs sm:text-sm font-semibold text-white truncate">Virtual Hard Disk (HDA)</div>
+                                    <div class="text-[11px] text-gray-400">Primary drive for OS installation & files</div>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                <input type="checkbox" id="enable-target-disk-toggle" class="sr-only peer" checked>
+                                <div class="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="blank-disk-controls" class="space-y-2.5 pt-3 border-t border-gray-700/60">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-gray-400 font-medium">Allocated Capacity:</span>
+                                <span id="blank-disk-size-label" class="font-mono font-semibold text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-500/30">1024 MB (1.0 GB)</span>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
+                                <button type="button" class="disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-medium text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all whitespace-nowrap" data-size="256">256MB</button>
+                                <button type="button" class="disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-medium text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all whitespace-nowrap" data-size="512">512MB</button>
+                                <button type="button" class="disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-semibold text-center bg-indigo-600 text-white border border-indigo-400 shadow-md shadow-indigo-600/30 transition-all whitespace-nowrap" data-size="1024">1GB</button>
+                                <button type="button" class="disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-medium text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all whitespace-nowrap" data-size="2048">2GB</button>
+                                <button type="button" class="disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-medium text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all whitespace-nowrap" data-size="4096">4GB</button>
+                            </div>
+                            <input type="hidden" id="blank-disk-size-input" value="1024">
                         </div>
                     </div>
                     
@@ -333,44 +468,48 @@
                         </summary>
                         <div class="p-4 space-y-4 border-t border-gray-700">
                              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs text-gray-400 mb-1">Floppy Drive B</label>
-                                    <input type="file" id="fdb-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600" />
+                                <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700">
+                                    <label class="block text-xs font-semibold text-gray-300 mb-2">Floppy Drive B</label>
+                                    <input type="file" id="fdb-upload" class="w-full text-xs text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600 block" />
                                 </div>
-                                <div>
-                                    <label class="block text-xs text-gray-400 mb-1">Hard Drive B</label>
-                                    <input type="file" id="hdb-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600" />
+                                <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700">
+                                    <label class="block text-xs font-semibold text-gray-300 mb-2">Hard Drive B</label>
+                                    <input type="file" id="hdb-upload" class="w-full text-xs text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600 block" />
                                 </div>
                              </div>
                              
-                             <div class="pt-2 border-t border-gray-700/50">
-                                <p class="text-xs text-orange-400 font-bold mb-2">Direct Kernel Boot (Linux)</p>
+                             <div class="pt-3 border-t border-gray-700/50">
+                                <p class="text-xs text-orange-400 font-bold mb-3 flex items-center gap-1.5">
+                                    <i class="fas fa-terminal"></i> Direct Kernel Boot (Linux)
+                                </p>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">bzImage</label>
-                                        <input type="file" id="bzimage-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600" />
+                                    <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700">
+                                        <label class="block text-xs font-semibold text-orange-300 mb-2">bzImage (Kernel)</label>
+                                        <input type="file" id="bzimage-upload" class="w-full text-xs text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600 block" />
                                     </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">initrd</label>
-                                        <input type="file" id="initrd-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600" />
+                                    <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700">
+                                        <label class="block text-xs font-semibold text-orange-300 mb-2">initrd (Ramdisk)</label>
+                                        <input type="file" id="initrd-upload" class="w-full text-xs text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600 block" />
                                     </div>
-                                    <div class="col-span-2">
-                                         <label class="block text-xs text-gray-400 mb-1">Command Line (cmdline)</label>
-                                         <input type="text" id="cmdline-input" placeholder="e.g. console=ttyS0 root=/dev/sda1" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                    <div class="col-span-1 md:col-span-2">
+                                         <label class="block text-xs font-semibold text-gray-300 mb-1.5">Command Line (cmdline)</label>
+                                         <input type="text" id="cmdline-input" placeholder="e.g. console=ttyS0 root=/dev/sda1" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
                                     </div>
                                 </div>
                              </div>
 
-                             <div class="pt-2 border-t border-gray-700/50">
-                                <p class="text-xs text-purple-400 font-bold mb-2">Custom BIOS/Firmware</p>
+                             <div class="pt-3 border-t border-gray-700/50">
+                                <p class="text-xs text-purple-400 font-bold mb-3 flex items-center gap-1.5">
+                                    <i class="fas fa-microchip"></i> Custom BIOS/Firmware
+                                </p>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">System BIOS</label>
-                                        <input type="file" id="bios-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600" />
+                                    <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700">
+                                        <label class="block text-xs font-semibold text-purple-300 mb-2">System BIOS</label>
+                                        <input type="file" id="bios-upload" class="w-full text-xs text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600 block" />
                                     </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-1">VGA BIOS</label>
-                                        <input type="file" id="vga-bios-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600" />
+                                    <div class="bg-gray-800/60 p-2.5 rounded-lg border border-gray-700">
+                                        <label class="block text-xs font-semibold text-purple-300 mb-2">VGA BIOS</label>
+                                        <input type="file" id="vga-bios-upload" class="w-full text-xs text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600 block" />
                                     </div>
                                 </div>
                              </div>
@@ -467,6 +606,10 @@
                                 <span class="text-white truncate max-w-[150px]" id="summary-source">-</span>
                             </div>
                             <div class="flex justify-between">
+                                <span class="text-gray-500">Target Disk (HDA):</span>
+                                <span class="text-indigo-300 font-mono text-xs" id="summary-disk">1024 MB Blank Disk</span>
+                            </div>
+                            <div class="flex justify-between">
                                 <span class="text-gray-500">Memory:</span>
                                 <span class="text-white" id="summary-ram">64 MB</span>
                             </div>
@@ -494,40 +637,178 @@
         </div>
     </div>
     
-    <!-- Edit VM Modal -->
-    <div id="edit-vm-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl border border-gray-700 p-6">
-            <h3 class="text-lg font-bold text-white mb-4">Edit Configuration</h3>
-            <input type="hidden" id="edit-vm-id">
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Name</label>
-                    <input type="text" id="edit-vm-name-input" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white">
+    <!-- Disk Allocation Progress Modal -->
+    <div id="disk-allocation-modal" class="fixed inset-0 z-[70] hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-md rounded-2xl shadow-2xl border border-gray-700 p-6 space-y-5">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-950/90 border border-indigo-500/40 flex items-center justify-center text-indigo-400 flex-shrink-0 relative">
+                    <i class="fas fa-hard-drive text-xl animate-pulse"></i>
+                    <span class="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                    </span>
                 </div>
-                
-                <div>
-                     <div class="flex justify-between items-center mb-1">
-                        <label class="text-sm text-gray-400">Memory (RAM)</label>
-                        <span id="edit-ram-value" class="text-xs text-indigo-400 font-bold">64 MB</span>
-                    </div>
-                    <input type="range" id="edit-ram-slider" min="16" max="1024" step="16" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
-                    <div class="flex justify-between text-[10px] text-gray-500">
-                        <span>16MB</span>
-                        <span id="edit-ram-max-label">1024MB</span>
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-3">
-                     <input type="checkbox" id="edit-network-toggle" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500">
-                     <label for="edit-network-toggle" class="text-sm text-gray-300">Enable Networking</label>
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-base font-bold text-white tracking-tight" id="disk-progress-title">Allocating Virtual Hard Disk</h3>
+                    <p class="text-xs text-gray-400 truncate" id="disk-progress-subtitle">Creating raw storage blocks...</p>
                 </div>
             </div>
 
-            <div class="mt-6 flex justify-end gap-3">
+            <!-- Progress Bar -->
+            <div class="space-y-2">
+                <div class="w-full bg-gray-900 rounded-full h-3.5 p-0.5 border border-gray-700 overflow-hidden relative shadow-inner">
+                    <div id="disk-progress-bar" class="bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-400 h-full rounded-full transition-all duration-150 relative" style="width: 0%">
+                        <div class="absolute inset-0 bg-white/20 animate-pulse rounded-full"></div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between text-xs font-mono">
+                    <span id="disk-progress-status" class="text-gray-400 truncate">Preparing sector structures...</span>
+                    <span id="disk-progress-counter" class="text-indigo-300 font-bold flex-shrink-0 ml-2">0% (0 / 1024 MB)</span>
+                </div>
+            </div>
+
+            <div class="bg-gray-900/80 rounded-lg p-3 border border-gray-750 flex items-center gap-2.5 text-xs text-gray-400">
+                <i class="fas fa-info-circle text-indigo-400 flex-shrink-0"></i>
+                <span class="leading-relaxed">Virtual disk will be ready for OS installer partitioning (<code class="text-indigo-300 font-mono">fdisk</code> / <code class="text-indigo-300 font-mono">format</code>).</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit VM Modal -->
+    <div id="edit-vm-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-lg rounded-2xl shadow-2xl border border-gray-700 p-6 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center pb-4 mb-4 border-b border-gray-700">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-sliders text-indigo-400"></i> Edit Machine Settings
+                </h3>
+                <button id="close-edit-modal-x" class="text-gray-400 hover:text-white p-1">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <input type="hidden" id="edit-vm-id">
+            
+            <div class="space-y-4 overflow-y-auto pr-1 flex-1">
+                <!-- Machine Name -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Machine Name</label>
+                    <input type="text" id="edit-vm-name-input" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                
+                <!-- RAM Slider -->
+                <div class="bg-gray-900/50 p-3 rounded-xl border border-gray-700/80 space-y-1">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                            <i class="fas fa-memory text-purple-400"></i> System Memory (RAM)
+                        </label>
+                        <span id="edit-ram-value" class="text-xs font-bold text-indigo-400 font-mono">128 MB</span>
+                    </div>
+                    <input type="range" id="edit-ram-slider" min="16" max="2048" step="16" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    <div class="flex justify-between text-[10px] text-gray-500">
+                        <span>16MB</span>
+                        <span id="edit-ram-max-label">2048MB</span>
+                    </div>
+                </div>
+
+                <!-- VRAM Slider -->
+                <div class="bg-gray-900/50 p-3 rounded-xl border border-gray-700/80 space-y-1">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                            <i class="fas fa-display text-cyan-400"></i> Video Memory (VRAM)
+                        </label>
+                        <span id="edit-vram-value" class="text-xs font-bold text-cyan-400 font-mono">8 MB</span>
+                    </div>
+                    <input type="range" id="edit-vram-slider" min="1" max="64" step="1" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div class="flex justify-between text-[10px] text-gray-500">
+                        <span>1MB</span>
+                        <span>64MB</span>
+                    </div>
+                </div>
+
+                <!-- Hardware Toggles Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-700 flex items-center justify-between">
+                        <span class="text-xs text-gray-300 font-medium flex items-center gap-1.5">
+                            <i class="fas fa-network-wired text-indigo-400"></i> Network
+                        </span>
+                        <input type="checkbox" id="edit-network-toggle" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                    </div>
+
+                    <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-700 flex items-center justify-between">
+                        <span class="text-xs text-gray-300 font-medium flex items-center gap-1.5">
+                            <i class="fas fa-bolt text-green-400"></i> ACPI
+                        </span>
+                        <input type="checkbox" id="edit-acpi-toggle" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-green-600 focus:ring-green-500 cursor-pointer" checked>
+                    </div>
+
+                    <div class="bg-gray-900/60 p-2.5 rounded-lg border border-gray-700 flex items-center justify-between">
+                        <span class="text-xs text-gray-300 font-medium flex items-center gap-1.5">
+                            <i class="fas fa-volume-high text-yellow-400"></i> Sound Card
+                        </span>
+                        <input type="checkbox" id="edit-audio-toggle" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-yellow-600 focus:ring-yellow-500 cursor-pointer" checked>
+                    </div>
+                </div>
+
+                <!-- Boot & Performance Options -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Boot Order Priority</label>
+                        <select id="edit-boot-order-select" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2.5 py-2 text-xs text-white">
+                            <option value="531">CD-ROM -> Hard Disk -> Floppy</option>
+                            <option value="1144219">Hard Disk -> CD-ROM -> Floppy</option>
+                            <option value="213">Floppy -> CD-ROM -> Hard Disk</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">CPU Profile</label>
+                        <select id="edit-cpu-profile-select" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2.5 py-2 text-xs text-white">
+                            <option value="balanced">Balanced (Recommended)</option>
+                            <option value="potato">Potato Mode (Low RAM)</option>
+                            <option value="high">High Performance (Desktop)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Graphics & Kernel Cmdline -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Graphics Rendering</label>
+                        <select id="edit-graphics-scale-select" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2.5 py-2 text-xs text-white">
+                            <option value="pixelated">Crisp (Pixelated)</option>
+                            <option value="smooth">Smooth (Blur)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Kernel Options (cmdline)</label>
+                        <input type="text" id="edit-cmdline-input" placeholder="e.g. quiet console=ttyS0" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-2.5 py-1.5 text-xs text-white">
+                    </div>
+                </div>
+
+                <!-- Storage Hard Disk Section -->
+                <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-gray-200 flex items-center gap-1.5">
+                            <i class="fas fa-hard-drive text-indigo-400"></i> Hard Disk Storage (HDA)
+                        </span>
+                        <span id="edit-disk-status-badge" class="font-mono text-[11px] text-gray-400">Checking...</span>
+                    </div>
+
+                    <div id="edit-disk-container">
+                        <!-- Attached HDD info or Attach Blank Disk Button -->
+                        <button id="edit-attach-disk-btn" class="hidden w-full bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-lg py-2 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-2">
+                            <i class="fas fa-plus-circle"></i> Create & Attach 1GB Blank Hard Disk
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 mt-2 border-t border-gray-700 flex justify-end gap-3">
                 <button id="close-edit-modal-btn" class="hidden"></button>
-                <button id="cancel-edit-btn" class="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 text-sm">Cancel</button>
-                <button id="save-changes-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold">Save Changes</button>
+                <button id="cancel-edit-btn" class="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-700 text-sm font-medium transition-colors">Cancel</button>
+                <button id="save-changes-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all">Save Settings</button>
             </div>
         </div>
     </div>
@@ -651,6 +932,219 @@
             </div>
             <div class="p-4 border-t border-gray-700 bg-gray-800/50 text-center">
                 <p class="text-xs text-gray-500">WebVM v2.0 • Powered by libv86</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Diagnostics Modal -->
+    <div id="system-diagnostics-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-xl rounded-2xl shadow-2xl border border-gray-700 p-6 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-900/40 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <i class="fas fa-server text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">System & Browser Diagnostics</h2>
+                        <p class="text-xs text-gray-400">Detailed hardware and emulation environment capabilities</p>
+                    </div>
+                </div>
+                <button id="close-diagnostics-btn" class="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto py-4 space-y-4 flex-1">
+                <!-- Overview Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700/80">
+                        <div class="text-gray-400 text-[11px] mb-1">Operating System</div>
+                        <div id="diag-os" class="font-bold text-white text-sm flex items-center gap-1.5">...</div>
+                    </div>
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700/80">
+                        <div class="text-gray-400 text-[11px] mb-1">Browser Engine</div>
+                        <div id="diag-browser" class="font-bold text-white text-sm flex items-center gap-1.5">...</div>
+                    </div>
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-700/80">
+                        <div class="text-gray-400 text-[11px] mb-1">Device Form Factor</div>
+                        <div id="diag-device" class="font-bold text-white text-sm flex items-center gap-1.5">...</div>
+                    </div>
+                </div>
+
+                <!-- Detailed Browser & Engine Panel with Brand Logo -->
+                <div class="bg-gradient-to-r from-gray-900/95 to-indigo-950/40 rounded-xl p-4 border border-indigo-500/20 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 min-w-0">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div id="diag-browser-logo-lg" class="w-11 h-11 rounded-xl bg-gray-800/90 border border-gray-700 flex items-center justify-center p-2 shadow-inner flex-shrink-0">
+                                <!-- Dynamic SVG Logo -->
+                            </div>
+                            <div class="min-w-0">
+                                <h3 id="diag-browser-title" class="text-sm font-bold text-white flex flex-wrap items-center gap-2">
+                                    <span id="diag-browser-name-heading">Browser Name</span>
+                                    <span id="diag-browser-version-pill" class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-mono flex-shrink-0">v0.0</span>
+                                </h3>
+                                <p id="diag-browser-subtitle" class="text-[11px] text-gray-400 font-mono truncate">Engine: Blink • V8 Engine</p>
+                            </div>
+                        </div>
+                        <span id="diag-browser-status-badge" class="px-2 py-1 rounded-lg text-[10px] font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 whitespace-nowrap flex-shrink-0 self-start sm:self-auto">
+                            Web Standard
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-gray-800 text-xs">
+                        <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700/50">
+                            <span class="text-gray-400 text-[10px] block">Rendering Engine</span>
+                            <span id="diag-engine-val" class="font-bold text-white text-[11px]">Blink</span>
+                        </div>
+                        <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700/50">
+                            <span class="text-gray-400 text-[10px] block">JavaScript Engine</span>
+                            <span id="diag-js-val" class="font-bold text-white text-[11px]">V8 Engine</span>
+                        </div>
+                        <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700/50">
+                            <span class="text-gray-400 text-[10px] block">Architecture</span>
+                            <span id="diag-arch-val" class="font-bold text-white text-[11px]">64-bit</span>
+                        </div>
+                        <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700/50">
+                            <span class="text-gray-400 text-[10px] block">Client Hints</span>
+                            <span id="diag-ua-mode" class="font-bold text-emerald-300 text-[11px]">Supported</span>
+                        </div>
+                    </div>
+
+                    <!-- User-Agent inspector with Copy -->
+                    <div class="pt-2 border-t border-gray-800/60">
+                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                            <span class="flex items-center gap-1"><i class="fas fa-terminal text-indigo-400"></i> Full User-Agent</span>
+                            <button id="copy-ua-btn" class="hover:text-indigo-300 text-[10px] transition-colors flex items-center gap-1 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div id="diag-ua-string" class="bg-gray-950/80 p-2 rounded-lg text-[10px] font-mono text-gray-300 break-all select-all border border-gray-800 max-h-16 overflow-y-auto">
+                            ...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hardware & Execution Environment -->
+                <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-700/70 space-y-3">
+                    <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fas fa-microchip"></i> Hardware & Execution Profile
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div class="flex justify-between py-1.5 border-b border-gray-800">
+                            <span class="text-gray-400">Host Memory (RAM):</span>
+                            <span id="diag-ram" class="font-mono text-white font-semibold">...</span>
+                        </div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800">
+                            <span class="text-gray-400">Max Recommended VM RAM:</span>
+                            <span id="diag-vm-ram" class="font-mono text-indigo-300 font-semibold">...</span>
+                        </div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800">
+                            <span class="text-gray-400">CPU Concurrency:</span>
+                            <span id="diag-cores" class="font-mono text-white font-semibold">...</span>
+                        </div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800">
+                            <span class="text-gray-400">Screen & Scale:</span>
+                            <span id="diag-screen" class="font-mono text-white font-semibold">...</span>
+                        </div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800 sm:col-span-2">
+                            <span class="text-gray-400 flex-shrink-0 mr-2">GPU Acceleration:</span>
+                            <span id="diag-gpu" class="font-mono text-gray-200 text-right truncate text-[11px]">...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WebAssembly & Storage Capabilities -->
+                <div class="bg-gray-900/60 rounded-xl p-4 border border-gray-700/70 space-y-3">
+                    <h3 class="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fas fa-layer-group"></i> Emulation Engine Capabilities
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div id="diag-wasm-status" class="bg-gray-800/80 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 min-w-0">
+                            <span class="text-gray-300 font-medium truncate">WebAssembly (WASM)</span>
+                            <span id="diag-wasm-val" class="text-emerald-400 font-bold whitespace-nowrap flex-shrink-0"><i class="fas fa-check"></i> Enabled</span>
+                        </div>
+                        <div id="diag-simd-status" class="bg-gray-800/80 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 min-w-0">
+                            <span class="text-gray-300 font-medium truncate">Wasm SIMD 128-bit</span>
+                            <span id="diag-simd-val" class="text-emerald-400 font-bold whitespace-nowrap flex-shrink-0"><i class="fas fa-check"></i> Supported</span>
+                        </div>
+                        <div id="diag-sab-status" class="bg-gray-800/80 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 min-w-0">
+                            <span class="text-gray-300 font-medium truncate">SharedArrayBuffer</span>
+                            <span id="diag-sab-val" class="text-emerald-400 font-bold whitespace-nowrap flex-shrink-0"><i class="fas fa-check"></i> Ready</span>
+                        </div>
+                        <div id="diag-workers-status" class="bg-gray-800/80 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 min-w-0">
+                            <span class="text-gray-300 font-medium truncate">Web Workers</span>
+                            <span id="diag-workers-val" class="text-emerald-400 font-bold whitespace-nowrap flex-shrink-0"><i class="fas fa-check"></i> Active</span>
+                        </div>
+                        <div id="diag-storage-quota" class="bg-gray-800/80 p-3 rounded-xl border border-gray-700 flex items-center justify-between gap-2 min-w-0 sm:col-span-2">
+                            <span class="text-gray-300 font-medium truncate">IndexedDB Storage Quota</span>
+                            <span id="diag-storage-val" class="font-mono text-emerald-300 font-semibold whitespace-nowrap flex-shrink-0">Calculating...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-gray-700 flex justify-end">
+                <button id="diag-close-footer-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium px-5 py-2 rounded-xl transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emulator Console Logs Modal -->
+    <div id="emulator-logs-modal" class="fixed inset-0 z-[100] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 lg:p-8">
+        <div class="bg-[#0b0f17] w-full max-w-4xl rounded-2xl shadow-2xl border border-gray-750 flex flex-col h-[82vh] max-h-[800px] overflow-hidden my-auto">
+            <!-- Modal Header -->
+            <div class="p-4 bg-gray-900/90 border-b border-gray-800 flex items-center justify-between flex-wrap gap-2 backdrop-blur-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-300/30 shrink-0">
+                        <i class="fas fa-terminal text-white text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            Emulator Console Logs
+                            <span class="flex h-2 w-2 relative">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                        </h3>
+                        <p class="text-[11px] text-gray-400">v86 hardware events, SeaBIOS POST, serial output, and WASM messages</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="copy-logs-btn" class="bg-gray-800 hover:bg-gray-700 active:scale-95 text-gray-200 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-700 transition-all flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-copy text-indigo-400"></i> Copy
+                    </button>
+                    <button id="clear-logs-btn" class="bg-gray-800 hover:bg-red-950/60 hover:border-red-700/60 active:scale-95 text-gray-200 hover:text-red-300 px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-700 transition-all flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-trash-alt text-red-400"></i> Clear
+                    </button>
+                    <button id="close-logs-modal-btn" class="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 w-8 h-8 rounded-lg flex items-center justify-center border border-gray-700 transition-colors active:scale-95" title="Close Logs">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Terminal Toolbar & Filters -->
+            <div class="px-4 py-2.5 bg-gray-950/80 border-b border-gray-800 flex items-center justify-between text-xs flex-wrap gap-2">
+                <div class="flex items-center gap-1.5">
+                    <button data-log-filter="ALL" class="log-filter-btn bg-indigo-600 text-white px-3 py-1 rounded-md font-semibold text-[11px] border border-indigo-400/40 shadow-sm transition-all">ALL</button>
+                    <button data-log-filter="SERIAL" class="log-filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1 rounded-md font-medium text-[11px] border border-gray-700 transition-all">SERIAL / TTY</button>
+                    <button data-log-filter="INFO" class="log-filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1 rounded-md font-medium text-[11px] border border-gray-700 transition-all">INFO</button>
+                    <button data-log-filter="ERROR" class="log-filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1 rounded-md font-medium text-[11px] border border-gray-700 transition-all">ERRORS</button>
+                </div>
+
+                <label class="flex items-center gap-2 cursor-pointer select-none text-[11px] text-gray-400 hover:text-gray-200">
+                    <input type="checkbox" id="autoscroll-logs-toggle" checked class="w-3.5 h-3.5 rounded bg-gray-800 border-gray-700 text-indigo-600 focus:ring-0 cursor-pointer">
+                    <span>Auto-scroll terminal</span>
+                </label>
+            </div>
+
+            <!-- Terminal Output Area -->
+            <div class="flex-1 bg-[#070a0f] p-4 overflow-y-auto font-mono text-xs leading-relaxed select-text space-y-1.5" id="emulator-logs-content">
+                <div class="text-gray-500 italic flex items-center gap-2 py-4 justify-center">
+                    <i class="fas fa-circle-notch fa-spin text-indigo-400"></i> Listening for v86 console logs and serial output...
+                </div>
             </div>
         </div>
     </div>

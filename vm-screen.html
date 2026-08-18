@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <title>Web VM Screen</title>
     <!-- Stricter CSP: scripts only from self and trusted CDNs -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' wss: https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
     
     <!-- App Icon & Manifest -->
-    <link rel="icon" href="IMG_1074.png">
-    <link rel="apple-touch-icon" href="IMG_1074.png">
+    <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg">
     <link rel="manifest" href="manifest.json">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,7 +23,11 @@
             margin: 0;
             padding: 0;
             height: 100vh;
+            height: 100dvh;
             width: 100vw;
+            width: 100dvw;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            box-sizing: border-box;
             touch-action: none; /* Prevent browser zooming/panning */
         }
         .spinner {
@@ -49,6 +53,8 @@
             justify-content: center;
             width: 100%;
             height: 100%;
+            min-width: 0;
+            min-height: 0;
             background: #000;
             overflow: hidden;
         }
@@ -64,36 +70,65 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Nice glow for the screen */
         }
         
-        /* Assistive Touch Menu */
-        .menu-container { position: relative; width: 56px; height: 56px; }
-        .menu-items .menu-item {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.3s ease;
-            transform: translate(0, 0) scale(0.5);
-            opacity: 0;
-            pointer-events: none;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-        .menu-container.expanded .menu-items .menu-item {
-            transform-origin: center;
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .menu-container.expanded #main-assistive-btn { transform: rotate(135deg); }
-        .menu-container.expanded .menu-item:nth-child(1) { transform: translate(-70px, 0px) scale(1); }
-        .menu-container.expanded .menu-item:nth-child(2) { transform: translate(-50px, -50px) scale(1); }
-        .menu-container.expanded .menu-item:nth-child(3) { transform: translate(0px, -70px) scale(1); }
-        .menu-container.expanded .menu-item:nth-child(4) { transform: translate(50px, -50px) scale(1); }
-        .menu-container.expanded .menu-item:nth-child(5) { transform: translate(70px, 0px) scale(1); }
-        .menu-container.expanded .menu-item:nth-child(6) { transform: translate(0px, 70px) scale(1); }
+        /* Assistive Touch Floating Ball & Action Pad */
         #assistive-touch { 
+            position: fixed;
+            z-index: 50;
             cursor: grab; 
-            touch-action: none; /* FIX: Prevent scrolling while dragging */
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            transition: left 0.3s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
         }
-        #assistive-touch:active { cursor: grabbing; }
+        #assistive-touch.dragging {
+            cursor: grabbing;
+            transition: none !important;
+        }
+        #main-assistive-btn {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: rgba(18, 22, 34, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.65), 0 2px 6px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2), background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        #main-assistive-btn:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 28px rgba(0,0,0,0.75), 0 0 14px rgba(255,255,255,0.25);
+            transform: scale(1.05);
+        }
+        #main-assistive-btn:active {
+            transform: scale(0.92);
+        }
+        #assistive-touch.active #main-assistive-btn {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: rgba(99, 102, 241, 0.8);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5), 0 8px 24px rgba(0,0,0,0.7);
+        }
+
+        #assistive-panel {
+            position: fixed;
+            z-index: 50;
+            transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+        #assistive-panel.hidden {
+            display: none;
+            opacity: 0;
+            transform: scale(0.92);
+        }
+        #assistive-panel:not(.hidden) {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
         
         /* Live Status Badge */
         #vm-status-badge {
@@ -118,9 +153,48 @@
         .status-led { width: 6px; height: 6px; border-radius: 50%; background: #444; }
         .status-led.running { background: #10b981; box-shadow: 0 0 8px #10b981; }
         .status-led.halted { background: #ef4444; }
+
+        /* Non-blocking Screen Toast */
+        #toast-container {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 110;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+            max-width: 320px;
+        }
+        .vm-toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .vm-toast-success { background: rgba(6, 78, 59, 0.9); border: 1px solid rgba(16, 185, 129, 0.4); color: #d1fae5; }
+        .vm-toast-error { background: rgba(127, 29, 29, 0.9); border: 1px solid rgba(239, 68, 68, 0.4); color: #fee2e2; }
+        .vm-toast-warning { background: rgba(120, 53, 15, 0.9); border: 1px solid rgba(245, 158, 11, 0.4); color: #fef3c7; }
+        .vm-toast-info { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(99, 102, 241, 0.4); color: #e0e7ff; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
 
     <!-- Global Error Overlay -->
     <div id="error-overlay" class="absolute inset-0 bg-red-900/95 z-[100] hidden flex flex-col items-center justify-center p-8 text-center">
@@ -136,6 +210,7 @@
     <div id="vm-status-badge">
         <div id="status-led" class="status-led"></div>
         <span id="status-text">INIT</span>
+        <span id="eco-badge" class="hidden text-[9px] bg-emerald-900/80 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-500/30">ECO 1GB</span>
     </div>
 
     <div id="screen_container">
@@ -150,21 +225,46 @@
         <p class="text-gray-400 text-xs mt-2">Tap screen to enable sound</p>
     </div>
 
-    <!-- iOS-style Assistive Touch Menu -->
-    <div id="assistive-touch" class="fixed z-50" style="bottom: 1.25rem; right: 1.25rem;">
-        <div class="menu-container">
-            <div class="menu-items absolute bottom-0 right-0 w-14 h-14">
-                <button id="vm-fullscreen-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Fullscreen"><i class="fas fa-expand"></i></button>
-                <button id="vm-keyboard-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Toggle Keyboard"><i class="far fa-keyboard"></i></button>
-                <button id="vm-cad-btn" class="menu-item w-12 h-12 bg-blue-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Send Ctrl+Alt+Del"><i class="fas fa-bolt"></i></button>
-                <button id="vm-save-btn" class="menu-item w-12 h-12 bg-green-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Save Snapshot"><i class="fas fa-save"></i></button>
-                <button id="vm-reset-btn" class="menu-item w-12 h-12 bg-orange-500/80 rounded-full flex items-center justify-center text-white shadow-md" title="Reset"><i class="fas fa-sync-alt"></i></button>
-                <button id="vm-power-btn" class="menu-item w-12 h-12 bg-red-600/80 rounded-full flex items-center justify-center text-white shadow-md" title="Shutdown"><i class="fas fa-power-off"></i></button>
+    <!-- Assistive Touch Overlay Backdrop for Dismissing -->
+    <div id="assistive-backdrop" class="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] hidden transition-opacity"></div>
+
+    <!-- Floating Action Pad Panel (Uncluttered, Non-overlapping Grid) -->
+    <div id="assistive-panel" class="fixed z-50 hidden" style="bottom: 5.5rem; right: 1.5rem;">
+        <div class="bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-2xl shadow-2xl p-3 w-[268px]">
+            <div class="grid grid-cols-4 gap-2.5">
+                <button id="vm-fullscreen-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-sky-600 active:scale-95 flex items-center justify-center text-sky-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Fullscreen">
+                    <i class="fas fa-expand text-lg"></i>
+                </button>
+                <button id="vm-keyboard-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-indigo-600 active:scale-95 flex items-center justify-center text-indigo-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Keyboard">
+                    <i class="far fa-keyboard text-lg"></i>
+                </button>
+                <button id="vm-cad-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-amber-600 active:scale-95 flex items-center justify-center text-amber-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Ctrl+Alt+Del">
+                    <i class="fas fa-bolt text-lg"></i>
+                </button>
+                <button id="vm-save-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-emerald-600 active:scale-95 flex items-center justify-center text-emerald-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Save Snapshot">
+                    <i class="fas fa-floppy-disk text-lg"></i>
+                </button>
+                <button id="vm-download-disk-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-cyan-600 active:scale-95 flex items-center justify-center text-cyan-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Export Hard Disk">
+                    <i class="fas fa-download text-lg"></i>
+                </button>
+                <button id="vm-reset-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-orange-600 active:scale-95 flex items-center justify-center text-orange-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Reset VM">
+                    <i class="fas fa-rotate-right text-lg"></i>
+                </button>
+                <button id="vm-power-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-red-600 active:scale-95 flex items-center justify-center text-red-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Shutdown">
+                    <i class="fas fa-power-off text-lg"></i>
+                </button>
+                <button id="vm-close-panel-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:scale-95 flex items-center justify-center text-gray-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Close Menu">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
             </div>
-            <button id="main-assistive-btn" class="w-14 h-14 bg-gray-800/70 backdrop-blur-sm border border-gray-500/50 rounded-full flex items-center justify-center text-white text-2xl shadow-lg transition-transform duration-300 hover:scale-110">
-                <i class="fas fa-th-large"></i>
-            </button>
         </div>
+    </div>
+
+    <!-- Draggable Floating Ball Button -->
+    <div id="assistive-touch" class="fixed z-50" style="bottom: 1.5rem; right: 1.5rem;">
+        <button id="main-assistive-btn" aria-label="VM Controls Menu">
+            <i id="assistive-main-icon" class="fas fa-th-large text-lg"></i>
+        </button>
     </div>
     
     <!-- Virtual Keyboard -->

@@ -18,6 +18,15 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          input: {
+            main: path.resolve(__dirname, 'index.html'),
+            text: path.resolve(__dirname, 'text.html'),
+            vmscreen: path.resolve(__dirname, 'vm-screen.html'),
+          }
+        }
       }
     };
 });
