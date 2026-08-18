@@ -909,4 +909,18 @@ async function initApp() {
     }
 }
 
+document.addEventListener('change', (event) => {
+    if (event.target?.id === 'create-hdd-toggle') {
+        newVM.createHdd = event.target.checked;
+        document.getElementById('hdd-options')?.classList.toggle('hidden', !newVM.createHdd);
+        const status = document.getElementById('hdd-status');
+        if (status) status.textContent = newVM.createHdd ? `A ${newVM.hddSize} MB writable disk will be attached as HDA.` : 'The disk will be attached as primary HDD (HDA).';
+    }
+    if (event.target?.id === 'hdd-size-select') {
+        newVM.hddSize = Number(event.target.value);
+        const status = document.getElementById('hdd-status');
+        if (status && newVM.createHdd) status.textContent = `A ${newVM.hddSize} MB writable disk will be attached as HDA.`;
+    }
+});
+
 document.addEventListener('DOMContentLoaded', initApp);
