@@ -76,6 +76,9 @@ let channel = null;
 let activeBlobUrls = new Set();
 let cpuProfile = 'balanced';
 let screenUpdateInterval = null;
+let writableDiskBuffer = null;
+let writableDiskConfig = null;
+let diskPersistTimer = null;
 
 const DB_NAME = 'WebEmulatorDB';
 const DB_VERSION = 3; 
@@ -134,7 +137,29 @@ async function fullCleanup() {
     cleanupBlobUrls();
     await destroyEmulatorSafely();
     eventManager.removeAll();
+    await flushWritableDisk();
     if (db) db.close();
+}
+
+function scheduleDiskPersist() {
+    clearTimeout(diskPersistTimer);
+    diskPersistTimer = setTimeout(() => { flushWritableDisk(); }, 1500);
+}
+
+async function flushWritableDisk() {
+    if (!writableDiskBuffer || !writableDiskConfig || !db) return;
+    const copy = writableDiskBuffer.slice(0);
+    writableDiskConfig.hdaDisk = { size: copy.byteLength, buffer: copy };
+    try {
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction([STORE_CONFIGS], 'readwrite');
+            tx.objectStore(STORE_CONFIGS).put(writableDiskConfig);
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.error('Virtual disk persistence failed:', e);
+    }
 }
 
 // --- Assistive Touch Logic (Fixed) ---
@@ -354,6 +379,8 @@ async function startEmulator(config) {
         vga_bios: { url: "vgabios.bin" },
         memory_size: (config.ram || 64) * 1024 * 1024,
         vga_memory_size: (config.vram || 8) * 1024 * 1024,
+        boot_order: config.bootOrder || undefined,
+        acpi: config.acpi !== false,
         autostart: true,
         network_relay_url: config.network ? "wss://relay.widgetry.org/" : undefined,
         cmdline: config.cmdline || ""
@@ -366,6 +393,26 @@ async function startEmulator(config) {
             v86Config[key] = { url };
         }
     };
+
+    const addWritableDisk = (disk, key) => {
+        if (!disk || !(disk.buffer instanceof ArrayBuffer)) return;
+        writableDiskBuffer = disk.buffer;
+        writableDiskConfig = config;
+        const buffer = writableDiskBuffer;
+        v86Config[key] = {
+            byteLength: buffer.byteLength,
+            load() { if (this.onload) this.onload({}); },
+            get(offset, length, callback) {
+                callback(new Uint8Array(buffer.slice(offset, offset + length)));
+            },
+            set(offset, data, callback) {
+                new Uint8Array(buffer, offset, data.byteLength).set(data);
+                scheduleDiskPersist();
+                callback();
+            },
+            get_buffer(callback) { callback(buffer); }
+        };
+    };
     
     // --- BUG FIX: Prioritize custom BIOS files over defaults ---
     addUrl(config.biosFile, 'bios');
@@ -376,6 +423,7 @@ async function startEmulator(config) {
     addUrl(config.fdaFile, 'fda');
     addUrl(config.fdbFile, 'fdb');
     addUrl(config.hdaFile, 'hda');
+    addWritableDisk(config.hdaDisk, 'hda');
     addUrl(config.hdbFile, 'hdb');
     addUrl(config.bzimageFile, 'bzimage');
     addUrl(config.initrdFile, 'initrd');
@@ -498,6 +546,9 @@ async function init() {
 }
 
 if (elements.reloadBtn) elements.reloadBtn.onclick = () => location.reload();
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushWritableDisk();
+});
 window.onbeforeunload = fullCleanup;
 
 if(document.readyState === 'loading') {

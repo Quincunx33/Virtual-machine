@@ -325,6 +325,30 @@
                             <p class="text-xs text-gray-500 mt-1">Supports .iso, .img, .bin</p>
                         </div>
                     </div>
+
+                    <div class="bg-gray-700/30 p-4 rounded-xl border border-gray-600">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-semibold text-white"><i class="fas fa-hard-drive text-blue-400 mr-2"></i>Virtual Hard Disk</p>
+                                <p class="text-xs text-gray-400 mt-1">Create a writable disk for installing an OS. It is saved in this browser.</p>
+                            </div>
+                            <label class="flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="create-hdd-toggle" class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 relative"></div>
+                                <span class="ml-2 text-xs text-gray-300">Create</span>
+                            </label>
+                        </div>
+                        <div id="hdd-options" class="hidden mt-4">
+                            <label class="block text-xs text-gray-400 mb-1" for="hdd-size-select">Disk size</label>
+                            <select id="hdd-size-select" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1.5 text-xs text-white">
+                                <option value="128">128 MB — tiny OS</option>
+                                <option value="256" selected>256 MB — recommended</option>
+                                <option value="512">512 MB</option>
+                                <option value="1024">1 GB</option>
+                            </select>
+                            <p id="hdd-status" class="text-[10px] text-gray-500 mt-2">The disk will be attached as primary HDD (HDA).</p>
+                        </div>
+                    </div>
                     
                     <details class="group bg-gray-700/20 rounded-lg border border-gray-700">
                         <summary class="p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white select-none flex justify-between items-center">
@@ -469,6 +493,10 @@
                             <div class="flex justify-between">
                                 <span class="text-gray-500">Memory:</span>
                                 <span class="text-white" id="summary-ram">64 MB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Hard disk:</span>
+                                <span class="text-white" id="summary-hdd">None</span>
                             </div>
                         </div>
 
