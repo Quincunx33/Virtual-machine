@@ -78,7 +78,14 @@ let cpuProfile = 'balanced';
 let screenUpdateInterval = null;
 let writableDiskBuffer = null;
 let writableDiskConfig = null;
+
+// --- Delete-aware shutdown ---
+// When the dashboard deletes a VM, it posts DELETE_VM. The VM window must
+// then skip the disk write-back (which would recreate an "orphan" config)
+// and tear down as fast as possible.
+let vmDeletionInProgress = false;
 let diskPersistTimer = null;
+let saveInProgress = false;
 
 const DB_NAME = 'WebEmulatorDB';
 const DB_VERSION = 3; 
@@ -100,6 +107,31 @@ const elements = {
     statusText: document.getElementById('status-text')
 };
 
+// --- Global Error Protection (VM screen) ---
+// FIX: errors on the VM screen used to be silent (the spinner stayed on and
+// nothing was shown). Now every uncaught error surfaces in the red overlay.
+window.onerror = function(msg, url, line) {
+    console.error('VM Screen Error:', msg, 'at', url, line);
+    try {
+        if (elements.loadingIndicator) elements.loadingIndicator.classList.add('hidden');
+        if (elements.errorOverlay && !elements.errorOverlay.textContent.trim()) {
+            elements.errorMessage.textContent = msg || 'An unexpected error occurred';
+            elements.errorOverlay.classList.remove('hidden');
+        }
+    } catch(e) {}
+    return true;
+};
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('VM Screen Unhandled Rejection:', e.reason);
+    try {
+        if (elements.loadingIndicator) elements.loadingIndicator.classList.add('hidden');
+        if (elements.errorOverlay) {
+            elements.errorMessage.textContent = (e.reason && e.reason.message) || String(e.reason) || 'An unexpected error occurred';
+            elements.errorOverlay.classList.remove('hidden');
+        }
+    } catch(err) {}
+});
+
 // --- Utilities ---
 function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
@@ -117,8 +149,18 @@ function cleanupBlobUrls() {
 async function destroyEmulatorSafely() {
     if (!emulator) return;
     try {
-        if (emulator.stop) emulator.stop();
-        if (emulator.destroy) emulator.destroy();
+        // libv86 destroy() is async (it awaits stop() and destroys all
+        // adapters), so it MUST be awaited — otherwise the page closes
+        // before listeners, audio, and the rAF screen loop are torn down,
+        // which is what kept RAM pinned after closing a VM.
+        if (typeof emulator.destroy === 'function') {
+            await Promise.race([
+                emulator.destroy(),
+                new Promise(r => setTimeout(r, 3000)) // never hang the tab
+            ]);
+        } else if (typeof emulator.stop === 'function') {
+            try { emulator.stop(); } catch(e) {}
+        }
     } catch(e) {}
     emulator = null;
 }
@@ -137,8 +179,16 @@ async function fullCleanup() {
     cleanupBlobUrls();
     await destroyEmulatorSafely();
     eventManager.removeAll();
-    await flushWritableDisk();
-    if (db) db.close();
+    if (diskPersistTimer) { clearTimeout(diskPersistTimer); diskPersistTimer = null; }
+    if (!vmDeletionInProgress) {
+        await flushWritableDisk();
+    }
+    // Release every large buffer so the GC can actually reclaim RAM.
+    writableDiskBuffer = null;
+    writableDiskConfig = null;
+    selectedOS = null;
+    if (db) { db.close(); db = null; }
+    if (channel) { channel.close(); channel = null; }
 }
 
 function scheduleDiskPersist() {
@@ -148,6 +198,8 @@ function scheduleDiskPersist() {
 
 async function flushWritableDisk() {
     if (!writableDiskBuffer || !writableDiskConfig || !db) return;
+    if (vmDeletionInProgress) return; // VM deleted: writing back would
+                                      // resurrect an orphan config record.
     const copy = writableDiskBuffer.slice(0);
     writableDiskConfig.hdaDisk = { size: copy.byteLength, buffer: copy };
     try {
@@ -218,12 +270,16 @@ function dragMove(e) {
             const x = clientX - offsetX;
             const y = clientY - offsetY;
             
-            // Constrain to screen
-            const maxX = window.innerWidth - elements.assistiveTouch.offsetWidth;
-            const maxY = window.innerHeight - elements.assistiveTouch.offsetHeight;
+            // Constrain to screen so that, even when the radial menu later
+            // expands, no item clips against the viewport edges. The radial
+            // items are anchored to the container's bottom-right corner and
+            // can reach up to REACH_RIGHT/REACH_BELOW beyond it.
+            const pad = 8;
+            const maxX = window.innerWidth - REACH_RIGHT - pad;
+            const maxY = window.innerHeight - REACH_BELOW - pad;
             
-            elements.assistiveTouch.style.left = `${Math.max(0, Math.min(x, maxX))}px`;
-            elements.assistiveTouch.style.top = `${Math.max(0, Math.min(y, maxY))}px`;
+            elements.assistiveTouch.style.left = `${Math.max(pad, Math.min(x, maxX))}px`;
+            elements.assistiveTouch.style.top = `${Math.max(pad, Math.min(y, maxY))}px`;
             elements.assistiveTouch.style.right = 'auto';
             elements.assistiveTouch.style.bottom = 'auto';
         }
@@ -243,8 +299,41 @@ function dragEnd(e) {
     
     // Determine if it was a click
     if (!hasDragged && elements.menuContainer) {
-        elements.menuContainer.classList.toggle('expanded');
+        const wasExpanded = elements.menuContainer.classList.toggle('expanded');
+        if (wasExpanded) {
+            // Reposition so that ALL expanded menu items (which reach up to
+            // 84px beyond the container) stay inside the viewport.
+            repositionForExpansion();
+        }
     }
+}
+
+// Keep the container inside a "safe zone" so that, when the radial menu
+// expands, no item gets clipped by the screen. The radial items are anchored
+// to the container's bottom-right corner and can reach up to REACH_LEFT/UP
+// beyond its top-left and REACH_RIGHT/BELOW beyond its bottom-right.
+const REACH_RIGHT = 56 + 70 + 48 + 2; // container + max translate + item size + shadow
+const REACH_BELOW = 56 + 70 + 48 + 2;
+const REACH_LEFT = 70 - 56 + 48 + 2;  // items extend above/left of the container top
+const REACH_ABOVE = 70 - 56 + 48 + 2;
+
+function repositionForExpansion() {
+    const t = elements.assistiveTouch;
+    if (!t) return;
+    const rect = t.getBoundingClientRect();
+    const pad = 8; // safety margin from the viewport edge
+    let x = rect.left;
+    let y = rect.top;
+    // If expanded items would spill over the right/bottom edge, pull back.
+    if (x + REACH_RIGHT + pad > window.innerWidth) x = window.innerWidth - REACH_RIGHT - pad;
+    if (y + REACH_BELOW + pad > window.innerHeight) y = window.innerHeight - REACH_BELOW - pad;
+    // If expanded items would spill over the left/top edge, push forward.
+    if (x - REACH_LEFT - pad < 0) x = REACH_LEFT + pad;
+    if (y - REACH_ABOVE - pad < 0) y = REACH_ABOVE + pad;
+    t.style.left = `${Math.max(pad, x)}px`;
+    t.style.top = `${Math.max(pad, y)}px`;
+    t.style.right = 'auto';
+    t.style.bottom = 'auto';
 }
 
 // Initialize Assistive Touch
@@ -331,41 +420,119 @@ async function loadData(id) {
     
     if (config && snapshot && snapshot.state) {
         config.initial_state_data = snapshot.state;
+        // Clear it right after the emulator consumes it at boot so the old
+        // state buffer can be garbage-collected before any future save
+        // needs the peak memory for a new snapshot buffer.
+        setTimeout(() => { config.initial_state_data = null; }, 2000);
     }
     
     return config;
 }
 
+// --- Toast feedback helper (vm-screen page has no shared toast system) ---
+function showToast(msg, type = 'info') {
+    let toastBox = document.getElementById('toast-container');
+    if (!toastBox) {
+        toastBox = document.createElement('div');
+        toastBox.id = 'toast-container';
+        Object.assign(toastBox.style, { position: 'fixed', top: '0.75rem', left: '50%', transform: 'translateX(-50%)', zIndex: '60', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', pointerEvents: 'none' });
+        document.body.appendChild(toastBox);
+    }
+    const toast = document.createElement('div');
+    const colors = { info: 'bg-blue-600', success: 'bg-green-600', error: 'bg-red-600' };
+    Object.assign(toast.style, { padding: '0.5rem 1rem', borderRadius: '0.5rem', color: '#fff', fontSize: '0.85rem', fontWeight: '600', boxShadow: '0 4px 12px rgba(0,0,0,0.35)' });
+    toast.className = colors[type] || colors.info;
+    toast.textContent = msg;
+    toastBox.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+}
+
 async function saveSnapshot() {
-    if (!emulator) return;
+    if (!emulator) {
+        showToast('VM is not ready yet. Wait for boot to finish.', 'error');
+        return;
+    }
+    if (saveInProgress) {
+        showToast('Save already in progress.', 'info');
+        return;
+    }
+    saveInProgress = true;
+
+    // Warning for high-RAM VMs: saving the full state requires ~RAM+ of
+    // extra temporary memory. Mobile browsers often kill the tab in that
+    // case; warn the user honestly instead of failing silently.
+    const ramMB = selectedOS.ram || 64;
+    if (ramMB > 128) {
+        showToast('Snapshot on ' + ramMB + ' MB RAM VMs may crash low-memory devices.', 'info');
+    }
+
     elements.loadingIndicator.classList.remove('hidden');
     elements.loadingText.textContent = "Saving State...";
-    
-    // Short delay to render UI
+
+    // Let the overlay paint before starting heavy work
     await new Promise(r => setTimeout(r, 50));
-    
+
+    // Pause the emulator BEFORE saving. stop() is async in this libv86
+    // build (it waits for the 'emulator-stopped' event), so it must be
+    // awaited. Freezing the CPU gives a consistent snapshot and stops
+    // memory churn while the large state buffer is built.
+    let wasRunning = false;
     try {
-        const state = await emulator.save_state();
+        if (typeof emulator.is_running === 'function' && emulator.is_running() && typeof emulator.stop === 'function') {
+            wasRunning = true;
+            await emulator.stop();
+        } else if (typeof emulator.stop === 'function') {
+            // Not running (or unknown state): call stop once so the
+            // 'emulator-stopped' handshake puts the core in a quiescent state.
+            await emulator.stop();
+        }
+    } catch(e) { /* stop() may not exist on old builds */ }
+    await new Promise(r => setTimeout(r, 50));
+
+    let state = null;
+    try {
+        elements.loadingText.textContent = "Reading VM state (this can take a while)...";
+        // One more yield so the progress text paints before the
+        // synchronous serialization blocks the main thread.
+        await new Promise(r => setTimeout(r, 50));
+        state = await emulator.save_state();
+    } catch(e) {
+        showToast('Save failed: ' + (e && e.message ? e.message : 'unknown error'), 'error');
+    } finally {
+        // Resume the VM regardless of save outcome so it never stays
+        // frozen after a save attempt.
+        if (wasRunning && typeof emulator.run === 'function') {
+            try { await emulator.run(); } catch(e) {}
+        }
+    }
+
+    try {
+        if (!state) throw new Error('State could not be read.');
+
         const data = {
             id: selectedOS.id,
             state,
             timestamp: Date.now(),
             size: state.byteLength
         };
-        
+
+        elements.loadingText.textContent = "Writing snapshot to storage...";
         await new Promise((resolve, reject) => {
             const tx = db.transaction([STORE_SNAPSHOTS], 'readwrite');
             const req = tx.objectStore(STORE_SNAPSHOTS).put(data);
             req.onsuccess = resolve;
-            req.onerror = reject;
+            req.onerror = () => reject(req.error);
         });
-        
+
+        // Old snapshot is only discarded AFTER the new one is safely stored
         if (channel) channel.postMessage({ type: 'SNAPSHOT_SAVED', id: selectedOS.id, size: data.size });
-        alert('Snapshot Saved!');
+        showToast('Snapshot Saved (' + formatBytes(data.size) + ')', 'success');
     } catch(e) {
-        alert('Save Failed: ' + e.message);
+        showToast('Save failed: ' + (e && e.message ? e.message : 'unknown error'), 'error');
     } finally {
+        state = null; // release the big buffer as early as possible
         elements.loadingIndicator.classList.add('hidden');
+        saveInProgress = false;
     }
 }
 
@@ -540,6 +707,7 @@ async function init() {
         await startEmulator(config);
     } catch(e) {
         console.error("Boot failed:", e);
+        if (elements.loadingIndicator) elements.loadingIndicator.classList.add('hidden');
         elements.errorMessage.textContent = "Boot Failed: " + e.message;
         elements.errorOverlay.classList.remove('hidden');
     }
@@ -549,7 +717,30 @@ if (elements.reloadBtn) elements.reloadBtn.onclick = () => location.reload();
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushWritableDisk();
 });
+// onbeforeunload cannot be awaited (the page dies first), so pagehide is
+// the reliable hook — it fires on tab close and gives the browser a brief
+// window to finish async teardown (destroy emulator, flush disk, close DB).
+// The beforeunload assignment remains as a best-effort safety net.
+window.addEventListener('pagehide', () => { fullCleanup(); });
 window.onbeforeunload = fullCleanup;
+
+// Listen for a dashboard-initiated VM delete so the running VM window shuts
+// down cleanly WITHOUT writing back the disk (that would re-create orphan data).
+if (window.addEventListener) {
+    const delCh = new BroadcastChannel('webvm_channel');
+    delCh.onmessage = (event) => {
+        try {
+            if (event.data && event.data.type === 'DELETE_VM' && event.data.id === selectedOS?.id) {
+                vmDeletionInProgress = true;
+                if (document.hidden) {
+                    fullCleanup();
+                } else {
+                    location.reload();
+                }
+            }
+        } catch(e) {}
+    };
+}
 
 if(document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

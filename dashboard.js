@@ -107,6 +107,21 @@ const elements = {
     editNetworkToggle: getEl('edit-network-toggle'),
     editVmNameInput: getEl('edit-vm-name-input'),
     editVmId: getEl('edit-vm-id'),
+    editFdbUpload: getEl('edit-fdb-upload'),
+    editHdbUpload: getEl('edit-hdb-upload'),
+    editBzimageUpload: getEl('edit-bzimage-upload'),
+    editInitrdUpload: getEl('edit-initrd-upload'),
+    editCmdlineInput: getEl('edit-cmdline-input'),
+    editBiosUpload: getEl('edit-bios-upload'),
+    editVgaBiosUpload: getEl('edit-vga-bios-upload'),
+    editDetachBtns: {
+        fdbFile: getEl('edit-fdb-detach-btn'),
+        hdbFile: getEl('edit-hdb-detach-btn'),
+        bzimageFile: getEl('edit-bzimage-detach-btn'),
+        initrdFile: getEl('edit-initrd-detach-btn'),
+        biosFile: getEl('edit-bios-detach-btn'),
+        vgaBiosFile: getEl('edit-vga-bios-detach-btn')
+    },
     storageManagerModal: getEl('storage-manager-modal'),
     closeStorageManagerBtn: getEl('close-storage-manager-btn'),
     storageItemsList: getEl('storage-items-list'),
@@ -243,6 +258,9 @@ class DatabaseManager {
     getAll(storeName) {
         return this.perform(storeName, 'readonly', store => store.getAll());
     }
+    get(storeName, key) {
+        return this.perform(storeName, 'readonly', store => store.get(key));
+    }
     
     delete(storeName, key) {
         return this.perform(storeName, 'readwrite', store => store.delete(key));
@@ -321,7 +339,7 @@ async function renderStorageManager() {
                     <td class="p-4 text-sm text-gray-400">Virtual Machine</td>
                     <td class="p-4 text-sm text-gray-400 font-mono">${sizeStr}</td>
                     <td class="p-4 text-right space-x-1">
-                        <button onclick="deleteMachineCompletely('${config.id}')" 
+                        <button data-act="delete-vm" data-vm-id="${config.id}"
                                 class="text-red-400 hover:text-white hover:bg-red-600 p-2 rounded transition-colors"
                                 title="Delete Machine & Data">
                             <i class="fas fa-trash-alt"></i>
@@ -350,7 +368,7 @@ async function renderStorageManager() {
                     <td class="p-4 text-sm text-gray-400">Junk Data</td>
                     <td class="p-4 text-sm text-gray-400 font-mono">${formatBytes(ghost.size)}</td>
                     <td class="p-4 text-right space-x-1">
-                        <button onclick="deleteOrphanedSnapshot('${ghost.id}')" 
+                        <button data-act="delete-orphan" data-orphan-id="${ghost.id}"
                                 class="text-red-400 hover:text-white hover:bg-red-600 p-2 rounded transition-colors"
                                 title="Delete File">
                             <i class="fas fa-trash-alt"></i>
@@ -377,6 +395,7 @@ async function deleteOrphanedSnapshot(id) {
     if (!confirm('Delete this file?')) return;
     try {
         await dbManager.delete(STORE_SNAPSHOTS, id);
+        await sweepOrphans();
         await renderStorageManager();
         showToast('File deleted', 'success');
     } catch(e) {
@@ -387,56 +406,53 @@ async function deleteOrphanedSnapshot(id) {
 async function nukeGhostFiles() {
     if(!confirm("Delete all orphaned files?")) return;
     try {
-        const [configs, snapshots] = await Promise.all([
-            dbManager.getAll(STORE_CONFIGS),
-            dbManager.getAll(STORE_SNAPSHOTS)
-        ]);
-        const configIds = new Set(configs.map(c => c.id));
-        const ghosts = snapshots.filter(s => !configIds.has(s.id));
-        
-        for (const ghost of ghosts) {
-            await dbManager.delete(STORE_SNAPSHOTS, ghost.id);
-        }
+        const removed = await sweepOrphans();
         await renderStorageManager();
-        showToast(`Cleaned ${ghosts.length} files`, 'success');
+        await updateStorageDisplay();
+        showToast(`Cleaned ${removed} files`, 'success');
     } catch(e) {
         showToast('Cleanup failed', 'error');
     }
 }
 
 // --- VM Logic ---
-let detectedSystemSpecs = { ram: 4, isMobile: false, recommendedRam: 128, maxAllowed: 512, isPotato: false };
+let detectedSystemSpecs = { deviceMemoryMB: 2048, os: 'Unknown', osFamily: 'unknown', formFactor: 'desktop', browser: 'Unknown', engine: 'Unknown', recommendedRam: 64, maxAllowedRam: 256, isLowEnd: true };
 
 function detectSystemSpecs() {
     try {
-        const memory = navigator.deviceMemory || 4;
-        const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-        const maxAllowed = memory >= 8 ? 2048 : (memory >= 4 ? 1024 : 512);
-        
-        detectedSystemSpecs = {
-            ram: memory,
-            isMobile: isMobile,
-            recommendedRam: isMobile ? 128 : 256,
-            maxAllowed: maxAllowed,
-            isPotato: isMobile && memory <= 4
-        };
-        
-        if(elements.systemRamDisplay) elements.systemRamDisplay.textContent = `Host: ${memory}GB RAM`;
-        if(elements.lowEndBadge && detectedSystemSpecs.isPotato) elements.lowEndBadge.classList.remove('hidden');
-        if(detectedSystemSpecs.isPotato) document.body.classList.add('potato-mode');
+        // Use the robust detection module (device-detect.js) with a hard fallback
+        let specs;
+        if (window.DeviceDetect && window.DeviceDetect.getSpecs) {
+            specs = window.DeviceDetect.getSpecs();
+        } else {
+            // Fallback for older cached pages: conservative defaults
+            const memory = navigator.deviceMemory || 4;
+            const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+            specs = { deviceMemoryMB: memory * 1024, recommendedRam: isMobile ? 64 : 128, maxAllowedRam: memory >= 8 ? 1024 : 512, isLowEnd: memory <= 4 };
+        }
+        detectedSystemSpecs = specs;
 
-        // Update RAM sliders
+        if(elements.systemRamDisplay) {
+            elements.systemRamDisplay.textContent = `${specs.os} • ${specs.browser} • ${Math.round(specs.deviceMemoryMB/1024)}GB RAM`;
+        }
+        if(elements.lowEndBadge && specs.isLowEnd) elements.lowEndBadge.classList.remove('hidden');
+        if(specs.isLowEnd) document.body.classList.add('potato-mode');
+
+        // Update RAM sliders with the safe cap
         if (elements.ramSlider) {
-            elements.ramSlider.max = maxAllowed;
+            elements.ramSlider.max = specs.maxAllowedRam;
             const maxLabel = document.getElementById('ram-max-label');
-            if(maxLabel) maxLabel.textContent = `${maxAllowed}MB`;
+            if(maxLabel) maxLabel.textContent = `${specs.maxAllowedRam}MB`;
+            if (!elements.ramSlider.value) elements.ramSlider.value = String(specs.recommendedRam);
         }
-         if (elements.editRamSlider) {
-            elements.editRamSlider.max = maxAllowed;
-            if(elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${maxAllowed}MB`;
+        if (elements.editRamSlider) {
+            elements.editRamSlider.max = specs.maxAllowedRam;
+            if(elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${specs.maxAllowedRam}MB`;
         }
-
-    } catch(e) {}
+    } catch(e) {
+        console.error('Device detection failed, using conservative defaults', e);
+        detectedSystemSpecs = { deviceMemoryMB: 2048, recommendedRam: 64, maxAllowedRam: 256, isLowEnd: true, os: 'Unknown', osFamily: 'unknown', formFactor: 'desktop', browser: 'Unknown' };
+    }
 }
 
 async function startVM(id) {
@@ -451,19 +467,62 @@ async function startVM(id) {
     else showToast('VM Starting...', 'success');
 }
 
-async function deleteMachineCompletely(id) {
-    if(!confirm("Delete this machine and its data?")) return;
-    try {
-        await dbManager.delete(STORE_CONFIGS, id);
-        await dbManager.delete(STORE_SNAPSHOTS, id);
-        machines = machines.filter(m => m.id !== id);
-        await renderAllMachineItems();
-        await renderStorageManager(); // Update if open
-        await updateStorageDisplay();
-        showToast('Machine deleted', 'success');
-    } catch(e) {
-        showToast('Delete failed', 'error');
+async function deleteMachineCompletely(id, opts) {
+    opts = opts || {};
+    if (!opts.skipConfirm && !confirm("Delete this machine and its data?")) return;
+    const maxAttempts = opts.retries != null ? opts.retries + 1 : 2;
+    let lastErr = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+            // Tell any running VM window for this id to shut down WITHOUT
+            // writing its disk back — otherwise the flush can re-create an
+            // orphan config record after we just deleted it.
+            if (channel) {
+                try { channel.postMessage({ type: 'DELETE_VM', id }); } catch(e) {}
+            }
+            await dbManager.delete(STORE_CONFIGS, id);
+            await dbManager.delete(STORE_SNAPSHOTS, id);
+            // Belt and braces: sweep any ghosts that survived (e.g. from a
+            // race with the VM window's flush, or a crashed tab that never
+            // got the DELETE_VM message).
+            await sweepOrphans();
+            // Post-delete verification: the record must be gone.
+            const stillThere = await dbManager.get(STORE_CONFIGS, id);
+            if (stillThere) {
+                lastErr = new Error('Record still present after delete (retry ' + (attempt + 1) + ')');
+                continue;
+            }
+            machines = machines.filter(m => m.id !== id);
+            runningVmIds.delete(id);
+            await renderAllMachineItems();
+            await renderStorageManager(); // Update if open
+            await updateStorageDisplay();
+            showToast('Machine deleted', 'success');
+            return;
+        } catch(e) {
+            lastErr = e;
+            await new Promise(r => setTimeout(r, 300));
+        }
     }
+    console.error('Delete failed after retries', lastErr);
+    showToast('Delete failed — try again or use Factory Reset.', 'error');
+}
+
+async function sweepOrphans() {
+    // Remove any snapshot whose VM config no longer exists. Called after
+    // every delete/import so orphan data never silently accumulates.
+    try {
+        const [configs, snapshots] = await Promise.all([
+            dbManager.getAll(STORE_CONFIGS),
+            dbManager.getAll(STORE_SNAPSHOTS)
+        ]);
+        const configIds = new Set(configs.map(c => c.id));
+        const ghosts = snapshots.filter(s => !configIds.has(s.id));
+        for (const ghost of ghosts) {
+            await dbManager.delete(STORE_SNAPSHOTS, ghost.id);
+        }
+        return ghosts.length;
+    } catch(e) { return 0; }
 }
 
 // --- VM List Rendering ---
@@ -605,6 +664,16 @@ async function createBlankDisk(sizeMb) {
 
 async function createVM() {
     try {
+        // Safe RAM gate: warn when the chosen VM RAM exceeds the device-safe recommendation
+        if (window.DeviceDetect) {
+            const warn = DeviceDetect.getRAMWarning(parseInt(newVM.ram, 10), detectedSystemSpecs);
+            if (warn && !confirm(warn)) {
+                newVM.ram = detectedSystemSpecs.recommendedRam;
+                if (elements.ramSlider) elements.ramSlider.value = String(newVM.ram);
+                if (elements.ramValue) elements.ramValue.textContent = newVM.ram + ' MB';
+                showToast('RAM set to the safe recommendation (' + newVM.ram + ' MB).', 'info');
+            }
+        }
         if (newVM.createHdd) {
             showToast(`Creating ${newVM.hddSize} MB virtual disk...`, 'info');
             newVM.hddBuffer = await createBlankDisk(newVM.hddSize);
@@ -665,6 +734,40 @@ function openEditModal(id) {
     elements.editRamSlider.value = machine.ram;
     elements.editRamValue.textContent = `${machine.ram} MB`;
     elements.editNetworkToggle.checked = machine.network || false;
+
+    // --- Advanced Media Options (edit): show attached status + detach ---
+    const editUploads = {
+        fdbFile: elements.editFdbUpload,
+        hdbFile: elements.editHdbUpload,
+        bzimageFile: elements.editBzimageUpload,
+        initrdFile: elements.editInitrdUpload,
+        biosFile: elements.editBiosUpload,
+        vgaBiosFile: elements.editVgaBiosUpload
+    };
+    Object.keys(editUploads).forEach(function (key) {
+        const val = machine[key];
+        const hasAttached = val instanceof File || val instanceof Blob;
+        const uploadEl = editUploads[key];
+        if (uploadEl) uploadEl.value = ''; // fresh file input
+        if (hasAttached) {
+            const label = val instanceof File ? val.name : ('Attached (' + formatBytes(val.size || val.byteLength || 0, 1) + ')');
+            const btn = elements.editDetachBtns && elements.editDetachBtns[key];
+            if (btn) {
+                btn.classList.remove('hidden');
+                btn.dataset.detached = '';
+                btn.textContent = 'Detach';
+                btn.classList.remove('text-yellow-400');
+                btn.classList.add('text-red-400');
+            }
+            if (uploadEl) uploadEl.title = 'Currently: ' + label + ' — choose a file to replace';
+        } else {
+            if (elements.editDetachBtns && elements.editDetachBtns[key]) elements.editDetachBtns[key].classList.add('hidden');
+            if (uploadEl) uploadEl.title = 'Choose a file to attach';
+        }
+    });
+    if (elements.editCmdlineInput) {
+        elements.editCmdlineInput.value = (machine.cmdline !== undefined && machine.cmdline !== null) ? machine.cmdline : '';
+    }
     
     elements.editVmModal.classList.remove('hidden');
 }
@@ -679,8 +782,33 @@ async function saveVmChanges() {
 
     const machine = machines[index];
     machine.name = elements.editVmNameInput.value;
-    machine.ram = parseInt(elements.editRamSlider.value, 10);
+    var newRam = parseInt(elements.editRamSlider.value, 10);
+    // Safe RAM gate on edit as well
+    if (window.DeviceDetect) {
+        const warn = DeviceDetect.getRAMWarning(newRam, detectedSystemSpecs);
+        if (warn && !confirm(warn)) {
+            newRam = detectedSystemSpecs.recommendedRam;
+            elements.editRamSlider.value = String(newRam);
+            elements.editRamValue.textContent = newRam + ' MB';
+        }
+    }
+    machine.ram = newRam;
     machine.network = elements.editNetworkToggle.checked;
+
+    // --- Advanced Media Options (edit): detach flags + new file replacements ---
+    if (elements.editDetachBtns) {
+        Object.keys(elements.editDetachBtns).forEach(function (k) {
+            const btn = elements.editDetachBtns[k];
+            if (btn && btn.dataset.detached === '1') machine[k] = null;
+        });
+    }
+    if (elements.editFdbUpload && elements.editFdbUpload.files[0]) machine.fdbFile = elements.editFdbUpload.files[0];
+    if (elements.editHdbUpload && elements.editHdbUpload.files[0]) machine.hdbFile = elements.editHdbUpload.files[0];
+    if (elements.editBzimageUpload && elements.editBzimageUpload.files[0]) machine.bzimageFile = elements.editBzimageUpload.files[0];
+    if (elements.editInitrdUpload && elements.editInitrdUpload.files[0]) machine.initrdFile = elements.editInitrdUpload.files[0];
+    if (elements.editBiosUpload && elements.editBiosUpload.files[0]) machine.biosFile = elements.editBiosUpload.files[0];
+    if (elements.editVgaBiosUpload && elements.editVgaBiosUpload.files[0]) machine.vgaBiosFile = elements.editVgaBiosUpload.files[0];
+    if (elements.editCmdlineInput) machine.cmdline = elements.editCmdlineInput.value;
 
     try {
         await dbManager.store(STORE_CONFIGS, machine);
@@ -890,9 +1018,41 @@ async function initApp() {
     elements.closeStorageManagerBtn.onclick = () => elements.storageManagerModal.classList.add('hidden');
     elements.nukeGhostsBtn.onclick = nukeGhostFiles;
 
+    // Storage Manager row actions (delegated — works even if inline
+    // onclick attributes are stripped or the element is re-rendered)
+    elements.storageItemsList.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        if (btn.dataset.act === 'delete-vm') {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteMachineCompletely(btn.dataset.vmId);
+        } else if (btn.dataset.act === 'delete-orphan') {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteOrphanedSnapshot(btn.dataset.orphanId);
+        }
+    });
+
     // Edit Modal
     elements.cancelEditBtn.onclick = () => elements.editVmModal.classList.add('hidden');
     elements.saveChangesBtn.onclick = saveVmChanges;
+
+    // Advanced media detach handlers (edit modal)
+    if (elements.editDetachBtns) {
+        Object.keys(elements.editDetachBtns).forEach(function (key) {
+            const btn = elements.editDetachBtns[key];
+            if (!btn) return;
+            btn.onclick = function () {
+                if (confirm('Detach this media from the VM? The file data will be removed.')) {
+                    btn.dataset.detached = '1';
+                    btn.textContent = 'Will detach on save';
+                    btn.classList.remove('text-red-400');
+                    btn.classList.add('text-yellow-400');
+                }
+            };
+        });
+    }
     elements.editRamSlider.oninput = (e) => {
         elements.editRamValue.textContent = `${e.target.value} MB`;
     };
