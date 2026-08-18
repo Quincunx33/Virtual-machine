@@ -550,6 +550,76 @@
                      <input type="checkbox" id="edit-network-toggle" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-indigo-600 focus:ring-indigo-500">
                      <label for="edit-network-toggle" class="text-sm text-gray-300">Enable Networking</label>
                 </div>
+
+                <!-- Advanced Media Options (edit) -->
+                <details class="group bg-gray-700/20 rounded-lg border border-gray-700">
+                    <summary class="p-3 cursor-pointer text-sm font-medium text-gray-300 hover:text-white select-none flex justify-between items-center">
+                        <span>Advanced Media Options</span>
+                        <i class="fas fa-chevron-down group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="p-4 space-y-4 border-t border-gray-700">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-xs text-gray-400">Floppy Drive B</label>
+                                    <button type="button" id="edit-fdb-detach-btn" class="hidden text-[10px] text-red-400 hover:text-red-300 font-bold">Detach</button>
+                                </div>
+                                <input type="file" id="edit-fdb-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600" />
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-xs text-gray-400">Hard Drive B</label>
+                                    <button type="button" id="edit-hdb-detach-btn" class="hidden text-[10px] text-red-400 hover:text-red-300 font-bold">Detach</button>
+                                </div>
+                                <input type="file" id="edit-hdb-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600" />
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-gray-700/50">
+                            <p class="text-xs text-orange-400 font-bold mb-2">Direct Kernel Boot (Linux)</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs text-gray-400">bzImage</label>
+                                        <button type="button" id="edit-bzimage-detach-btn" class="hidden text-[10px] text-red-400 hover:text-red-300 font-bold">Detach</button>
+                                    </div>
+                                    <input type="file" id="edit-bzimage-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600" />
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs text-gray-400">initrd</label>
+                                        <button type="button" id="edit-initrd-detach-btn" class="hidden text-[10px] text-red-400 hover:text-red-300 font-bold">Detach</button>
+                                    </div>
+                                    <input type="file" id="edit-initrd-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-orange-300 hover:file:bg-gray-600" />
+                                </div>
+                                <div class="col-span-2">
+                                     <label class="block text-xs text-gray-400 mb-1">Command Line (cmdline)</label>
+                                     <input type="text" id="edit-cmdline-input" placeholder="e.g. console=ttyS0 root=/dev/sda1" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-gray-700/50">
+                            <p class="text-xs text-purple-400 font-bold mb-2">Custom BIOS/Firmware</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs text-gray-400">System BIOS</label>
+                                        <button type="button" id="edit-bios-detach-btn" class="hidden text-[10px] text-red-400 hover:text-red-300 font-bold">Detach</button>
+                                    </div>
+                                    <input type="file" id="edit-bios-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600" />
+                                </div>
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <label class="text-xs text-gray-400">VGA BIOS</label>
+                                        <button type="button" id="edit-vga-bios-detach-btn" class="hidden text-[10px] text-red-400 hover:text-red-300 font-bold">Detach</button>
+                                    </div>
+                                    <input type="file" id="edit-vga-bios-upload" class="w-full text-xs text-gray-300 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-gray-700 file:text-purple-300 hover:file:bg-gray-600" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <div class="mt-6 flex justify-end gap-3">
@@ -683,6 +753,7 @@
         </div>
     </div>
 
-    <script src="dashboard.js?v=546cb90"></script>
+    <script src="device-detect.js?v=round10"></script>
+    <script src="dashboard.js?v=round10"></script>
 </body>
 </html>
