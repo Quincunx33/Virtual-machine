@@ -1,0 +1,22 @@
+flowchart LR
+    U[User Browser<br/>Desktop / iPad / Android] --> D[Dashboard<br/>text.html]
+    D --> W[VM Wizard]
+    W --> IDB[(IndexedDB<br/>VMs, media, snapshots)]
+    D --> BC[BroadcastChannel]
+    BC --> S[VM Screen<br/>vm-screen.html]
+    S --> M[VM Manager<br/>input, lifecycle, scaling]
+    M --> V[v86 / libv86]
+    V --> WASM[v86.wasm<br/>x86 CPU emulation]
+    V --> BIOS[SeaBIOS + VGABIOS]
+    S --> T[Touch + virtual keyboard<br/>mouse bridge]
+    D --> SW[Service Worker<br/>offline cache]
+    SW --> C[(Cache Storage)]
+
+    classDef ui fill:#172554,stroke:#60a5fa,color:#f8fafc,stroke-width:1.5px;
+    classDef data fill:#312e81,stroke:#a78bfa,color:#f8fafc,stroke-width:1.5px;
+    classDef engine fill:#164e63,stroke:#22d3ee,color:#f8fafc,stroke-width:1.5px;
+    classDef storage fill:#3f3f46,stroke:#a1a1aa,color:#f8fafc,stroke-width:1.5px;
+    class U,D,W,S,M,T,SW ui;
+    class IDB,C storage;
+    class BC data;
+    class V,WASM,BIOS engine;
