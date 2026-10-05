@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://virtual-machine.pages.dev/sitemap.xml

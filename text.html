@@ -1,12 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
     <!-- Stricter CSP: scripts only from self and trusted CDNs, no unsafe-inline for logic -->
     <!-- FIX: Added 'wasm-unsafe-eval' and 'blob:' to support future features and consistency -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
-    <title>Web VM Emulator</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* blob:; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self';">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    
+    <title>Web VM Dashboard – Virtual Machine Manager &amp; Emulator</title>
+    <meta name="description" content="Create, configure, and launch browser virtual machines with WebAssembly. Mount ISOs, format virtual hard drives, and run x86 operating systems.">
+    <meta name="author" content="WebVM Team">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="canonical" href="https://virtual-machine.pages.dev/text.html">
+
+    <!-- OpenGraph Social Cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://virtual-machine.pages.dev/text.html">
+    <meta property="og:title" content="Web VM Dashboard – Virtual Machine Manager &amp; Emulator">
+    <meta property="og:description" content="Create, configure, and launch browser virtual machines with WebAssembly. Mount ISOs, format virtual hard drives, and run x86 operating systems.">
+    <meta property="og:site_name" content="WebVM">
+    <meta property="og:image" content="https://virtual-machine.pages.dev/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://virtual-machine.pages.dev/text.html">
+    <meta name="twitter:title" content="Web VM Dashboard – Virtual Machine Manager &amp; Emulator">
+    <meta name="twitter:description" content="Create, configure, and launch browser virtual machines with WebAssembly. Mount ISOs, format virtual hard drives, and run x86 operating systems.">
+    <meta name="twitter:image" content="https://virtual-machine.pages.dev/og-image.jpg">
     
     <!-- App Icon & Manifest -->
     <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
