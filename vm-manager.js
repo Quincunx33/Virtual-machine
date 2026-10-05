@@ -377,7 +377,10 @@ const bindBtn = (id, fn) => {
 bindBtn('vm-power-btn', () => {
     if(confirm('Power Off?')) {
         fullCleanup();
-        window.close();
+        try { window.close(); } catch(e) {}
+        setTimeout(() => {
+            window.location.href = 'text.html';
+        }, 200);
     }
 });
 bindBtn('vm-reset-btn', () => location.reload());

@@ -1070,10 +1070,17 @@ async function startVM(id) {
     
     const width = Math.min(1200, window.screen.width);
     const height = Math.min(800, window.screen.height);
-    const win = window.open(`vm-screen.html?id=${id}`, `webvm_${id}`, `width=${width},height=${height},resizable=yes`);
-    
-    if (!win) showToast('Popups blocked. Allow popups to run VM.', 'error');
-    else showToast('VM Starting...', 'success');
+    try {
+        const win = window.open(`vm-screen.html?id=${id}`, `webvm_${id}`, `width=${width},height=${height},resizable=yes`);
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+            // Popup blocked by browser or iframe constraints — fallback to navigating directly
+            window.location.href = `vm-screen.html?id=${id}`;
+        } else {
+            showToast('VM Starting in new window...', 'success');
+        }
+    } catch (e) {
+        window.location.href = `vm-screen.html?id=${id}`;
+    }
 }
 
 async function deleteMachineCompletely(id) {

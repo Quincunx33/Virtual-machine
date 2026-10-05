@@ -1,6 +1,6 @@
 {
   "name": "Web VM",
-  "description": "Run x86 virtual machines directly in your browser with WebAssembly.",
+  "description": "Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

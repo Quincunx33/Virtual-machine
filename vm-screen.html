@@ -1,11 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-    <title>Web VM Screen</title>
+    <title>Web VM Screen – Live Virtual Machine Display</title>
+    <meta name="description" content="Interactive browser virtual machine display with keyboard, mouse, VGA graphics, and x86 hardware execution.">
+    <meta name="author" content="WebVM Team">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#000000">
+    <link rel="canonical" href="https://virtual-machine.pages.dev/vm-screen.html">
+
+    <!-- OpenGraph Social Cards -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://virtual-machine.pages.dev/vm-screen.html">
+    <meta property="og:title" content="Web VM Screen – Live Virtual Machine Display">
+    <meta property="og:description" content="Interactive browser virtual machine display with keyboard, mouse, VGA graphics, and x86 hardware execution.">
+    <meta property="og:site_name" content="WebVM">
+    <meta property="og:image" content="https://virtual-machine.pages.dev/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://virtual-machine.pages.dev/vm-screen.html">
+    <meta name="twitter:title" content="Web VM Screen – Live Virtual Machine Display">
+    <meta name="twitter:description" content="Interactive browser virtual machine display with keyboard, mouse, VGA graphics, and x86 hardware execution.">
+    <meta name="twitter:image" content="https://virtual-machine.pages.dev/og-image.jpg">
+
     <!-- Stricter CSP: scripts only from self and trusted CDNs -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' wss: https://* blob:; img-src 'self' data: https:; media-src 'self' blob:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' wss: https://* blob:; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self';">
     
     <!-- App Icon & Manifest -->
     <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
@@ -212,6 +237,12 @@
         <span id="status-text">INIT</span>
         <span id="eco-badge" class="hidden text-[9px] bg-emerald-900/80 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-500/30">ECO 1GB</span>
     </div>
+
+    <!-- Return to Dashboard Button -->
+    <a href="text.html" id="vm-back-btn" class="fixed top-2.5 right-2.5 z-40 px-3 py-1 bg-gray-900/80 hover:bg-gray-800 text-gray-300 hover:text-white backdrop-blur-md border border-gray-700/80 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95" title="Return to Dashboard">
+        <i class="fas fa-arrow-left text-[11px] text-indigo-400"></i>
+        <span>Dashboard</span>
+    </a>
 
     <div id="screen_container">
         <!-- libv86 elements will be injected here -->
