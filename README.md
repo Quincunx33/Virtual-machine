@@ -164,7 +164,4 @@ This project is released under the MIT License. The x86 emulation layer is based
 ## References
 
 [1]: https://github.com/copy/v86 "v86 x86 emulator"
-[2]: https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API "MDN: IndexedDB API"
-[3]: https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API "MDN: Service Worker API"
-[4]: https://developer.mozilla.org/en-US/docs/WebAssembly "MDN: WebAssembly"
-[5]: https://virtual-machine.pages.dev/ "Web VM Emulator live demo"
+[2]: https://virtual-machine.pages.dev/ "Web VM Emulator live demo"
