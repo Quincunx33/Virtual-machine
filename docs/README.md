@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/hero-web-vm.png" alt="Web VM Emulator — x86 virtualization in the browser" width="100%" />
+  <img src="hero-web-vm.png" alt="Web VM Emulator — x86 virtualization in the browser" width="100%" />
 </p>
 
 <h1 align="center">Web VM Emulator</h1>
@@ -85,7 +85,7 @@ The repository also contains Vite metadata for development workflows. If you use
 The application is split into a dashboard, a dedicated VM screen, a storage layer, and the v86 runtime. The dashboard creates and persists machine definitions; the VM screen owns the emulator lifecycle and input bridge; BroadcastChannel coordinates state between views; and the service worker manages the application cache.
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Web VM Emulator architecture diagram" width="100%" />
+  <img src="architecture.png" alt="Web VM Emulator architecture diagram" width="100%" />
 </p>
 
 ### Main components
