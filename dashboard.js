@@ -81,10 +81,14 @@ const elements = {
     vramSlider: getEl('vram-slider'),
     vramValue: getEl('vram-value'),
     networkToggle: getEl('network-toggle'),
+    networkRelayContainer: getEl('network-relay-container'),
+    networkRelayInput: getEl('network-relay-input'),
+    networkRelayError: getEl('network-relay-error'),
     bootOrderSelect: getEl('boot-order-select'),
     cpuProfileSelect: getEl('cpu-profile-select'),
     graphicsScaleSelect: getEl('graphics-scale-select'),
     acpiToggle: getEl('acpi-toggle'),
+    headlessToggle: getEl('headless-toggle'),
     vmNameInput: getEl('vm-name-input'),
     summarySource: getEl('summary-source'),
     summaryDisk: getEl('summary-disk'),
@@ -152,8 +156,12 @@ const elements = {
     editVramSlider: getEl('edit-vram-slider'),
     editVramValue: getEl('edit-vram-value'),
     editNetworkToggle: getEl('edit-network-toggle'),
+    editNetworkRelayContainer: getEl('edit-network-relay-container'),
+    editNetworkRelayInput: getEl('edit-network-relay-input'),
+    editNetworkRelayError: getEl('edit-network-relay-error'),
     editAcpiToggle: getEl('edit-acpi-toggle'),
     editAudioToggle: getEl('edit-audio-toggle'),
+    editHeadlessToggle: getEl('edit-headless-toggle'),
     editBootOrderSelect: getEl('edit-boot-order-select'),
     editCpuProfileSelect: getEl('edit-cpu-profile-select'),
     editGraphicsScaleSelect: getEl('edit-graphics-scale-select'),
@@ -213,6 +221,36 @@ function formatBytes(bytes, decimals = 1) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     if (i < 0) return '0 Bytes';
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+}
+
+function validateCustomRelayUrl(rawUrl) {
+    if (window.WebVMCore && window.WebVMCore.relay) {
+        return window.WebVMCore.relay.validateRelayUrl(rawUrl);
+    }
+    const trimmed = (rawUrl || '').trim();
+    if (!trimmed) return { valid: true, normalized: 'wss://relay.widgetry.org/' };
+    const lower = trimmed.toLowerCase();
+    if (lower === 'inbrowser' || lower === 'fetch') return { valid: true, normalized: lower };
+    try {
+        const u = new URL(trimmed);
+        if (!['ws:', 'wss:', 'wisp:', 'wisps:'].includes(u.protocol) || !u.hostname) {
+            return { valid: false, normalized: trimmed, error: 'Use wss://, ws://, wisps://, wisp://, or "inbrowser".' };
+        }
+        return { valid: true, normalized: trimmed };
+    } catch {
+        return { valid: false, normalized: trimmed, error: 'Enter a valid WebSocket URL or "inbrowser".' };
+    }
+}
+
+function formatRelayBadgeHost(rawUrl) {
+    if (window.WebVMCore && window.WebVMCore.relay) {
+        return window.WebVMCore.relay.formatRelayHost(rawUrl);
+    }
+    try {
+        return new URL(rawUrl || 'wss://relay.widgetry.org/').host || rawUrl;
+    } catch {
+        return rawUrl || 'relay.widgetry.org';
+    }
 }
 
 // --- Notification System ---
@@ -1149,6 +1187,8 @@ async function renderAllMachineItems() {
                             <div class="text-[11px] text-[#634548] flex flex-wrap items-center gap-2 mt-1 font-mono tabular-nums">
                                 <span>${machine.ram}MB RAM</span>
                                 ${machine.blankDiskSize ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span>${machine.blankDiskSize >= 1024 ? (machine.blankDiskSize/1024).toFixed(0) + 'GB' : machine.blankDiskSize + 'MB'} HDD</span>` : ''}
+                                ${machine.headless ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="text-[#9E2F3B] font-semibold">Headless TTY</span>` : ''}
+                                ${machine.network ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="truncate max-w-[260px]" title="${escapeHtml(machine.networkRelayUrl || 'wss://relay.widgetry.org/')}">Net: ${escapeHtml(formatRelayBadgeHost(machine.networkRelayUrl))}</span>` : ''}
                                 ${hasSnap ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="text-[#9E2F3B] font-semibold">Snapshot ${formatBytes(snap.size)}</span>` : ''}
                             </div>
                         </div>
@@ -1281,6 +1321,11 @@ function resetModal() {
     if(elements.blankDiskControls) elements.blankDiskControls.classList.add('hidden');
     if(elements.blankDiskSizeInput) elements.blankDiskSizeInput.value = '1024';
     if(elements.blankDiskSizeLabel) elements.blankDiskSizeLabel.textContent = '1024 MB (1.0 GB)';
+    if(elements.networkToggle) elements.networkToggle.checked = false;
+    if(elements.networkRelayContainer) elements.networkRelayContainer.classList.add('hidden');
+    if(elements.networkRelayInput) elements.networkRelayInput.value = 'wss://relay.widgetry.org/';
+    if(elements.networkRelayError) { elements.networkRelayError.textContent = ''; elements.networkRelayError.classList.add('hidden'); }
+    if(elements.headlessToggle) elements.headlessToggle.checked = false;
     
     document.querySelectorAll('.disk-size-preset-btn').forEach(btn => {
         const sz = btn.dataset.size;
@@ -1391,11 +1436,25 @@ async function createVM() {
             hdaFile = newVM.primaryFile;
         }
 
+        const networkEnabled = elements.networkToggle ? elements.networkToggle.checked : false;
+        let networkRelayUrl = 'wss://relay.widgetry.org/';
+        if (networkEnabled && elements.networkRelayInput) {
+            const relayCheck = validateCustomRelayUrl(elements.networkRelayInput.value);
+            if (!relayCheck.valid) {
+                showToast(relayCheck.error || 'Invalid WebSocket Relay URL', 'error');
+                return;
+            }
+            networkRelayUrl = relayCheck.normalized;
+        }
+
         const config = {
             id, name, created: Date.now(),
             ram: parseInt(newVM.ram),
             vram: parseInt(elements.vramSlider.value),
-            network: elements.networkToggle.checked,
+            network: networkEnabled,
+            networkRelayUrl,
+            acpi: elements.acpiToggle ? elements.acpiToggle.checked : true,
+            headless: elements.headlessToggle ? elements.headlessToggle.checked : false,
             sourceType: newVM.sourceType,
             cdromFile,
             hdaFile,
@@ -1453,8 +1512,19 @@ function openEditModal(id) {
     }
 
     elements.editNetworkToggle.checked = machine.network || false;
+    if (elements.editNetworkRelayContainer) {
+        elements.editNetworkRelayContainer.classList.toggle('hidden', !elements.editNetworkToggle.checked);
+    }
+    if (elements.editNetworkRelayInput) {
+        elements.editNetworkRelayInput.value = machine.networkRelayUrl || 'wss://relay.widgetry.org/';
+    }
+    if (elements.editNetworkRelayError) {
+        elements.editNetworkRelayError.textContent = '';
+        elements.editNetworkRelayError.classList.add('hidden');
+    }
     if (elements.editAcpiToggle) elements.editAcpiToggle.checked = machine.acpi !== false;
     if (elements.editAudioToggle) elements.editAudioToggle.checked = machine.audio !== false;
+    if (elements.editHeadlessToggle) elements.editHeadlessToggle.checked = machine.headless || false;
 
     if (elements.editBootOrderSelect) elements.editBootOrderSelect.value = machine.bootOrder || "531";
     if (elements.editCpuProfileSelect) elements.editCpuProfileSelect.value = machine.cpuProfile || "balanced";
@@ -1640,9 +1710,24 @@ async function saveVmChanges() {
         machine.vram = parseInt(elements.editVramSlider.value, 10) || 8;
     }
 
-    machine.network = elements.editNetworkToggle.checked;
+    const editNetworkEnabled = elements.editNetworkToggle.checked;
+    if (editNetworkEnabled && elements.editNetworkRelayInput) {
+        const relayCheck = validateCustomRelayUrl(elements.editNetworkRelayInput.value);
+        if (!relayCheck.valid) {
+            if (elements.editNetworkRelayError) {
+                elements.editNetworkRelayError.textContent = relayCheck.error;
+                elements.editNetworkRelayError.classList.remove('hidden');
+            }
+            showToast(relayCheck.error || 'Invalid Relay URL', 'error');
+            return;
+        }
+        machine.networkRelayUrl = relayCheck.normalized;
+    }
+
+    machine.network = editNetworkEnabled;
     if (elements.editAcpiToggle) machine.acpi = elements.editAcpiToggle.checked;
     if (elements.editAudioToggle) machine.audio = elements.editAudioToggle.checked;
+    if (elements.editHeadlessToggle) machine.headless = elements.editHeadlessToggle.checked;
 
     if (elements.editBootOrderSelect) machine.bootOrder = elements.editBootOrderSelect.value;
     if (elements.editCpuProfileSelect) machine.cpuProfile = elements.editCpuProfileSelect.value;
@@ -1968,6 +2053,17 @@ async function initApp() {
     elements.modalBackBtn.onclick = () => { if(currentStep > 1) { currentStep--; updateStepUI(); }};
     elements.modalNextBtn.onclick = () => { 
         if (currentStep === 1 && newVM.sourceType !== 'hda' && !newVM.primaryFile) return showToast('Select a boot file first', 'warning');
+        if (currentStep === 2 && elements.networkToggle && elements.networkToggle.checked && elements.networkRelayInput) {
+            const relayCheck = validateCustomRelayUrl(elements.networkRelayInput.value);
+            if (!relayCheck.valid) {
+                if (elements.networkRelayError) {
+                    elements.networkRelayError.textContent = relayCheck.error;
+                    elements.networkRelayError.classList.remove('hidden');
+                }
+                showToast(relayCheck.error || 'Invalid Relay URL', 'warning');
+                return;
+            }
+        }
         if (currentStep < 3) {
             currentStep++;
             if (currentStep === 3 && !elements.vmNameInput.value && newVM.primaryFile) {
@@ -2147,6 +2243,44 @@ async function initApp() {
     updateSliderProgress(elements.editRamSlider);
     updateSliderProgress(elements.editVramSlider);
 
+    // Custom Relay URL Listeners (Create + Edit Modals)
+    const syncRelayField = (toggleEl, containerEl, inputEl, errorEl) => {
+        if (!toggleEl || !containerEl) return;
+        const updateVis = () => {
+            containerEl.classList.toggle('hidden', !toggleEl.checked);
+        };
+        toggleEl.addEventListener('change', updateVis);
+        updateVis();
+        if (inputEl && errorEl) {
+            inputEl.addEventListener('input', () => {
+                const res = validateCustomRelayUrl(inputEl.value);
+                if (res.valid) {
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                } else {
+                    errorEl.textContent = res.error || 'Invalid URL';
+                    errorEl.classList.remove('hidden');
+                }
+            });
+        }
+    };
+
+    syncRelayField(elements.networkToggle, elements.networkRelayContainer, elements.networkRelayInput, elements.networkRelayError);
+    syncRelayField(elements.editNetworkToggle, elements.editNetworkRelayContainer, elements.editNetworkRelayInput, elements.editNetworkRelayError);
+
+    document.querySelectorAll('.relay-preset-btn, .edit-relay-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.dataset.target;
+            const url = btn.dataset.relayUrl || 'wss://relay.widgetry.org/';
+            const targetInput = document.getElementById(targetId);
+            if (targetInput) {
+                targetInput.value = url;
+                targetInput.dispatchEvent(new Event('input'));
+                targetInput.focus();
+            }
+        });
+    });
+
 // --- Offline Caching & PWA Engine ---
 let deferredPwaPrompt = null;
 
@@ -2322,8 +2456,12 @@ document.addEventListener('DOMContentLoaded', initApp);
         'ram-slider': 'Virtual machine RAM',
         'vram-slider': 'Video RAM',
         'network-toggle': 'Enable network adapter',
+        'network-relay-input': 'Custom WebSocket relay URL',
         'acpi-toggle': 'Enable ACPI',
+        'headless-toggle': 'Enable headless serial console mode',
         'audio-toggle': 'Enable audio',
+        'edit-network-relay-input': 'Custom WebSocket relay URL',
+        'edit-headless-toggle': 'Enable headless serial console mode',
         'boot-order-select': 'Boot device order',
         'cpu-profile-select': 'CPU profile',
         'graphics-scale-select': 'Graphics scale',

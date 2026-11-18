@@ -76,6 +76,38 @@ let channel = null;
 let activeBlobUrls = new Set();
 let cpuProfile = 'balanced';
 let screenUpdateInterval = null;
+let hltSampleTimer = null;
+let profilerTimer = null;
+let currentMemConfig = { ramMB: 64, vramMB: 4, isUltraLowSpec: false, wasClamped: false };
+let isHeadlessDisplayOff = false;
+let fitCanvasFn = null;
+
+// --- Performance Profiler State ---
+const profilerState = {
+    prevCounter: 0,
+    prevSampleTime: 0,
+    totalInstructions: 0,
+    activeTicks: 0,
+    totalTicks: 0,
+    cpuPct: 0,
+    currentMips: 0,
+    peakMips: 0,
+    mipsSum: 0,
+    mipsSamplesCount: 0,
+    mipsHistory: [],
+    uptimeMs: 0,
+    lastUptimeCheck: 0,
+    netTxBytes: 0,
+    netRxBytes: 0,
+    isInHlt: false
+};
+
+// --- Serial Terminal State ---
+let serialTermBuffer = null;
+let serialRenderPending = false;
+let serialHasReceivedOutput = false;
+const serialCmdHistory = [];
+let serialHistoryIndex = -1;
 
 const DB_NAME = 'WebEmulatorDB';
 const DB_VERSION = 3; 
@@ -96,7 +128,54 @@ const elements = {
     assistiveMainIcon: document.getElementById('assistive-main-icon'),
     assistiveBackdrop: document.getElementById('assistive-backdrop'),
     statusLed: document.getElementById('status-led'),
-    statusText: document.getElementById('status-text')
+    statusText: document.getElementById('status-text'),
+    headlessBadge: document.getElementById('headless-badge'),
+    // Assistive Live Strip
+    assistiveLiveLed: document.getElementById('assistive-live-led'),
+    assistiveVmName: document.getElementById('assistive-vm-name'),
+    assistiveVmState: document.getElementById('assistive-vm-state'),
+    assistiveCpuVal: document.getElementById('assistive-cpu-val'),
+    assistiveCpuBar: document.getElementById('assistive-cpu-bar'),
+    assistiveRamVal: document.getElementById('assistive-ram-val'),
+    assistiveWasmVal: document.getElementById('assistive-wasm-val'),
+    assistiveMipsVal: document.getElementById('assistive-mips-val'),
+    assistiveUptimeVal: document.getElementById('assistive-uptime-val'),
+    assistiveProfilerSummaryBtn: document.getElementById('assistive-profiler-summary-btn'),
+    // Full Performance Profiler Modal
+    profilerModal: document.getElementById('vm-profiler-modal'),
+    closeProfilerBtn: document.getElementById('close-profiler-btn'),
+    profilerPauseBtn: document.getElementById('profiler-pause-btn'),
+    profVmName: document.getElementById('prof-vm-name'),
+    profVmState: document.getElementById('prof-vm-state'),
+    profCpuPct: document.getElementById('prof-cpu-pct'),
+    profCpuBar: document.getElementById('prof-cpu-bar'),
+    profCpuMode: document.getElementById('prof-cpu-mode'),
+    profMipsVal: document.getElementById('prof-mips-val'),
+    profMipsPeak: document.getElementById('prof-mips-peak'),
+    profMipsAvg: document.getElementById('prof-mips-avg'),
+    profRamGuest: document.getElementById('prof-ram-guest'),
+    profRamVram: document.getElementById('prof-ram-vram'),
+    profRamWasmMini: document.getElementById('prof-ram-wasm-mini'),
+    profMemWasm: document.getElementById('prof-mem-wasm'),
+    profMemJsHeap: document.getElementById('prof-mem-jsheap'),
+    profInstTotal: document.getElementById('prof-inst-total'),
+    profUptime: document.getElementById('prof-uptime'),
+    profNetIo: document.getElementById('prof-net-io'),
+    profSparklineArea: document.getElementById('prof-sparkline-area'),
+    profSparklineLine: document.getElementById('prof-sparkline-line'),
+    profSparklinePeakLabel: document.getElementById('prof-sparkline-peak-label'),
+    // Serial Console Panel
+    serialPanel: document.getElementById('serial-console-panel'),
+    serialWindow: document.getElementById('serial-console-window'),
+    serialOutput: document.getElementById('serial-terminal-output'),
+    serialEmptyState: document.getElementById('serial-empty-state'),
+    serialStatusLabel: document.getElementById('serial-status-label'),
+    serialHeadlessToggle: document.getElementById('serial-headless-toggle'),
+    serialCopyBtn: document.getElementById('serial-copy-btn'),
+    serialClearBtn: document.getElementById('serial-clear-btn'),
+    serialCloseBtn: document.getElementById('serial-close-btn'),
+    serialInputForm: document.getElementById('serial-input-form'),
+    serialCmdInput: document.getElementById('serial-cmd-input')
 };
 
 // --- Utilities ---
@@ -127,6 +206,8 @@ async function fullCleanup() {
     isShuttingDown = true;
     
     if (screenUpdateInterval) clearInterval(screenUpdateInterval);
+    if (hltSampleTimer) clearInterval(hltSampleTimer);
+    if (profilerTimer) clearInterval(profilerTimer);
     
     if (channel) {
         channel.postMessage({ type: 'VM_WINDOW_CLOSED', id: selectedOS?.id });
@@ -154,14 +235,24 @@ function positionAssistivePanel() {
     if (!elements.assistivePanel || !elements.assistiveTouch) return;
     
     const btnRect = elements.assistiveTouch.getBoundingClientRect();
-    const panelW = 268;
-    const panelH = 136;
     const winW = window.innerWidth;
     const winH = window.innerHeight;
     const safePad = 12;
 
+    // Measure actual rendered panel size accurately
+    const wasHidden = elements.assistivePanel.classList.contains('hidden');
+    if (wasHidden) {
+        elements.assistivePanel.style.visibility = 'hidden';
+        elements.assistivePanel.classList.remove('hidden');
+    }
+    const panelW = elements.assistivePanel.offsetWidth || Math.min(312, winW - 24);
+    const panelH = elements.assistivePanel.offsetHeight || 360;
+    if (wasHidden) {
+        elements.assistivePanel.classList.add('hidden');
+        elements.assistivePanel.style.visibility = '';
+    }
+
     // Horizontal positioning:
-    // If button is on right half of screen, align panel rightwards with button
     let left;
     if (btnRect.left + btnRect.width / 2 > winW / 2) {
         left = btnRect.right - panelW;
@@ -170,7 +261,6 @@ function positionAssistivePanel() {
     }
 
     // Vertical positioning:
-    // If button is in lower half of screen, place panel above button; otherwise place below
     let top;
     if (btnRect.top + btnRect.height / 2 > winH / 2) {
         top = btnRect.top - panelH - 12;
@@ -207,6 +297,7 @@ function setAssistivePanelVisible(open) {
         if (elements.assistiveMainIcon) {
             elements.assistiveMainIcon.className = 'fas fa-times text-lg';
         }
+        renderProfilerUI();
     } else {
         elements.assistivePanel.classList.add('hidden');
         if (elements.assistiveTouch) elements.assistiveTouch.classList.remove('active');
@@ -394,6 +485,9 @@ bindBtn('vm-cad-btn', () => {
 });
 bindBtn('vm-save-btn', () => saveSnapshot());
 bindBtn('vm-download-disk-btn', () => exportHardDisk());
+bindBtn('vm-serial-btn', () => openSerialConsole());
+bindBtn('vm-profiler-btn', () => openProfilerModal());
+bindBtn('assistive-profiler-summary-btn', () => openProfilerModal());
 
 async function exportHardDisk() {
     if (!emulator) return;
@@ -695,14 +789,494 @@ async function saveSnapshot() {
     }
 }
 
+// --- Performance Profiler Helpers & UI ---
+function getTelemetryHelpers() {
+    if (window.WebVMCore && window.WebVMCore.telemetry) {
+        return window.WebVMCore.telemetry;
+    }
+    return {
+        computeMipsSample: (prev, curr, elapsedMs, running) => {
+            if (!running || elapsedMs <= 0) return { deltaInstructions: 0, mips: 0 };
+            const delta = ((curr >>> 0) - (prev >>> 0)) >>> 0;
+            return { deltaInstructions: delta, mips: delta / ((elapsedMs / 1000) * 1e6) };
+        },
+        computeCpuUtilization: (active, total, running) => {
+            if (!running || total <= 0) return 0;
+            return Math.round((active / total) * 1000) / 10;
+        },
+        formatInstructionCount: (n) => n >= 1e9 ? `${(n/1e9).toFixed(2)}B` : n >= 1e6 ? `${(n/1e6).toFixed(2)}M` : n >= 1e3 ? `${(n/1e3).toFixed(1)}K` : String(Math.round(n)),
+        formatUptime: (sec) => {
+            const s = Math.max(0, Math.floor(sec));
+            const pad = (v) => String(v).padStart(2, '0');
+            return `${pad(Math.floor(s/3600))}:${pad(Math.floor((s%3600)/60))}:${pad(s%60)}`;
+        },
+        formatMegabytes: (b) => b > 0 ? `${(b / (1024 * 1024)).toFixed(1)} MB` : '0.0 MB',
+        buildSparklinePaths: () => ({ linePath: 'M 4 80 L 356 80', areaPath: 'M 4 80 L 356 80 L 356 84 L 4 84 Z', maxVal: 1 })
+    };
+}
+
+function getRelayHelpers() {
+    if (window.WebVMCore && window.WebVMCore.relay) {
+        return window.WebVMCore.relay;
+    }
+    return {
+        resolveRelayUrl: (u) => (u && u.trim()) ? u.trim() : 'wss://relay.widgetry.org/',
+        formatRelayHost: (u) => {
+            try { return new URL(u || 'wss://relay.widgetry.org/').host; } catch { return u || 'relay.widgetry.org'; }
+        }
+    };
+}
+
+function startPerformanceSampling() {
+    if (hltSampleTimer) clearInterval(hltSampleTimer);
+    if (profilerTimer) clearInterval(profilerTimer);
+
+    profilerState.prevSampleTime = performance.now();
+    profilerState.lastUptimeCheck = performance.now();
+    profilerState.prevCounter = emulator && typeof emulator.get_instruction_counter === 'function'
+        ? emulator.get_instruction_counter()
+        : 0;
+
+    // Fast 100ms HLT sampling (single Uint8Array read, zero allocation)
+    hltSampleTimer = setInterval(() => {
+        if (!emulator) return;
+        const running = typeof emulator.is_running === 'function' && emulator.is_running();
+        if (!running) {
+            profilerState.isInHlt = false;
+            return;
+        }
+        const inHlt = emulator.v86 && emulator.v86.cpu && emulator.v86.cpu.in_hlt
+            ? Boolean(emulator.v86.cpu.in_hlt[0])
+            : false;
+        profilerState.isInHlt = inHlt;
+        profilerState.totalTicks++;
+        if (!inHlt) profilerState.activeTicks++;
+    }, 100);
+
+    // 500ms telemetry aggregation & UI update
+    profilerTimer = setInterval(() => {
+        samplePerformanceMetrics();
+        renderProfilerUI();
+    }, 500);
+}
+
+function samplePerformanceMetrics() {
+    if (!emulator) return;
+    const t = getTelemetryHelpers();
+    const now = performance.now();
+    const elapsedMs = now - profilerState.prevSampleTime;
+    const running = typeof emulator.is_running === 'function' && emulator.is_running();
+
+    const currCounter = typeof emulator.get_instruction_counter === 'function'
+        ? emulator.get_instruction_counter()
+        : 0;
+    const { deltaInstructions, mips } = t.computeMipsSample(
+        profilerState.prevCounter,
+        currCounter,
+        elapsedMs,
+        running
+    );
+
+    profilerState.prevCounter = currCounter;
+    profilerState.prevSampleTime = now;
+    profilerState.totalInstructions += deltaInstructions;
+
+    if (running) {
+        profilerState.uptimeMs += Math.max(0, now - profilerState.lastUptimeCheck);
+    }
+    profilerState.lastUptimeCheck = now;
+
+    // CPU % from HLT duty cycle (or MIPS activity if HLT never triggered during boot)
+    let cpuPct = t.computeCpuUtilization(profilerState.activeTicks, profilerState.totalTicks, running);
+    if (running && profilerState.totalTicks === 0 && mips > 0) {
+        cpuPct = 100;
+    }
+    profilerState.cpuPct = cpuPct;
+    profilerState.activeTicks = 0;
+    profilerState.totalTicks = 0;
+
+    profilerState.currentMips = running ? mips : 0;
+    if (profilerState.currentMips > profilerState.peakMips) {
+        profilerState.peakMips = profilerState.currentMips;
+    }
+    if (running) {
+        profilerState.mipsSum += profilerState.currentMips;
+        profilerState.mipsSamplesCount++;
+    }
+
+    profilerState.mipsHistory.push(Number(profilerState.currentMips.toFixed(3)));
+    if (profilerState.mipsHistory.length > 36) {
+        profilerState.mipsHistory.shift();
+    }
+}
+
+function renderProfilerUI() {
+    const isAssistiveVisible = elements.assistivePanel && !elements.assistivePanel.classList.contains('hidden');
+    const isModalVisible = elements.profilerModal && !elements.profilerModal.classList.contains('hidden');
+    if (!isAssistiveVisible && !isModalVisible) return;
+
+    const t = getTelemetryHelpers();
+    const running = emulator && typeof emulator.is_running === 'function' && emulator.is_running();
+    const vmName = (selectedOS && selectedOS.name) || 'WebVM';
+    const stateLabel = !emulator ? 'OFFLINE' : (!running ? 'PAUSED' : (profilerState.isInHlt ? 'IDLE (HLT)' : 'RUNNING'));
+    const cpuStr = `${profilerState.cpuPct.toFixed(1)}%`;
+    const mipsStr = profilerState.currentMips.toFixed(2);
+    const uptimeStr = t.formatUptime(profilerState.uptimeMs / 1000);
+
+    const wasmMem = emulator && emulator.v86 && ((emulator.v86.cpu && emulator.v86.cpu.wasm_memory) || emulator.v86.wasm_memory);
+    const wasmBytes = wasmMem && wasmMem.buffer
+        ? wasmMem.buffer.byteLength
+        : 0;
+    const wasmStr = wasmBytes > 0 ? t.formatMegabytes(wasmBytes) : '--';
+    const guestRamStr = `${currentMemConfig.ramMB} MB`;
+
+    if (isAssistiveVisible) {
+        if (elements.assistiveVmName) elements.assistiveVmName.textContent = vmName;
+        if (elements.assistiveVmState) elements.assistiveVmState.textContent = stateLabel;
+        if (elements.assistiveLiveLed) elements.assistiveLiveLed.className = running ? 'status-led running shrink-0' : 'status-led halted shrink-0';
+        if (elements.assistiveCpuVal) elements.assistiveCpuVal.textContent = `${Math.round(profilerState.cpuPct)}%`;
+        if (elements.assistiveCpuBar) elements.assistiveCpuBar.style.width = `${Math.min(100, Math.max(0, profilerState.cpuPct))}%`;
+        if (elements.assistiveRamVal) elements.assistiveRamVal.textContent = guestRamStr;
+        if (elements.assistiveWasmVal) elements.assistiveWasmVal.textContent = wasmBytes > 0 ? `WASM ${wasmStr}` : 'WASM --';
+        if (elements.assistiveMipsVal) elements.assistiveMipsVal.textContent = mipsStr;
+        if (elements.assistiveUptimeVal) elements.assistiveUptimeVal.textContent = uptimeStr;
+    }
+
+    if (isModalVisible) {
+        if (elements.profVmName) elements.profVmName.textContent = vmName;
+        if (elements.profVmState) {
+            elements.profVmState.textContent = stateLabel;
+            elements.profVmState.className = running ? 'font-semibold text-emerald-700' : 'font-semibold text-red-700';
+        }
+        if (elements.profilerPauseBtn) {
+            elements.profilerPauseBtn.textContent = running ? 'Pause' : 'Resume';
+            elements.profilerPauseBtn.disabled = !emulator;
+        }
+        if (elements.profCpuPct) elements.profCpuPct.textContent = cpuStr;
+        if (elements.profCpuBar) elements.profCpuBar.style.width = `${Math.min(100, Math.max(0, profilerState.cpuPct))}%`;
+        if (elements.profCpuMode) {
+            elements.profCpuMode.textContent = !running ? 'Execution Paused' : (profilerState.isInHlt ? 'ACPI HLT Idle' : 'Active Execution');
+        }
+        if (elements.profMipsVal) elements.profMipsVal.textContent = mipsStr;
+        if (elements.profMipsPeak) elements.profMipsPeak.textContent = profilerState.peakMips.toFixed(2);
+        const avgMips = profilerState.mipsSamplesCount > 0
+            ? profilerState.mipsSum / profilerState.mipsSamplesCount
+            : 0;
+        if (elements.profMipsAvg) elements.profMipsAvg.textContent = avgMips.toFixed(2);
+
+        if (elements.profRamGuest) elements.profRamGuest.textContent = guestRamStr;
+        if (elements.profRamVram) elements.profRamVram.textContent = `${currentMemConfig.vramMB} MB`;
+        if (elements.profRamWasmMini) elements.profRamWasmMini.textContent = wasmStr;
+        if (elements.profMemWasm) elements.profMemWasm.textContent = wasmStr;
+
+        const jsHeap = performance && performance.memory && performance.memory.usedJSHeapSize
+            ? `${t.formatMegabytes(performance.memory.usedJSHeapSize)} / ${t.formatMegabytes(performance.memory.jsHeapSizeLimit)}`
+            : 'Browser Managed';
+        if (elements.profMemJsHeap) elements.profMemJsHeap.textContent = jsHeap;
+
+        if (elements.profInstTotal) elements.profInstTotal.textContent = t.formatInstructionCount(profilerState.totalInstructions);
+        if (elements.profUptime) elements.profUptime.textContent = uptimeStr;
+
+        if (elements.profNetIo) {
+            if (selectedOS && selectedOS.network) {
+                const relayHost = getRelayHelpers().formatRelayHost(selectedOS.networkRelayUrl);
+                elements.profNetIo.textContent = `${relayHost} · TX ${formatBytes(profilerState.netTxBytes)} / RX ${formatBytes(profilerState.netRxBytes)}`;
+            } else {
+                elements.profNetIo.textContent = 'Disabled';
+            }
+        }
+
+        const spark = t.buildSparklinePaths(profilerState.mipsHistory, 360, 84, 6);
+        if (elements.profSparklineLine) elements.profSparklineLine.setAttribute('d', spark.linePath);
+        if (elements.profSparklineArea) elements.profSparklineArea.setAttribute('d', spark.areaPath);
+        if (elements.profSparklinePeakLabel) elements.profSparklinePeakLabel.textContent = `Scale: ${spark.maxVal.toFixed(1)} MIPS`;
+    }
+}
+
+function openProfilerModal() {
+    if (!elements.profilerModal) return;
+    elements.profilerModal.classList.remove('hidden');
+    samplePerformanceMetrics();
+    renderProfilerUI();
+}
+
+function closeProfilerModal() {
+    if (!elements.profilerModal) return;
+    elements.profilerModal.classList.add('hidden');
+}
+
+if (elements.closeProfilerBtn) {
+    eventManager.add(elements.closeProfilerBtn, 'click', closeProfilerModal);
+}
+if (elements.profilerModal) {
+    eventManager.add(elements.profilerModal, 'click', (e) => {
+        if (e.target === elements.profilerModal) closeProfilerModal();
+    });
+}
+if (elements.profilerPauseBtn) {
+    eventManager.add(elements.profilerPauseBtn, 'click', () => {
+        if (!emulator) return;
+        try {
+            if (emulator.is_running()) {
+                emulator.stop();
+                showVmToast('VM execution paused', 'info', 2000);
+            } else {
+                emulator.run();
+                profilerState.lastUptimeCheck = performance.now();
+                showVmToast('VM execution resumed', 'success', 2000);
+            }
+            renderProfilerUI();
+        } catch (err) {
+            console.error('Pause/Resume failed:', err);
+        }
+    });
+}
+
+// --- Serial Console Terminal Helpers & UI ---
+function ensureSerialTermBuffer() {
+    if (serialTermBuffer) return serialTermBuffer;
+    if (window.WebVMCore && window.WebVMCore.serial && window.WebVMCore.serial.SerialTerminalBuffer) {
+        serialTermBuffer = new window.WebVMCore.serial.SerialTerminalBuffer(800);
+    } else {
+        // Minimal inline fallback if module hasn't loaded
+        const lines = [''];
+        serialTermBuffer = {
+            lines,
+            write(chunk) {
+                for (const ch of chunk) {
+                    if (ch === '\n') lines.push('');
+                    else if (ch !== '\r') lines[lines.length - 1] += ch;
+                }
+                while (lines.length > 800) lines.shift();
+            },
+            clear() { lines.length = 0; lines.push(''); },
+            getLineSpans(idx) { return lines[idx] ? [{ text: lines[idx], fg: null, bg: null, bold: false, dim: false }] : []; },
+            getPlainText() { return lines.join('\n'); }
+        };
+    }
+    return serialTermBuffer;
+}
+
+function scheduleSerialRender() {
+    if (serialRenderPending) return;
+    serialRenderPending = true;
+    requestAnimationFrame(() => {
+        serialRenderPending = false;
+        renderSerialTerminal();
+    });
+}
+
+function renderSerialTerminal() {
+    if (!elements.serialOutput) return;
+    const term = ensureSerialTermBuffer();
+    if (!serialHasReceivedOutput) return;
+
+    if (elements.serialEmptyState && elements.serialEmptyState.parentNode) {
+        elements.serialEmptyState.remove();
+    }
+
+    const frag = document.createDocumentFragment();
+    const total = term.lines.length;
+    for (let i = 0; i < total; i++) {
+        const lineDiv = document.createElement('div');
+        lineDiv.className = 'min-h-[1.2em] whitespace-pre-wrap break-all';
+        const spans = term.getLineSpans(i);
+        if (spans.length === 0) {
+            lineDiv.textContent = ' ';
+        } else {
+            for (const sp of spans) {
+                const spanEl = document.createElement('span');
+                spanEl.textContent = sp.text;
+                if (sp.fg) spanEl.style.color = sp.fg;
+                if (sp.bg) spanEl.style.backgroundColor = sp.bg;
+                if (sp.bold) spanEl.style.fontWeight = '700';
+                if (sp.dim) spanEl.style.opacity = '0.7';
+                lineDiv.appendChild(spanEl);
+            }
+        }
+        frag.appendChild(lineDiv);
+    }
+
+    elements.serialOutput.innerHTML = '';
+    elements.serialOutput.appendChild(frag);
+    elements.serialOutput.scrollTop = elements.serialOutput.scrollHeight;
+}
+
+function sendSerialBytes(seq) {
+    if (!emulator || typeof emulator.serial0_send !== 'function') {
+        showVmToast('Emulator serial port not ready yet', 'warning', 2000);
+        return;
+    }
+    try {
+        emulator.serial0_send(seq);
+    } catch (err) {
+        console.error('Serial send failed:', err);
+    }
+}
+
+function setHeadlessDisplayMode(headlessOn) {
+    isHeadlessDisplayOff = Boolean(headlessOn);
+    if (elements.screenContainer) {
+        elements.screenContainer.style.display = isHeadlessDisplayOff ? 'none' : 'flex';
+    }
+    if (elements.headlessBadge) {
+        elements.headlessBadge.classList.toggle('hidden', !isHeadlessDisplayOff);
+    }
+    if (elements.serialHeadlessToggle) {
+        elements.serialHeadlessToggle.textContent = isHeadlessDisplayOff ? 'Display: Off (Headless)' : 'Display: On';
+        elements.serialHeadlessToggle.setAttribute('aria-pressed', isHeadlessDisplayOff ? 'true' : 'false');
+        elements.serialHeadlessToggle.className = isHeadlessDisplayOff
+            ? 'px-2.5 py-1.5 rounded-lg bg-[#FFB8B8] text-[#231113] border border-[#F39E9E] text-[11px] font-bold transition-colors whitespace-nowrap'
+            : 'px-2.5 py-1.5 rounded-lg bg-[#2E191C] hover:bg-[#3E2328] text-[#FFB8B8] border border-[#563137] text-[11px] font-semibold transition-colors whitespace-nowrap';
+    }
+    if (elements.serialWindow) {
+        if (isHeadlessDisplayOff) {
+            elements.serialWindow.classList.remove('max-w-4xl', 'h-[84dvh]', 'max-h-[760px]');
+            elements.serialWindow.classList.add('max-w-none', 'h-full', 'max-h-none');
+        } else {
+            elements.serialWindow.classList.add('max-w-4xl', 'h-[84dvh]', 'max-h-[760px]');
+            elements.serialWindow.classList.remove('max-w-none', 'h-full', 'max-h-none');
+        }
+    }
+    if (!isHeadlessDisplayOff && typeof fitCanvasFn === 'function') {
+        setTimeout(fitCanvasFn, 50);
+    }
+}
+
+function openSerialConsole() {
+    if (!elements.serialPanel) return;
+    elements.serialPanel.classList.remove('hidden');
+    if (document.pointerLockElement && document.exitPointerLock) {
+        try { document.exitPointerLock(); } catch(e) {}
+    }
+    if (elements.serialStatusLabel) {
+        const running = emulator && typeof emulator.is_running === 'function' && emulator.is_running();
+        elements.serialStatusLabel.textContent = emulator ? (running ? 'Connected' : 'Paused') : 'Waiting';
+    }
+    renderSerialTerminal();
+    setTimeout(() => {
+        if (elements.serialCmdInput) elements.serialCmdInput.focus();
+    }, 30);
+}
+
+function closeSerialConsole() {
+    if (!elements.serialPanel) return;
+    elements.serialPanel.classList.add('hidden');
+    if (isHeadlessDisplayOff) {
+        setHeadlessDisplayMode(false);
+    }
+}
+
+if (elements.serialCloseBtn) {
+    eventManager.add(elements.serialCloseBtn, 'click', closeSerialConsole);
+}
+if (elements.serialHeadlessToggle) {
+    eventManager.add(elements.serialHeadlessToggle, 'click', () => {
+        setHeadlessDisplayMode(!isHeadlessDisplayOff);
+        showVmToast(
+            isHeadlessDisplayOff
+                ? 'Display turned off — running in Headless Serial mode'
+                : 'VGA display restored',
+            'info',
+            2200
+        );
+    });
+}
+if (elements.serialClearBtn) {
+    eventManager.add(elements.serialClearBtn, 'click', () => {
+        const term = ensureSerialTermBuffer();
+        term.clear();
+        serialHasReceivedOutput = false;
+        if (elements.serialOutput) {
+            elements.serialOutput.innerHTML = '';
+            if (elements.serialEmptyState) elements.serialOutput.appendChild(elements.serialEmptyState);
+        }
+    });
+}
+if (elements.serialCopyBtn) {
+    eventManager.add(elements.serialCopyBtn, 'click', async () => {
+        const text = ensureSerialTermBuffer().getPlainText();
+        if (!text.trim()) return showVmToast('Serial console buffer is empty', 'info', 2000);
+        try {
+            await navigator.clipboard.writeText(text);
+            showVmToast('Serial output copied to clipboard', 'success', 2000);
+        } catch {
+            showVmToast('Could not access clipboard', 'error', 2000);
+        }
+    });
+}
+if (elements.serialInputForm) {
+    eventManager.add(elements.serialInputForm, 'submit', (e) => {
+        e.preventDefault();
+        if (!elements.serialCmdInput) return;
+        const val = elements.serialCmdInput.value;
+        if (val.trim()) {
+            serialCmdHistory.unshift(val);
+            if (serialCmdHistory.length > 50) serialCmdHistory.pop();
+        }
+        serialHistoryIndex = -1;
+        sendSerialBytes(val + '\r');
+        elements.serialCmdInput.value = '';
+    });
+}
+if (elements.serialCmdInput) {
+    eventManager.add(elements.serialCmdInput, 'keydown', (e) => {
+        if (e.key === 'ArrowUp' && serialCmdHistory.length > 0) {
+            e.preventDefault();
+            serialHistoryIndex = Math.min(serialCmdHistory.length - 1, serialHistoryIndex + 1);
+            elements.serialCmdInput.value = serialCmdHistory[serialHistoryIndex];
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (serialHistoryIndex > 0) {
+                serialHistoryIndex--;
+                elements.serialCmdInput.value = serialCmdHistory[serialHistoryIndex];
+            } else {
+                serialHistoryIndex = -1;
+                elements.serialCmdInput.value = '';
+            }
+        }
+    });
+}
+if (elements.serialOutput) {
+    eventManager.add(elements.serialOutput, 'keydown', (e) => {
+        const mapper = window.WebVMCore && window.WebVMCore.serial && window.WebVMCore.serial.mapKeyEventToSerial;
+        const seq = mapper ? mapper(e) : (e.key === 'Enter' ? '\r' : (e.key.length === 1 ? e.key : null));
+        if (seq !== null) {
+            e.preventDefault();
+            sendSerialBytes(seq);
+        }
+    });
+}
+document.querySelectorAll('.serial-quick-key').forEach((btn) => {
+    const seqMap = {
+        '\\x03': '\x03',
+        '\\x04': '\x04',
+        '\\x1a': '\x1a',
+        '\\x1b': '\x1b',
+        '\\t': '\t',
+        '\\r': '\r'
+    };
+    eventManager.add(btn, 'click', () => {
+        const raw = btn.dataset.seq || '';
+        const decoded = seqMap[raw] !== undefined ? seqMap[raw] : raw;
+        sendSerialBytes(decoded);
+        if (elements.serialCmdInput) elements.serialCmdInput.focus();
+    });
+});
+
 async function startEmulator(config) {
     if (!config) throw new Error("VM configuration is missing.");
     
     // Calculate safe memory configuration
     const memConfig = getSafeMemoryConfig(config);
+    currentMemConfig = memConfig;
     if (memConfig.wasClamped) {
         showVmToast(`RAM optimized to ${memConfig.ramMB}MB for device stability`, 'info', 4000);
     }
+
+    const relayUrl = config.network
+        ? getRelayHelpers().resolveRelayUrl(config.networkRelayUrl)
+        : undefined;
     
     const v86Config = {
         wasm_path: "v86.wasm",
@@ -714,10 +1288,15 @@ async function startEmulator(config) {
         autostart: true,
         acpi: config.acpi !== false, // Crucial: Enables guest HLT idling to prevent 100% CPU heating
         fastboot: true, // Skips CMOS self-tests for fast boot and low heat
-        disable_speaker: memConfig.isUltraLowSpec && !config.audio, // Skip audio context allocation if unused on 1GB RAM
-        network_relay_url: config.network ? "wss://relay.widgetry.org/" : undefined,
+        disable_speaker: (memConfig.isUltraLowSpec && !config.audio) || config.audio === false,
+        network_relay_url: relayUrl,
+        ...(relayUrl ? { net_device: { type: "ne2k", id: 0, relay_url: relayUrl } } : {}),
         cmdline: config.cmdline || ""
     };
+    if (config.bootOrder) {
+        const parsedOrder = parseInt(config.bootOrder, 10);
+        if (!Number.isNaN(parsedOrder)) v86Config.boot_order = parsedOrder;
+    }
     
     const addUrl = (obj, key) => {
         if (obj instanceof Blob || obj instanceof File) {
@@ -757,6 +1336,8 @@ async function startEmulator(config) {
                 const reducedRam = Math.max(16, Math.floor(cfg.memory_size / (2 * 1024 * 1024)));
                 cfg.memory_size = reducedRam * 1024 * 1024;
                 cfg.vga_memory_size = 4 * 1024 * 1024;
+                currentMemConfig.ramMB = reducedRam;
+                currentMemConfig.vramMB = 4;
                 showVmToast(`Low RAM fallback mode active (${reducedRam}MB)`, 'warning', 5000);
                 return new V86(cfg);
             }
@@ -781,24 +1362,41 @@ async function startEmulator(config) {
     }
 
     try {
-        emitVmLog(`Starting v86 instance for '${config.name}' (RAM: ${memConfig.vmRamMB}MB, VRAM: ${memConfig.vramMB}MB)...`, 'info');
+        emitVmLog(`Starting v86 instance for '${config.name}' (RAM: ${memConfig.ramMB}MB, VRAM: ${memConfig.vramMB}MB${relayUrl ? `, Relay: ${relayUrl}` : ''})...`, 'info');
         emulator = createV86Instance(v86Config);
         
-        // --- Serial TTY Output Listener ---
+        // --- Serial TTY Output Listener (feeds both Serial Console Panel & Dashboard Logs) ---
         let serialBuffer = '';
-        emulator.add_listener("serial0-output-char", (char) => {
+        emulator.add_listener("serial0-output-byte", (byte) => {
+            const char = String.fromCharCode(byte);
+            serialHasReceivedOutput = true;
+            ensureSerialTermBuffer().write(char);
+            if (elements.serialPanel && !elements.serialPanel.classList.contains('hidden')) {
+                scheduleSerialRender();
+            }
+
             if (char === "\n" || char === "\r") {
                 if (serialBuffer.trim()) {
                     emitVmLog(serialBuffer.trim(), 'serial');
                     serialBuffer = '';
                 }
-            } else {
+            } else if (byte >= 32) {
                 serialBuffer += char;
                 if (serialBuffer.length >= 150) {
                     emitVmLog(serialBuffer, 'serial');
                     serialBuffer = '';
                 }
             }
+        });
+
+        // --- Network I/O Counters for Profiler ---
+        emulator.add_listener("eth-transmit-end", (args) => {
+            const len = Array.isArray(args) ? (args[0] || 0) : (args || 0);
+            profilerState.netTxBytes += Number(len) || 0;
+        });
+        emulator.add_listener("eth-receive-end", (args) => {
+            const len = Array.isArray(args) ? (args[0] || 0) : (args || 0);
+            profilerState.netRxBytes += Number(len) || 0;
         });
 
         emulator.add_listener("download-progress", (e) => {
@@ -821,8 +1419,23 @@ async function startEmulator(config) {
             if (ecoBadge && (memConfig.isUltraLowSpec || memConfig.wasClamped)) {
                 ecoBadge.classList.remove('hidden');
             }
+
+            // Start live performance profiler sampling
+            startPerformanceSampling();
+
+            // Open Serial Console automatically if Headless mode or ?console=1 / ?headless=1
+            const urlParams = new URLSearchParams(location.search);
+            const wantHeadless = Boolean(config.headless) || urlParams.get('headless') === '1';
+            const wantConsole = wantHeadless || urlParams.get('console') === '1';
+            if (wantConsole) {
+                openSerialConsole();
+                if (wantHeadless) setHeadlessDisplayMode(true);
+            }
             
             const lockHandler = () => {
+                const serialOpen = elements.serialPanel && !elements.serialPanel.classList.contains('hidden');
+                const profOpen = elements.profilerModal && !elements.profilerModal.classList.contains('hidden');
+                if (serialOpen || profOpen || isHeadlessDisplayOff) return;
                 if(emulator && emulator.is_running()) emulator.lock_mouse();
             };
             eventManager.add(elements.screenContainer, 'click', lockHandler);
@@ -841,6 +1454,7 @@ async function startEmulator(config) {
                     if (wasRunningBeforeHide) {
                         wasRunningBeforeHide = false;
                         try { emulator.run(); } catch(e) {}
+                        profilerState.lastUptimeCheck = performance.now();
                         console.log("[Thermal Guard] Tab visible: VM execution resumed.");
                     }
                 }
@@ -852,12 +1466,13 @@ async function startEmulator(config) {
             if (canvas) {
                 canvas.style.transformOrigin = 'center center';
                 canvas.style.willChange = 'transform';
-                canvas.style.imageRendering = 'pixelated';
+                canvas.style.imageRendering = config.graphicsScale === 'smooth' ? 'auto' : 'pixelated';
                 canvas.style.backfaceVisibility = 'hidden';
             }
             
             let fitFrame = null;
             const fit = () => {
+                if (isHeadlessDisplayOff) return;
                 if (fitFrame) cancelAnimationFrame(fitFrame);
                 fitFrame = requestAnimationFrame(() => {
                     const canvasEl = elements.screenContainer.querySelector('canvas');
@@ -878,6 +1493,7 @@ async function startEmulator(config) {
                     if(inactiveScreen) inactiveScreen.style.transform = '';
                 });
             };
+            fitCanvasFn = fit;
 
             emulator.add_listener("screen-set-mode", () => setTimeout(fit, 100));
             eventManager.add(window, 'resize', fit);
@@ -889,6 +1505,9 @@ async function startEmulator(config) {
                     const running = emulator.is_running();
                     elements.statusLed.className = running ? 'status-led running' : 'status-led halted';
                     elements.statusText.textContent = running ? "RUNNING" : "HALTED";
+                }
+                if (elements.serialStatusLabel && emulator) {
+                    elements.serialStatusLabel.textContent = emulator.is_running() ? 'Connected' : 'Paused';
                 }
             }, 1200);
         });
