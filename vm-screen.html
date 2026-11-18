@@ -3,31 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-    <title>Web VM Screen – Live Virtual Machine Display</title>
-    <meta name="description" content="Interactive browser virtual machine display with keyboard, mouse, VGA graphics, and x86 hardware execution.">
+    <title>WebVM Display – Live Browser Virtual Machine</title>
+    <meta name="description" content="Interact with your running browser virtual machine via live VGA graphics, touch keyboard, mouse capture, and state snapshots on WebVM.">
+    <meta name="keywords" content="WebVM display, live browser VM, x86 VGA display, virtual keyboard emulator, libv86 screen, VM state snapshot">
     <meta name="author" content="WebVM Team">
+    <meta name="application-name" content="WebVM">
+    <meta name="apple-mobile-web-app-title" content="WebVM">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta name="robots" content="index, follow">
-    <meta name="theme-color" content="#000000">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="theme-color" content="#FFB8B8">
     <link rel="canonical" href="https://virtual-machine.pages.dev/vm-screen.html">
+    <link rel="alternate" hreflang="en" href="https://virtual-machine.pages.dev/vm-screen.html">
+    <link rel="alternate" hreflang="x-default" href="https://virtual-machine.pages.dev/vm-screen.html">
 
     <!-- OpenGraph Social Cards -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://virtual-machine.pages.dev/vm-screen.html">
-    <meta property="og:title" content="Web VM Screen – Live Virtual Machine Display">
-    <meta property="og:description" content="Interactive browser virtual machine display with keyboard, mouse, VGA graphics, and x86 hardware execution.">
+    <meta property="og:title" content="WebVM Display – Live Browser Virtual Machine">
+    <meta property="og:description" content="Interact with your running browser virtual machine via live VGA graphics, touch keyboard, mouse capture, and state snapshots on WebVM.">
     <meta property="og:site_name" content="WebVM">
+    <meta property="og:locale" content="en_US">
     <meta property="og:image" content="https://virtual-machine.pages.dev/og-image.jpg">
+    <meta property="og:image:secure_url" content="https://virtual-machine.pages.dev/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="WebVM Display - Live Browser Virtual Machine">
 
     <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://virtual-machine.pages.dev/vm-screen.html">
-    <meta name="twitter:title" content="Web VM Screen – Live Virtual Machine Display">
-    <meta name="twitter:description" content="Interactive browser virtual machine display with keyboard, mouse, VGA graphics, and x86 hardware execution.">
+    <meta name="twitter:title" content="WebVM Display – Live Browser Virtual Machine">
+    <meta name="twitter:description" content="Interact with your running browser virtual machine via live VGA graphics, touch keyboard, mouse capture, and state snapshots on WebVM.">
     <meta name="twitter:image" content="https://virtual-machine.pages.dev/og-image.jpg">
+    <meta name="twitter:image:alt" content="WebVM Display - Live Browser Virtual Machine">
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "WebVM Display",
+      "url": "https://virtual-machine.pages.dev/vm-screen.html",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "All",
+      "isAccessibleForFree": true,
+      "description": "Interact with your running browser virtual machine via live VGA graphics, touch keyboard, mouse capture, and state snapshots on WebVM.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://virtual-machine.pages.dev/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "VM Dashboard",
+          "item": "https://virtual-machine.pages.dev/text.html"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Live Display",
+          "item": "https://virtual-machine.pages.dev/vm-screen.html"
+        }
+      ]
+    }
+    </script>
 
     <!-- Stricter CSP: scripts only from self and trusted CDNs -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' wss: https://* blob:; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self';">
@@ -37,14 +94,20 @@
     <link rel="apple-touch-icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg">
     <link rel="manifest" href="manifest.json">
 
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet"/>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'DM Sans', sans-serif;
             overflow: hidden;
-            background-color: #000;
+            background-color: #000000;
             margin: 0;
             padding: 0;
             height: 100vh;
@@ -53,11 +116,11 @@
             width: 100dvw;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
             box-sizing: border-box;
-            touch-action: none; /* Prevent browser zooming/panning */
+            touch-action: none;
         }
         .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid #ffffff;
+            border: 4px solid #FFE2E2;
+            border-top: 4px solid #FFB8B8;
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -65,13 +128,9 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #virtual-keyboard { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
-        .key { transition: background-color 0.1s ease; }
-        .key.pressed { background-color: #4f46e5; transform: scale(0.98); }
+        .key { transition: background-color 0.1s ease, transform 0.1s ease; }
+        .key.pressed { background-color: #FFB8B8; color: #231113; transform: scale(0.98); }
 
-        /* 
-           FIX: Use Flexbox for robust centering. 
-           This ensures the VM screen is always in the middle, regardless of aspect ratio.
-        */
         #screen_container {
             display: flex;
             align-items: center;
@@ -80,19 +139,15 @@
             height: 100%;
             min-width: 0;
             min-height: 0;
-            background: #000;
+            background: #000000;
             overflow: hidden;
         }
         
-        /* 
-           Target the canvas and text div injected by libv86.
-           We prevent them from shrinking so JS can scale them down accurately.
-        */
         #screen_container > canvas,
         #screen_container > div {
             flex-shrink: 0;
             transform-origin: center center;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5); /* Nice glow for the screen */
+            box-shadow: 0 0 24px rgba(255, 184, 184, 0.15);
         }
         
         /* Assistive Touch Floating Ball & Action Pad */
@@ -113,46 +168,66 @@
             width: 52px;
             height: 52px;
             border-radius: 50%;
-            background: rgba(18, 22, 34, 0.88);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1.5px solid rgba(255, 255, 255, 0.25);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.65), 0 2px 6px rgba(0,0,0,0.4);
+            border: 2px solid #FFB8B8;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(255, 184, 184, 0.2);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ffffff;
+            color: #231113;
             cursor: pointer;
             transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2), background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
         }
         #main-assistive-btn:hover {
-            border-color: rgba(255, 255, 255, 0.5);
-            box-shadow: 0 10px 28px rgba(0,0,0,0.75), 0 0 14px rgba(255,255,255,0.25);
+            border-color: #FFA3A3;
+            background: #FFF5F5;
             transform: scale(1.05);
         }
         #main-assistive-btn:active {
             transform: scale(0.92);
         }
         #assistive-touch.active #main-assistive-btn {
-            background: rgba(30, 41, 59, 0.95);
-            border-color: rgba(99, 102, 241, 0.8);
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.5), 0 8px 24px rgba(0,0,0,0.7);
+            background: #FFB8B8;
+            border-color: #FFFFFF;
+            color: #231113;
+            box-shadow: 0 0 20px rgba(255, 184, 184, 0.55), 0 8px 24px rgba(0,0,0,0.45);
         }
 
         #assistive-panel {
             position: fixed;
             z-index: 50;
-            transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            transform-origin: bottom right;
         }
         #assistive-panel.hidden {
             display: none;
-            opacity: 0;
-            transform: scale(0.92);
         }
         #assistive-panel:not(.hidden) {
             display: block;
-            opacity: 1;
-            transform: scale(1);
+            animation: panelPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+            will-change: transform, opacity;
+        }
+        @keyframes panelPopIn {
+            from { opacity: 0; transform: scale(0.92) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        #assistive-backdrop:not(.hidden) {
+            animation: backdropFadeIn 0.18s ease-out both;
+        }
+        @keyframes backdropFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #virtual-keyboard:not(.hidden) {
+            animation: keyboardSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+            will-change: transform, opacity;
+        }
+        @keyframes keyboardSlideUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         /* Live Status Badge */
@@ -162,22 +237,23 @@
             left: 10px;
             z-index: 40;
             padding: 4px 10px;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(6px);
+            border: 1px solid #FFB8B8;
             border-radius: 20px;
             font-size: 10px;
-            color: #ccc;
+            color: #231113;
             display: flex;
             align-items: center;
             gap: 6px;
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
             pointer-events: none;
             transition: opacity 0.3s;
         }
-        .status-led { width: 6px; height: 6px; border-radius: 50%; background: #444; }
-        .status-led.running { background: #10b981; box-shadow: 0 0 8px #10b981; }
-        .status-led.halted { background: #ef4444; }
+        .status-led { width: 6px; height: 6px; border-radius: 50%; background: #A38285; }
+        .status-led.running { background: #16A34A; box-shadow: 0 0 6px rgba(22, 163, 74, 0.6); }
+        .status-led.halted { background: #DC2626; }
 
         /* Non-blocking Screen Toast */
         #toast-container {
@@ -201,32 +277,43 @@
             font-weight: 500;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 25px rgba(35, 17, 19, 0.25);
             pointer-events: auto;
-            animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            transition: opacity 0.25s, transform 0.25s;
+            animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.2s, transform 0.2s;
         }
-        .vm-toast-success { background: rgba(6, 78, 59, 0.9); border: 1px solid rgba(16, 185, 129, 0.4); color: #d1fae5; }
-        .vm-toast-error { background: rgba(127, 29, 29, 0.9); border: 1px solid rgba(239, 68, 68, 0.4); color: #fee2e2; }
-        .vm-toast-warning { background: rgba(120, 53, 15, 0.9); border: 1px solid rgba(245, 158, 11, 0.4); color: #fef3c7; }
-        .vm-toast-info { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(99, 102, 241, 0.4); color: #e0e7ff; }
+        .vm-toast-success { background: rgba(255, 255, 255, 0.96); border: 1px solid #A7F3D0; color: #065F46; }
+        .vm-toast-error { background: rgba(255, 255, 255, 0.96); border: 1px solid #FECACA; color: #991B1B; }
+        .vm-toast-warning { background: rgba(255, 255, 255, 0.96); border: 1px solid #FDE68A; color: #92400E; }
+        .vm-toast-info { background: rgba(255, 255, 255, 0.96); border: 1px solid #FFB8B8; color: #231113; }
         @keyframes toastIn {
             from { opacity: 0; transform: translateY(-10px) scale(0.95); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            #assistive-panel:not(.hidden), #assistive-backdrop:not(.hidden), #virtual-keyboard:not(.hidden), .vm-toast {
+                animation: none !important;
+            }
+            #assistive-touch, #main-assistive-btn, .key {
+                transition: none !important;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-300 flex items-center justify-center h-screen antialiased">
+<body class="bg-black text-[#231113] flex items-center justify-center h-screen antialiased">
 
     <!-- Toast Notification Container -->
     <div id="toast-container"></div>
 
     <!-- Global Error Overlay -->
-    <div id="error-overlay" class="absolute inset-0 bg-red-900/95 z-[100] hidden flex flex-col items-center justify-center p-8 text-center">
-        <i class="fas fa-bug text-6xl text-white mb-6"></i>
-        <h2 class="text-2xl font-bold text-white mb-2">Something went wrong</h2>
-        <p id="error-message" class="text-red-200 mb-8 font-mono text-sm break-all max-w-lg">Unknown Error</p>
-        <button id="reload-btn" class="px-6 py-3 bg-white text-red-900 font-bold rounded-lg hover:bg-gray-200 transition-colors shadow-lg">
+    <div id="error-overlay" class="absolute inset-0 bg-white/95 z-[100] hidden flex flex-col items-center justify-center p-8 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-[#FFB8B8] border border-[#F39E9E] flex items-center justify-center text-[#231113] mb-6">
+            <i class="fas fa-bug text-3xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-[#231113] mb-2">Something went wrong</h2>
+        <p id="error-message" class="text-[#9E2F3B] mb-8 font-mono text-sm break-all max-w-lg">Unknown Error</p>
+        <button id="reload-btn" class="px-6 py-3 bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] font-bold rounded-xl transition-colors shadow-sm">
             <i class="fas fa-redo mr-2"></i> Reload Page
         </button>
     </div>
@@ -235,14 +322,8 @@
     <div id="vm-status-badge">
         <div id="status-led" class="status-led"></div>
         <span id="status-text">INIT</span>
-        <span id="eco-badge" class="hidden text-[9px] bg-emerald-900/80 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-500/30">ECO 1GB</span>
+        <span id="eco-badge" class="hidden text-[9px] bg-[#FFB8B8] text-[#231113] font-semibold px-1.5 py-0.5 rounded border border-[#F39E9E]">ECO 1GB</span>
     </div>
-
-    <!-- Return to Dashboard Button -->
-    <a href="text.html" id="vm-back-btn" class="fixed top-2.5 right-2.5 z-40 px-3 py-1 bg-gray-900/80 hover:bg-gray-800 text-gray-300 hover:text-white backdrop-blur-md border border-gray-700/80 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95" title="Return to Dashboard">
-        <i class="fas fa-arrow-left text-[11px] text-indigo-400"></i>
-        <span>Dashboard</span>
-    </a>
 
     <div id="screen_container">
         <!-- libv86 elements will be injected here -->
@@ -250,41 +331,41 @@
         <canvas style="display: none; background: black;"></canvas>
     </div>
 
-    <div id="loading-indicator" class="fixed inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-black/80 backdrop-blur-sm">
+    <div id="loading-indicator" class="fixed inset-0 flex flex-col items-center justify-center z-20 text-center p-6 bg-white/95 backdrop-blur-sm">
         <div class="spinner"></div>
-        <p id="loading-text" class="mt-4 text-white text-lg font-semibold">Initializing VM...</p>
-        <p class="text-gray-400 text-xs mt-2">Tap screen to enable sound</p>
+        <p id="loading-text" class="mt-4 text-[#231113] text-lg font-bold">Initializing VM...</p>
+        <p class="text-[#634548] text-xs mt-2">Tap screen to enable sound</p>
     </div>
 
     <!-- Assistive Touch Overlay Backdrop for Dismissing -->
-    <div id="assistive-backdrop" class="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px] hidden transition-opacity"></div>
+    <div id="assistive-backdrop" class="fixed inset-0 z-40 bg-[#231113]/25 backdrop-blur-[2px] hidden transition-opacity"></div>
 
-    <!-- Floating Action Pad Panel (Uncluttered, Non-overlapping Grid) -->
+    <!-- Floating Action Pad Panel -->
     <div id="assistive-panel" class="fixed z-50 hidden" style="bottom: 5.5rem; right: 1.5rem;">
-        <div class="bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 rounded-2xl shadow-2xl p-3 w-[268px]">
+        <div class="bg-white/95 backdrop-blur-2xl border border-[#FFB8B8] rounded-2xl shadow-2xl p-3 w-[268px]">
             <div class="grid grid-cols-4 gap-2.5">
-                <button id="vm-fullscreen-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-sky-600 active:scale-95 flex items-center justify-center text-sky-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Fullscreen">
+                <button id="vm-fullscreen-btn" class="h-12 w-12 rounded-xl bg-[#FFF6F6] hover:bg-[#FFB8B8] active:scale-95 flex items-center justify-center text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Fullscreen">
                     <i class="fas fa-expand text-lg"></i>
                 </button>
-                <button id="vm-keyboard-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-indigo-600 active:scale-95 flex items-center justify-center text-indigo-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Keyboard">
+                <button id="vm-keyboard-btn" class="h-12 w-12 rounded-xl bg-[#FFF6F6] hover:bg-[#FFB8B8] active:scale-95 flex items-center justify-center text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Keyboard">
                     <i class="far fa-keyboard text-lg"></i>
                 </button>
-                <button id="vm-cad-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-amber-600 active:scale-95 flex items-center justify-center text-amber-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Ctrl+Alt+Del">
+                <button id="vm-cad-btn" class="h-12 w-12 rounded-xl bg-[#FFF6F6] hover:bg-[#FFB8B8] active:scale-95 flex items-center justify-center text-[#B83B48] hover:text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Ctrl+Alt+Del">
                     <i class="fas fa-bolt text-lg"></i>
                 </button>
-                <button id="vm-save-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-emerald-600 active:scale-95 flex items-center justify-center text-emerald-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Save Snapshot">
+                <button id="vm-save-btn" class="h-12 w-12 rounded-xl bg-[#FFF6F6] hover:bg-[#FFB8B8] active:scale-95 flex items-center justify-center text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Save Snapshot">
                     <i class="fas fa-floppy-disk text-lg"></i>
                 </button>
-                <button id="vm-download-disk-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-cyan-600 active:scale-95 flex items-center justify-center text-cyan-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Export Hard Disk">
+                <button id="vm-download-disk-btn" class="h-12 w-12 rounded-xl bg-[#FFF6F6] hover:bg-[#FFB8B8] active:scale-95 flex items-center justify-center text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Export Hard Disk">
                     <i class="fas fa-download text-lg"></i>
                 </button>
-                <button id="vm-reset-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-orange-600 active:scale-95 flex items-center justify-center text-orange-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Reset VM">
+                <button id="vm-reset-btn" class="h-12 w-12 rounded-xl bg-[#FFF6F6] hover:bg-[#FFB8B8] active:scale-95 flex items-center justify-center text-[#B83B48] hover:text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Reset VM">
                     <i class="fas fa-rotate-right text-lg"></i>
                 </button>
-                <button id="vm-power-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-red-600 active:scale-95 flex items-center justify-center text-red-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Shutdown">
+                <button id="vm-power-btn" class="h-12 w-12 rounded-xl bg-red-50 hover:bg-red-600 active:scale-95 flex items-center justify-center text-red-700 hover:text-white transition-all shadow-sm border border-red-200" title="Shutdown">
                     <i class="fas fa-power-off text-lg"></i>
                 </button>
-                <button id="vm-close-panel-btn" class="h-12 w-12 rounded-xl bg-slate-800/90 hover:bg-slate-700 active:scale-95 flex items-center justify-center text-gray-400 hover:text-white transition-all shadow-sm border border-slate-700/50" title="Close Menu">
+                <button id="vm-close-panel-btn" class="h-12 w-12 rounded-xl bg-white hover:bg-[#FFF0F0] active:scale-95 flex items-center justify-center text-[#634548] hover:text-[#231113] transition-all shadow-sm border border-[#FFD6D6]" title="Close Menu">
                     <i class="fas fa-times text-lg"></i>
                 </button>
             </div>
@@ -299,14 +380,14 @@
     </div>
     
     <!-- Virtual Keyboard -->
-    <div id="virtual-keyboard" class="fixed bottom-0 left-0 right-0 bg-gray-800/80 backdrop-blur-sm p-1 sm:p-2 z-30 hidden">
-        <div class="max-w-4xl mx-auto space-y-1 text-white">
-            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="01">Esc</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3B">F1</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3C">F2</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3D">F3</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3E">F4</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="3F">F5</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="40">F6</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="41">F7</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="42">F8</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="43">F9</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="44">F10</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="57">F11</button><button class="key flex-1 h-8 bg-gray-700/80 rounded text-xs" data-scancode="58">F12</button></div>
-            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="29">`</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="02">1</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="03">2</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="04">3</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="05">4</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="06">5</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="07">6</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="08">7</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="09">8</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="0A">9</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="0B">0</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="0C">-</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="0D">=</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-16 sm:basis-24 text-xs sm:text-sm" data-scancode="0E">Backspace</button></div>
-            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-20 text-xs sm:text-sm" data-scancode="0F">Tab</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="10">Q</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="11">W</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="12">E</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="13">R</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="14">T</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="15">Y</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="16">U</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="17">I</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="18">O</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="19">P</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="1A">[</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="1B">]</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="2B">\</button></div>
-            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-16 sm:basis-24 text-xs sm:text-sm" data-scancode="3A">Caps Lock</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="1E">A</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="1F">S</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="20">D</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="21">F</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="22">G</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="23">H</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="24">J</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="25">K</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="26">L</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="27">;</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="28">'</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-16 sm:basis-24 text-xs sm:text-sm" data-scancode="1C">Enter</button></div>
-            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-20 sm:basis-28 text-xs sm:text-sm" data-scancode="2A">Shift</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="2C">Z</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="2D">X</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="2E">C</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="2F">V</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="30">B</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="31">N</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="32">M</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="33">,</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="34">.</button><button class="key flex-1 h-8 sm:h-10 bg-gray-700 rounded" data-scancode="35">/</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-20 sm:basis-28 text-xs sm:text-sm" data-scancode="36">Shift</button></div>
-            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-16 text-xs sm:text-sm" data-scancode="1D">Ctrl</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-16 text-xs sm:text-sm" data-scancode="E0 5B">Win</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-16 text-xs sm:text-sm" data-scancode="38">Alt</button><button class="key flex-grow h-8 sm:h-10 bg-gray-700 rounded" data-scancode="39">Space</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-16 text-xs sm:text-sm" data-scancode="E0 38">Alt</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-16 text-xs sm:text-sm" data-scancode="E0 5D">Menu</button><button class="key h-8 sm:h-10 bg-gray-700 rounded basis-14 sm:basis-16 text-xs sm:text-sm" data-scancode="E0 1D">Ctrl</button><div class="flex flex-col space-y-1 basis-24 sm:basis-32"><button class="key w-full h-4 sm:h-5 bg-gray-700 rounded text-xs" data-scancode="E0 48">▲</button><div class="flex space-x-1"><button class="key w-1/3 h-4 sm:h-5 bg-gray-700 rounded text-xs" data-scancode="E0 4B">◀</button><button class="key w-1/3 h-4 sm:h-5 bg-gray-700 rounded text-xs" data-scancode="E0 50">▼</button><button class="key w-1/3 h-4 sm:h-5 bg-gray-700 rounded text-xs" data-scancode="E0 4D">▶</button></div></div></div>
+    <div id="virtual-keyboard" class="fixed bottom-0 left-0 right-0 bg-white/95 border-t border-[#FFD6D6] backdrop-blur-md p-1 sm:p-2 z-30 hidden">
+        <div class="max-w-4xl mx-auto space-y-1 text-[#231113] font-medium">
+            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="01">Esc</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="3B">F1</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="3C">F2</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="3D">F3</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="3E">F4</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="3F">F5</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="40">F6</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="41">F7</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="42">F8</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="43">F9</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="44">F10</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="57">F11</button><button class="key flex-1 h-8 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="58">F12</button></div>
+            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="29">`</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="02">1</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="03">2</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="04">3</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="05">4</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="06">5</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="07">6</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="08">7</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="09">8</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="0A">9</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="0B">0</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="0C">-</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="0D">=</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-16 sm:basis-24 text-xs sm:text-sm font-semibold" data-scancode="0E">Backspace</button></div>
+            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-20 text-xs sm:text-sm font-semibold" data-scancode="0F">Tab</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="10">Q</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="11">W</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="12">E</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="13">R</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="14">T</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="15">Y</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="16">U</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="17">I</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="18">O</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="19">P</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="1A">[</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="1B">]</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="2B">\</button></div>
+            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-16 sm:basis-24 text-xs sm:text-sm font-semibold" data-scancode="3A">Caps Lock</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="1E">A</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="1F">S</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="20">D</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="21">F</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="22">G</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="23">H</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="24">J</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="25">K</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="26">L</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="27">;</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="28">'</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-16 sm:basis-24 text-xs sm:text-sm font-semibold" data-scancode="1C">Enter</button></div>
+            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-20 sm:basis-28 text-xs sm:text-sm font-semibold" data-scancode="2A">Shift</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="2C">Z</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="2D">X</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="2E">C</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="2F">V</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="30">B</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="31">N</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="32">M</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="33">,</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="34">.</button><button class="key flex-1 h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="35">/</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-20 sm:basis-28 text-xs sm:text-sm font-semibold" data-scancode="36">Shift</button></div>
+            <div class="key-row flex justify-center space-x-0.5 sm:space-x-1"><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-16 text-xs sm:text-sm font-semibold" data-scancode="1D">Ctrl</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-16 text-xs sm:text-sm font-semibold" data-scancode="E0 5B">Win</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-16 text-xs sm:text-sm font-semibold" data-scancode="38">Alt</button><button class="key flex-grow h-8 sm:h-10 bg-[#FFF5F5] border border-[#FFD6D6] rounded" data-scancode="39">Space</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-16 text-xs sm:text-sm font-semibold" data-scancode="E0 38">Alt</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-16 text-xs sm:text-sm font-semibold" data-scancode="E0 5D">Menu</button><button class="key h-8 sm:h-10 bg-[#FFB8B8] border border-[#F39E9E] rounded basis-14 sm:basis-16 text-xs sm:text-sm font-semibold" data-scancode="E0 1D">Ctrl</button><div class="flex flex-col space-y-1 basis-24 sm:basis-32"><button class="key w-full h-4 sm:h-5 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="E0 48">▲</button><div class="flex space-x-1"><button class="key w-1/3 h-4 sm:h-5 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="E0 4B">◀</button><button class="key w-1/3 h-4 sm:h-5 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="E0 50">▼</button><button class="key w-1/3 h-4 sm:h-5 bg-[#FFF5F5] border border-[#FFD6D6] rounded text-xs" data-scancode="E0 4D">▶</button></div></div></div>
         </div>
     </div>
 

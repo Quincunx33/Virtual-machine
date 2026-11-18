@@ -3,8 +3,8 @@
   "short_name": "WebVM",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0B0F19",
-  "theme_color": "#4f46e5",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFB8B8",
   "orientation": "any",
   "description": "Run Linux, Windows, and DOS directly in your browser with WebAssembly. Works fully offline.",
   "icons": [

@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /*.wasm$
+Disallow: /*.bin$
 
 Sitemap: https://virtual-machine.pages.dev/sitemap.xml

@@ -136,7 +136,6 @@ const elements = {
     diagBrowserNameHeading: getEl('diag-browser-name-heading'),
     diagBrowserVersionPill: getEl('diag-browser-version-pill'),
     diagBrowserSubtitle: getEl('diag-browser-subtitle'),
-    diagBrowserStatusBadge: getEl('diag-browser-status-badge'),
     diagEngineVal: getEl('diag-engine-val'),
     diagJsVal: getEl('diag-js-val'),
     diagArchVal: getEl('diag-arch-val'),
@@ -197,6 +196,15 @@ const elements = {
 };
 
 // --- Utilities ---
+function updateSliderProgress(slider) {
+    if (!slider) return;
+    const min = parseFloat(slider.min) || 0;
+    const max = parseFloat(slider.max) || 100;
+    const val = parseFloat(slider.value) || min;
+    const pct = max > min ? Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100)) : 0;
+    slider.style.setProperty('--slider-pct', `${pct}%`);
+}
+
 function formatBytes(bytes, decimals = 1) {
     if (bytes === 0 || !bytes) return '0 Bytes';
     if (typeof bytes !== 'number') return 'N/A';
@@ -230,11 +238,15 @@ class NotificationSystem {
         toast.innerHTML = `
             <div class="toast-icon"><i class="fas ${icons[type] || icons.info}"></i></div>
             <div class="flex-1 min-w-0"><p class="toast-message font-medium">${message}</p></div>
-            <div class="toast-progress" style="animation-duration: 3500ms"></div>
+            <div class="toast-progress" style="animation-duration: 3200ms"></div>
         `;
         
         this.container.appendChild(toast);
-        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
+        setTimeout(() => {
+            if (!toast.parentNode) return;
+            toast.classList.add('hiding');
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 280);
+        }, 3200);
     }
 }
 
@@ -336,8 +348,8 @@ async function renderStorageManager() {
     if (!elements.storageManagerSummary || !elements.storageItemsList) return;
     
     elements.storageItemsList.innerHTML = `
-        <tr><td colspan="4" class="p-8 text-center text-gray-500">
-            <i class="fas fa-spinner fa-spin mr-2"></i>Loading Storage...
+        <tr><td colspan="4" class="p-8 text-center text-[#634548]">
+            <i class="fas fa-spinner fa-spin mr-2 text-[#B83B48]"></i>Loading Storage...
         </td></tr>
     `;
     
@@ -352,16 +364,16 @@ async function renderStorageManager() {
         if (estimate) {
             const percent = estimate.quota > 0 ? Math.min(((estimate.usage / estimate.quota) * 100), 100).toFixed(1) : 0;
             elements.storageManagerSummary.innerHTML = `
-                <div class="flex justify-between text-sm mb-2 text-gray-300">
+                <div class="flex justify-between text-sm mb-2 text-[#231113]">
                     <span>${formatBytes(estimate.usage)} used of ${formatBytes(estimate.quota)}</span>
-                    <span class="font-bold ${percent > 80 ? 'text-red-400' : 'text-indigo-400'}">${percent}%</span>
+                    <span class="font-bold font-mono tabular-nums ${percent > 80 ? 'text-red-700' : 'text-[#9E2F3B]'}">${percent}%</span>
                 </div>
-                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div class="h-full bg-indigo-500 transition-all duration-500" style="width: ${percent}%"></div>
+                <div class="h-2.5 bg-white border border-[#FFD6D6] rounded-full overflow-hidden">
+                    <div class="h-full bg-[#FFB8B8] transition-all duration-500" style="width: ${percent}%"></div>
                 </div>
             `;
         } else {
-             elements.storageManagerSummary.innerHTML = `<p class="text-sm text-gray-400">Could not retrieve storage estimate.</p>`;
+             elements.storageManagerSummary.innerHTML = `<p class="text-sm text-[#634548]">Could not retrieve storage estimate.</p>`;
         }
 
         // 2. Render List
@@ -372,23 +384,23 @@ async function renderStorageManager() {
         configs.forEach(config => {
             count++;
             const snap = snapshots.find(s => s.id === config.id);
-            const sizeStr = snap ? formatBytes(snap.size) : '<span class="text-gray-600">No Snapshot</span>';
+            const sizeStr = snap ? formatBytes(snap.size) : '<span class="text-[#9E787C]">No Snapshot</span>';
             
             html += `
-                <tr class="hover:bg-gray-700/30 transition-colors border-b border-gray-700/50 last:border-0" data-row-id="${config.id}">
-                    <td class="p-4 text-sm font-medium text-white">
+                <tr class="hover:bg-[#FFF8F8] transition-colors border-b border-[#FFEAEA] last:border-0" data-row-id="${config.id}">
+                    <td class="p-4 text-sm font-medium text-[#231113]">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-indigo-400">
+                            <div class="w-8 h-8 rounded-lg bg-[#FFB8B8] border border-[#F39E9E] flex items-center justify-center text-[#231113]">
                                 <i class="fas ${config.sourceType === 'snapshot' ? 'fa-file-import' : 'fa-desktop'}"></i>
                             </div>
                             ${config.name || 'Unnamed VM'}
                         </div>
                     </td>
-                    <td class="p-4 text-sm text-gray-400">Virtual Machine</td>
-                    <td class="p-4 text-sm text-gray-400 font-mono">${sizeStr}</td>
+                    <td class="p-4 text-sm text-[#634548]">Virtual Machine</td>
+                    <td class="p-4 text-sm text-[#231113] font-mono tabular-nums">${sizeStr}</td>
                     <td class="p-4 text-right space-x-1">
                         <button data-action="delete-vm" data-id="${config.id}"
-                                class="storage-delete-vm-btn text-red-400 hover:text-white hover:bg-red-600 p-2 rounded transition-colors"
+                                class="storage-delete-vm-btn text-red-700 hover:text-white hover:bg-red-600 p-2 rounded-lg transition-colors"
                                 title="Delete Machine & Data">
                             <i class="fas fa-trash-alt pointer-events-none"></i>
                         </button>
@@ -404,20 +416,20 @@ async function renderStorageManager() {
         ghosts.forEach(ghost => {
             count++;
             html += `
-                <tr class="hover:bg-red-900/10 transition-colors bg-red-900/5 border-b border-gray-700/50 last:border-0" data-row-id="${ghost.id}">
-                    <td class="p-4 text-sm font-medium text-red-300">
+                <tr class="hover:bg-red-50 transition-colors bg-red-50/40 border-b border-[#FFEAEA] last:border-0" data-row-id="${ghost.id}">
+                    <td class="p-4 text-sm font-medium text-red-800">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded bg-red-900/30 flex items-center justify-center text-red-400">
+                            <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-700">
                                 <i class="fas fa-ghost"></i>
                             </div>
                             Orphaned Snapshot
                         </div>
                     </td>
-                    <td class="p-4 text-sm text-gray-400">Junk Data</td>
-                    <td class="p-4 text-sm text-gray-400 font-mono">${formatBytes(ghost.size)}</td>
+                    <td class="p-4 text-sm text-[#634548]">Junk Data</td>
+                    <td class="p-4 text-sm text-[#231113] font-mono tabular-nums">${formatBytes(ghost.size)}</td>
                     <td class="p-4 text-right space-x-1">
                         <button data-action="delete-ghost" data-id="${ghost.id}"
-                                class="storage-delete-ghost-btn text-red-400 hover:text-white hover:bg-red-600 p-2 rounded transition-colors"
+                                class="storage-delete-ghost-btn text-red-700 hover:text-white hover:bg-red-600 p-2 rounded-lg transition-colors"
                                 title="Delete File">
                             <i class="fas fa-trash-alt pointer-events-none"></i>
                         </button>
@@ -427,7 +439,7 @@ async function renderStorageManager() {
         });
 
         if (count === 0) {
-            html = `<tr><td colspan="4" class="p-8 text-center text-gray-500">Storage is empty</td></tr>`;
+            html = `<tr><td colspan="4" class="p-8 text-center text-[#634548]">Storage is empty</td></tr>`;
         }
         
         elements.storageItemsList.innerHTML = html;
@@ -435,7 +447,7 @@ async function renderStorageManager() {
 
     } catch(e) {
         console.error(e);
-        elements.storageItemsList.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-400">Failed to load storage data</td></tr>`;
+        elements.storageItemsList.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-700">Failed to load storage data</td></tr>`;
     }
 }
 
@@ -649,7 +661,7 @@ function getOsBrandSvg(key, size = 16) {
                 <circle cx="24" cy="24" r="7" fill="#4285F4"/>
             </svg>`;
         default:
-            return `<i class="fas fa-desktop text-indigo-400 text-sm"></i>`;
+            return `<i class="fas fa-desktop text-[#B83B48] text-sm"></i>`;
     }
 }
 
@@ -980,19 +992,19 @@ async function detectSystemSpecs() {
         if (elements.sysBrowserText) elements.sysBrowserText.textContent = browserDisplay;
         if (elements.sysBrowserIcon) elements.sysBrowserIcon.innerHTML = getBrowserBrandSvg(browserKey, 16);
         
-        if (elements.systemRamDisplay) elements.systemRamDisplay.textContent = `${memoryGB} GB (Max: ${maxAllowed}MB)`;
-        if (elements.sysCoresDisplay) elements.sysCoresDisplay.textContent = `${logicalCores} Logical Threads`;
+        if (elements.systemRamDisplay) elements.systemRamDisplay.textContent = `${memoryGB} GB (Max ${maxAllowed} MB)`;
+        if (elements.sysCoresDisplay) elements.sysCoresDisplay.textContent = `${logicalCores} Threads`;
         
         if (elements.sysWasmBadge) {
             elements.sysWasmBadge.className = hasWasm 
-                ? 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 font-mono'
-                : 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-950/70 border border-red-500/40 text-red-300 font-mono';
+                ? 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono'
+                : 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-800 font-mono';
         }
 
         if (elements.sysSimdBadge) {
             elements.sysSimdBadge.className = hasWasmSimd 
-                ? 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-950/70 border border-indigo-500/40 text-indigo-300 font-mono'
-                : 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 font-mono';
+                ? 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#FFB8B8] text-[#9E2F3B] font-mono'
+                : 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-[#FFD6D6] text-[#634548] font-mono';
             elements.sysSimdBadge.innerHTML = hasWasmSimd 
                 ? '<i class="fas fa-bolt text-[9px]"></i> SIMD'
                 : '<i class="fas fa-minus text-[9px]"></i> No SIMD';
@@ -1005,17 +1017,19 @@ async function detectSystemSpecs() {
         if (elements.ramSlider) {
             elements.ramSlider.max = maxAllowed;
             const maxLabel = document.getElementById('ram-max-label');
-            if (maxLabel) maxLabel.textContent = `${maxAllowed}MB`;
+            if (maxLabel) maxLabel.textContent = `${maxAllowed} MB`;
+            updateSliderProgress(elements.ramSlider);
         }
         if (elements.editRamSlider) {
             elements.editRamSlider.max = maxAllowed;
-            if (elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${maxAllowed}MB`;
+            if (elements.editRamMaxLabel) elements.editRamMaxLabel.textContent = `${maxAllowed} MB`;
+            updateSliderProgress(elements.editRamSlider);
         }
 
         // --- 9. Populate Diagnostics Modal with Full Specs & Large SVG Logo ---
         if (elements.diagOs) elements.diagOs.innerHTML = `${getOsBrandSvg(osKey, 18)} <span class="truncate">${os}</span>`;
         if (elements.diagBrowser) elements.diagBrowser.innerHTML = `${getBrowserBrandSvg(browserKey, 18)} <span class="truncate">${browser}</span>`;
-        if (elements.diagDevice) elements.diagDevice.innerHTML = `<i class="fas ${isTablet ? 'fa-tablet-screen-button' : (isMobile ? 'fa-mobile-screen' : 'fa-laptop')} text-emerald-400"></i> ${deviceType} (${isTouch ? 'Touch' : 'Pointer'})`;
+        if (elements.diagDevice) elements.diagDevice.innerHTML = `<i class="fas ${isTablet ? 'fa-tablet-screen-button' : (isMobile ? 'fa-mobile-screen' : 'fa-laptop')} text-[#B83B48]"></i> ${deviceType} (${isTouch ? 'Touch' : 'Pointer'})`;
         
         // Large Browser Diagnostics Card
         if (elements.diagBrowserLogoLg) elements.diagBrowserLogoLg.innerHTML = getBrowserBrandSvg(browserKey, 28);
@@ -1026,7 +1040,7 @@ async function detectSystemSpecs() {
         if (elements.diagEngineVal) elements.diagEngineVal.textContent = renderingEngine;
         if (elements.diagJsVal) elements.diagJsVal.textContent = jsEngine;
         if (elements.diagArchVal) elements.diagArchVal.textContent = clientArch;
-        if (elements.diagUaMode) elements.diagUaMode.textContent = clientHintsActive ? 'Client Hints (High-Entropy)' : 'Standard UA Header';
+        if (elements.diagUaMode) elements.diagUaMode.textContent = clientHintsActive ? 'Client Hints' : 'Standard UA';
         if (elements.diagUaString) elements.diagUaString.textContent = ua;
 
         if (elements.diagRam) elements.diagRam.textContent = `${memoryGB} GB System Memory`;
@@ -1037,26 +1051,26 @@ async function detectSystemSpecs() {
 
         if (elements.diagWasmVal) {
             elements.diagWasmVal.innerHTML = hasWasm 
-                ? '<span class="text-emerald-400 font-bold"><i class="fas fa-check"></i> Enabled (v1)</span>'
-                : '<span class="text-red-400 font-bold"><i class="fas fa-times"></i> Missing</span>';
+                ? '<span class="text-emerald-700 font-bold"><i class="fas fa-check"></i> Enabled (v1)</span>'
+                : '<span class="text-red-700 font-bold"><i class="fas fa-times"></i> Missing</span>';
         }
 
         if (elements.diagSimdVal) {
             elements.diagSimdVal.innerHTML = hasWasmSimd 
-                ? '<span class="text-emerald-400 font-bold"><i class="fas fa-check"></i> Supported (128-bit)</span>'
-                : '<span class="text-gray-400 font-medium"><i class="fas fa-minus"></i> Standard MVP</span>';
+                ? '<span class="text-emerald-700 font-bold"><i class="fas fa-check"></i> Supported (128-bit)</span>'
+                : '<span class="text-[#634548] font-medium"><i class="fas fa-minus"></i> Standard MVP</span>';
         }
 
         if (elements.diagSabVal) {
             elements.diagSabVal.innerHTML = hasSharedArrayBuffer 
-                ? '<span class="text-emerald-400 font-bold"><i class="fas fa-check"></i> Ready</span>'
-                : '<span class="text-yellow-400 font-medium"><i class="fas fa-info-circle"></i> Single-thread</span>';
+                ? '<span class="text-emerald-700 font-bold"><i class="fas fa-check"></i> Ready</span>'
+                : '<span class="text-amber-700 font-medium"><i class="fas fa-info-circle"></i> Single-thread</span>';
         }
 
         if (elements.diagWorkersVal) {
             elements.diagWorkersVal.innerHTML = hasWebWorkers 
-                ? '<span class="text-emerald-400 font-bold"><i class="fas fa-check"></i> Supported</span>'
-                : '<span class="text-red-400 font-bold"><i class="fas fa-times"></i> Not Supported</span>';
+                ? '<span class="text-emerald-700 font-bold"><i class="fas fa-check"></i> Supported</span>'
+                : '<span class="text-red-700 font-bold"><i class="fas fa-times"></i> Not Supported</span>';
         }
 
     } catch(e) {
@@ -1114,41 +1128,41 @@ async function renderAllMachineItems() {
             const isRunning = runningVmIds.has(machine.id);
 
             const runningIndicatorHtml = isRunning ? `
-                <div class="absolute top-3 right-3 flex items-center gap-2 text-green-400 text-[10px] font-bold">
+                <div class="absolute top-3 right-3 flex items-center gap-2 text-emerald-700 text-[10px] font-bold">
                     <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                     </span>
                     RUNNING
                 </div>
             ` : '';
             
             const html = `
-                <div class="vm-list-item group flex flex-col sm:flex-row items-start sm:items-center p-3.5 sm:p-4 rounded-xl hover:bg-gray-700/50 transition-colors relative mb-3 bg-gray-800/50 border ${isRunning ? 'border-green-500/50 shadow-md shadow-green-500/10' : 'border-gray-700/60'}" data-id="${machine.id}">
+                <div class="vm-list-item group flex flex-col sm:flex-row items-start sm:items-center p-3.5 sm:p-4 rounded-xl hover:bg-[#FFFDFD] hover:border-[#FFB8B8] transition-colors relative mb-3 bg-white border ${isRunning ? 'border-emerald-500 shadow-sm' : 'border-[#FFD6D6]'}" data-id="${machine.id}">
                     ${runningIndicatorHtml}
                     <div class="flex items-center w-full sm:w-auto min-w-0 flex-1 gap-3">
-                        <div class="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0 border border-gray-700/80 shadow-inner">
-                            <i class="fas ${machine.sourceType === 'snapshot' ? 'fa-file-import text-purple-400' : 'fa-desktop text-indigo-400'} text-xl"></i>
+                        <div class="w-12 h-12 rounded-xl bg-[#FFB8B8] flex items-center justify-center flex-shrink-0 border border-[#F39E9E]">
+                            <i class="fas ${machine.sourceType === 'snapshot' ? 'fa-file-import text-[#231113]' : 'fa-desktop text-[#231113]'} text-xl"></i>
                         </div>
                         <div class="flex-1 overflow-hidden min-w-0 pr-12 sm:pr-0">
-                            <p class="font-bold text-white text-base truncate">${machine.name}</p>
-                            <div class="text-[10px] sm:text-[11px] text-gray-400 flex flex-wrap gap-1.5 mt-1">
-                                <span class="bg-gray-700/80 px-2 py-0.5 rounded border border-gray-600/80 font-mono text-gray-300">${machine.ram}MB RAM</span>
-                                ${machine.blankDiskSize ? `<span class="bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 font-mono"><i class="fas fa-hard-drive mr-1"></i>${machine.blankDiskSize >= 1024 ? (machine.blankDiskSize/1024).toFixed(0) + 'GB' : machine.blankDiskSize + 'MB'} HDD</span>` : ''}
-                                ${hasSnap ? `<span class="bg-indigo-900/30 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/30 font-mono"><i class="fas fa-save mr-1"></i>${formatBytes(snap.size)}</span>` : ''}
+                            <p class="font-bold text-[#231113] text-base truncate">${machine.name}</p>
+                            <div class="text-[11px] text-[#634548] flex flex-wrap items-center gap-2 mt-1 font-mono tabular-nums">
+                                <span>${machine.ram}MB RAM</span>
+                                ${machine.blankDiskSize ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span>${machine.blankDiskSize >= 1024 ? (machine.blankDiskSize/1024).toFixed(0) + 'GB' : machine.blankDiskSize + 'MB'} HDD</span>` : ''}
+                                ${hasSnap ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="text-[#9E2F3B] font-semibold">Snapshot ${formatBytes(snap.size)}</span>` : ''}
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 mt-3 sm:mt-0 w-full sm:w-auto justify-end flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-700/40">
-                        <button class="start-vm-btn ${isRunning ? 'bg-gray-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 active:scale-95'} text-white h-10 px-4 sm:px-0 sm:w-10 rounded-lg flex items-center justify-center gap-2 text-xs font-bold shadow-md transition-all" title="${isRunning ? 'VM is already running' : 'Start VM'}" ${isRunning ? 'disabled' : ''}>
+                    <div class="flex items-center gap-2 mt-3 sm:mt-0 w-full sm:w-auto justify-end flex-shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#FFEAEA]">
+                        <button class="start-vm-btn ${isRunning ? 'bg-[#F5E1E1] text-[#8E6F72] cursor-not-allowed border border-[#E8C9C9]' : 'bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] active:scale-95'} h-10 px-4 sm:px-0 sm:w-10 rounded-lg flex items-center justify-center gap-2 text-xs font-bold shadow-sm transition-all" title="${isRunning ? 'VM is already running' : 'Start VM'}" ${isRunning ? 'disabled' : ''}>
                             <i class="fas fa-play text-xs"></i>
                             <span class="sm:hidden">Start</span>
                         </button>
-                        <button class="edit-vm-btn ${isRunning ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-blue-900/80 text-gray-300 hover:text-blue-200 active:scale-95'} h-10 px-3 sm:px-0 sm:w-10 rounded-lg flex items-center justify-center gap-2 text-xs font-medium border border-gray-600/60 transition-all" title="${isRunning ? 'Cannot edit a running VM' : 'Edit VM'}" ${isRunning ? 'disabled' : ''}>
+                        <button class="edit-vm-btn ${isRunning ? 'bg-[#FFF5F5] text-[#C4A5A8] cursor-not-allowed' : 'bg-[#FFF5F5] hover:bg-[#FFE4E4] text-[#231113] active:scale-95'} h-10 px-3 sm:px-0 sm:w-10 rounded-lg flex items-center justify-center gap-2 text-xs font-medium border border-[#FFD6D6] transition-all" title="${isRunning ? 'Cannot edit a running VM' : 'Edit VM'}" ${isRunning ? 'disabled' : ''}>
                             <i class="fas fa-pencil-alt text-xs"></i>
                             <span class="sm:hidden">Edit</span>
                         </button>
-                        <button class="remove-vm-btn ${isRunning ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 hover:bg-red-900/80 text-gray-300 hover:text-red-200 active:scale-95'} h-10 px-3 sm:px-0 sm:w-10 rounded-lg flex items-center justify-center gap-2 text-xs font-medium border border-gray-600/60 transition-all" title="${isRunning ? 'Cannot delete a running VM' : 'Delete VM'}" ${isRunning ? 'disabled' : ''}>
+                        <button class="remove-vm-btn ${isRunning ? 'bg-[#FFF5F5] text-[#C4A5A8] cursor-not-allowed' : 'bg-[#FFF5F5] hover:bg-red-50 text-[#634548] hover:text-red-700 hover:border-red-300 active:scale-95'} h-10 px-3 sm:px-0 sm:w-10 rounded-lg flex items-center justify-center gap-2 text-xs font-medium border border-[#FFD6D6] transition-all" title="${isRunning ? 'Cannot delete a running VM' : 'Delete VM'}" ${isRunning ? 'disabled' : ''}>
                             <i class="fas fa-trash text-xs"></i>
                             <span class="sm:hidden">Delete</span>
                         </button>
@@ -1250,9 +1264,15 @@ function resetModal() {
         blankDiskSize: 1024
     };
     if(elements.ramSlider) {
-        elements.ramSlider.value = newVM.ram;
         elements.ramSlider.max = detectedSystemSpecs.maxAllowed;
+        elements.ramSlider.value = newVM.ram;
         elements.ramValue.textContent = newVM.ram + ' MB';
+        updateSliderProgress(elements.ramSlider);
+    }
+    if(elements.vramSlider) {
+        elements.vramSlider.value = 4;
+        if(elements.vramValue) elements.vramValue.textContent = '4 MB';
+        updateSliderProgress(elements.vramSlider);
     }
     if(elements.vmNameInput) elements.vmNameInput.value = '';
     if(elements.primaryUpload) elements.primaryUpload.value = '';
@@ -1265,9 +1285,9 @@ function resetModal() {
     document.querySelectorAll('.disk-size-preset-btn').forEach(btn => {
         const sz = btn.dataset.size;
         if (sz === '1024') {
-            btn.className = 'disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-semibold text-center bg-indigo-600 text-white border border-indigo-400 shadow-md shadow-indigo-600/30 transition-all whitespace-nowrap';
+            btn.className = 'disk-size-preset-btn py-2 px-2 rounded-lg text-xs font-mono font-semibold text-center bg-[#FFB8B8] text-[#231113] border border-[#F09292] shadow-sm transition-all whitespace-nowrap tabular-nums';
         } else {
-            btn.className = 'disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-medium text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all whitespace-nowrap';
+            btn.className = 'disk-size-preset-btn py-2 px-2 rounded-lg text-xs font-mono font-medium text-center bg-white hover:bg-[#FFF0F0] text-[#634548] border border-[#FFD6D6] transition-all whitespace-nowrap tabular-nums';
         }
     });
 
@@ -1283,17 +1303,17 @@ function updateStepUI() {
     elements.stepIndicators.forEach((el, i) => {
          const div = el.querySelector('div');
          if (i + 1 === currentStep) {
-             div.className = 'w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold border-2 border-indigo-400';
+             div.className = 'w-8 h-8 rounded-full bg-[#FFB8B8] flex items-center justify-center text-[#231113] font-bold border-2 border-[#F09292] text-xs';
              div.innerHTML = i + 1;
-             el.className = 'flex flex-col items-center gap-2 text-indigo-400';
+             el.className = 'flex flex-col items-center gap-1.5 text-[#9E2F3B] font-semibold';
          } else if (i + 1 < currentStep) {
-             div.className = 'w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white border-2 border-green-400';
+             div.className = 'w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white border-2 border-emerald-400 text-xs';
              div.innerHTML = '<i class="fas fa-check text-xs"></i>';
-             el.className = 'flex flex-col items-center gap-2 text-green-400';
+             el.className = 'flex flex-col items-center gap-1.5 text-emerald-700 font-semibold';
          } else {
-             div.className = 'w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold border-2 border-gray-600';
+             div.className = 'w-8 h-8 rounded-full bg-[#FFF2F2] flex items-center justify-center text-[#634548] font-bold border-2 border-[#FFD6D6] text-xs';
              div.innerHTML = i + 1;
-             el.className = 'flex flex-col items-center gap-2 text-gray-500';
+             el.className = 'flex flex-col items-center gap-1.5 text-[#634548]';
          }
     });
 
@@ -1423,11 +1443,13 @@ function openEditModal(id) {
     elements.editVmNameInput.value = machine.name || '';
     elements.editRamSlider.value = machine.ram || 128;
     elements.editRamValue.textContent = `${machine.ram || 128} MB`;
+    updateSliderProgress(elements.editRamSlider);
     
     if (elements.editVramSlider) {
         const vramVal = machine.vram || 8;
         elements.editVramSlider.value = vramVal;
         if (elements.editVramValue) elements.editVramValue.textContent = `${vramVal} MB`;
+        updateSliderProgress(elements.editVramSlider);
     }
 
     elements.editNetworkToggle.checked = machine.network || false;
@@ -1444,21 +1466,21 @@ function openEditModal(id) {
         if (machine.hdaFile || machine.hasBlankDisk) {
             const diskSize = machine.blankDiskSize ? `${machine.blankDiskSize} MB (${(machine.blankDiskSize / 1024).toFixed(1)} GB)` : (machine.hdaFile?.name || 'Attached Image');
             elements.editDiskStatusBadge.textContent = 'ATTACHED';
-            elements.editDiskStatusBadge.className = 'font-mono text-[11px] text-emerald-400 font-bold';
+            elements.editDiskStatusBadge.className = 'font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap';
             elements.editDiskContainer.innerHTML = `
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between text-xs bg-gray-900/80 p-3 rounded-xl border border-gray-700 text-gray-300">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <i class="fas fa-hard-drive text-indigo-400 text-base flex-shrink-0"></i>
-                            <div class="min-w-0">
-                                <span class="block font-semibold text-white truncate">Primary Hard Disk (hda)</span>
-                                <span class="font-mono text-[11px] text-indigo-300">${diskSize}</span>
-                            </div>
+                <div class="pt-3 border-t border-[#FFE2E2] flex items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-lg bg-[#FFB8B8] border border-[#F39E9E] flex items-center justify-center flex-shrink-0 text-[#231113]">
+                            <i class="fas fa-hard-drive text-sm"></i>
                         </div>
-                        <button id="edit-detach-disk-btn" class="bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 flex-shrink-0">
-                            <i class="fas fa-unlink"></i> Detach Disk
-                        </button>
+                        <div class="min-w-0">
+                            <span class="block font-semibold text-[#231113] truncate">Primary Hard Disk (hda)</span>
+                            <span class="font-mono text-[11px] text-[#9E2F3B] tabular-nums">${diskSize}</span>
+                        </div>
                     </div>
+                    <button id="edit-detach-disk-btn" type="button" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
+                        <i class="fas fa-unlink"></i> Detach Disk
+                    </button>
                 </div>
             `;
 
@@ -1479,37 +1501,46 @@ function openEditModal(id) {
             }, 0);
         } else {
             elements.editDiskStatusBadge.textContent = 'NO DISK';
-            elements.editDiskStatusBadge.className = 'font-mono text-[11px] text-yellow-400 font-bold';
+            elements.editDiskStatusBadge.className = 'font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap';
+            const activePresetCls = 'edit-disk-preset-btn py-2 px-2 rounded-lg text-xs font-mono font-semibold text-center bg-[#FFB8B8] text-[#231113] border border-[#F09292] shadow-sm transition-all whitespace-nowrap tabular-nums';
+            const inactivePresetCls = 'edit-disk-preset-btn py-2 px-2 rounded-lg text-xs font-mono font-medium text-center bg-white hover:bg-[#FFF0F0] text-[#634548] border border-[#FFD6D6] transition-all whitespace-nowrap tabular-nums';
             elements.editDiskContainer.innerHTML = `
-                <div class="space-y-3 bg-gray-950/60 p-3 rounded-xl border border-gray-750">
-                    <p class="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
+                <div class="pt-3 border-t border-[#FFE2E2] space-y-3.5">
+                    <p class="text-xs font-semibold text-[#9E2F3B] flex items-center gap-1.5">
                         <i class="fas fa-plus-circle"></i> Attach or Create System Hard Disk
                     </p>
                     
-                    <div>
-                        <label class="block text-[11px] font-semibold text-gray-400 mb-1.5">Select Blank Disk Size Preset</label>
-                        <div class="grid grid-cols-5 gap-1.5">
-                            <button type="button" class="edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all" data-size="256">256MB</button>
-                            <button type="button" class="edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all" data-size="512">512MB</button>
-                            <button type="button" class="edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-indigo-600 text-white border border-indigo-400 shadow-md transition-all" data-size="1024">1 GB</button>
-                            <button type="button" class="edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all" data-size="2048">2 GB</button>
-                            <button type="button" class="edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all" data-size="4096">4 GB</button>
+                    <div class="space-y-1.5">
+                        <label class="block text-[11px] font-medium text-[#634548]">Select Blank Disk Size Preset</label>
+                        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            <button type="button" class="${inactivePresetCls}" data-size="256">256 MB</button>
+                            <button type="button" class="${inactivePresetCls}" data-size="512">512 MB</button>
+                            <button type="button" class="${activePresetCls}" data-size="1024">1 GB</button>
+                            <button type="button" class="${inactivePresetCls}" data-size="2048">2 GB</button>
+                            <button type="button" class="${inactivePresetCls}" data-size="4096">4 GB</button>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-[11px] font-semibold text-gray-400 mb-1">Custom Size (MB)</label>
-                            <input type="number" id="edit-custom-disk-mb" value="1024" min="64" max="16384" step="64" class="w-full bg-gray-900 border border-gray-650 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono">
+                            <label for="edit-custom-disk-mb" class="block text-[11px] font-medium text-[#634548] mb-1.5">Custom Size (MB)</label>
+                            <div class="relative">
+                                <input type="number" id="edit-custom-disk-mb" value="1024" min="64" max="16384" step="64" class="w-full bg-white border border-[#FFD6D6] rounded-lg pl-3 pr-10 py-2 text-xs text-[#231113] focus:outline-none focus:border-[#B83B48] font-mono tabular-nums">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#634548] pointer-events-none">MB</span>
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-semibold text-gray-400 mb-1">Or Upload Custom Image</label>
-                            <input type="file" id="edit-disk-file-input" class="w-full text-xs text-gray-300 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-gray-700 file:text-indigo-300 hover:file:bg-gray-600 block">
+                            <label for="edit-disk-file-input" class="block text-[11px] font-medium text-[#634548] mb-1.5">Or Upload Custom Image</label>
+                            <label for="edit-disk-file-input" class="w-full bg-white hover:bg-[#FFF5F5] border border-dashed border-[#FFB8B8] hover:border-[#B83B48] rounded-lg px-2.5 py-1.5 min-h-[2.25rem] flex items-center gap-2 cursor-pointer transition-colors">
+                                <span class="px-2 py-1 rounded bg-[#FFF0F0] text-[#9E2F3B] border border-[#FFB8B8] text-[11px] font-semibold whitespace-nowrap flex-shrink-0">Choose File</span>
+                                <span id="edit-disk-file-label" class="text-[11px] text-[#634548] truncate">No file selected</span>
+                                <input type="file" id="edit-disk-file-input" accept=".img,.raw,.bin,.dsk" class="sr-only">
+                            </label>
                         </div>
                     </div>
 
-                    <button id="edit-attach-disk-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/50 rounded-lg py-2 px-3 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30">
-                        <i class="fas fa-hard-drive"></i> Create & Attach Hard Disk
+                    <button id="edit-attach-disk-btn" type="button" class="w-full bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] rounded-lg py-2.5 px-4 text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm">
+                        <i class="fas fa-hard-drive"></i> Create &amp; Attach Hard Disk
                     </button>
                 </div>
             `;
@@ -1519,23 +1550,36 @@ function openEditModal(id) {
                 const presetBtns = document.querySelectorAll('.edit-disk-preset-btn');
                 const customInput = document.getElementById('edit-custom-disk-mb');
                 const fileInput = document.getElementById('edit-disk-file-input');
+                const fileLabel = document.getElementById('edit-disk-file-label');
                 const attachBtn = document.getElementById('edit-attach-disk-btn');
+
+                const syncPresets = (size) => {
+                    presetBtns.forEach(b => {
+                        const match = parseInt(b.dataset.size, 10) === size;
+                        b.className = match ? activePresetCls : inactivePresetCls;
+                    });
+                };
 
                 presetBtns.forEach(btn => {
                     btn.onclick = () => {
                         selectedSize = parseInt(btn.dataset.size, 10);
                         if (customInput) customInput.value = selectedSize;
-                        presetBtns.forEach(b => {
-                            b.className = (b === btn)
-                                ? 'edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-indigo-600 text-white border border-indigo-400 shadow-md transition-all'
-                                : 'edit-disk-preset-btn py-1.5 px-1 rounded-lg text-xs font-semibold text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all';
-                        });
+                        syncPresets(selectedSize);
                     };
                 });
 
                 if (customInput) {
                     customInput.oninput = () => {
                         selectedSize = parseInt(customInput.value, 10) || 1024;
+                        syncPresets(selectedSize);
+                    };
+                }
+
+                if (fileInput && fileLabel) {
+                    fileInput.onchange = () => {
+                        const f = fileInput.files && fileInput.files[0];
+                        fileLabel.textContent = f ? f.name : 'No file selected';
+                        fileLabel.className = f ? 'text-[11px] text-[#9E2F3B] font-medium truncate' : 'text-[11px] text-[#634548] truncate';
                     };
                 }
 
@@ -1781,24 +1825,24 @@ function renderSingleLogEntry(entry) {
     const timeStr = new Date(entry.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
 
     let levelBadge = '';
-    let textClass = 'text-gray-300';
+    let textClass = 'text-[#FFF5F5]';
 
     if (entry.level === 'error') {
-        levelBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-red-950 text-red-400 border border-red-800/60 font-bold shrink-0 font-mono">ERR</span>';
+        levelBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-red-950 text-red-300 border border-red-800/60 font-bold shrink-0 font-mono">ERR</span>';
         textClass = 'text-red-300 font-semibold';
     } else if (entry.level === 'serial') {
-        levelBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-800/60 font-bold shrink-0 font-mono">TTY</span>';
-        textClass = 'text-cyan-200';
+        levelBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-[#FFB8B8]/20 text-[#FFB8B8] border border-[#FFB8B8]/40 font-bold shrink-0 font-mono">TTY</span>';
+        textClass = 'text-[#FFD6D6]';
     } else {
-        levelBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-950 text-indigo-400 border border-indigo-800/60 font-bold shrink-0 font-mono">INFO</span>';
-        textClass = 'text-gray-300';
+        levelBadge = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-white/10 text-[#FFB8B8] border border-white/20 font-bold shrink-0 font-mono">INFO</span>';
+        textClass = 'text-[#FFF5F5]';
     }
 
     const logRow = document.createElement('div');
-    logRow.className = 'py-0.5 hover:bg-gray-900/60 font-mono text-[11px] flex items-start gap-2 border-b border-gray-900/40 transition-colors';
+    logRow.className = 'py-0.5 hover:bg-white/5 font-mono text-[11px] flex items-start gap-2 border-b border-white/5 transition-colors';
     logRow.innerHTML = `
-        <span class="text-gray-500 shrink-0 font-mono">${timeStr}</span>
-        <span class="text-purple-400 shrink-0 font-semibold text-[10px] font-mono">[${escapeHtml(entry.vmName)}]</span>
+        <span class="text-[#D9A7AC] shrink-0 font-mono tabular-nums">${timeStr}</span>
+        <span class="text-[#FFB8B8] shrink-0 font-semibold text-[10px] font-mono">[${escapeHtml(entry.vmName)}]</span>
         ${levelBadge}
         <span class="${textClass} break-all flex-1 font-mono">${escapeHtml(entry.log)}</span>
     `;
@@ -1817,8 +1861,8 @@ function renderAllLogs() {
     container.innerHTML = '';
     if (emulatorLogs.length === 0) {
         container.innerHTML = `
-            <div class="text-gray-500 italic flex items-center gap-2">
-                <i class="fas fa-circle-notch fa-spin text-indigo-400"></i> Listening for v86 console logs and serial output...
+            <div class="text-[#FFD6D6] italic flex items-center gap-2 py-4 justify-center">
+                <i class="fas fa-circle-notch fa-spin text-[#FFB8B8]"></i> Listening for v86 console logs and serial output...
             </div>
         `;
         return;
@@ -1871,8 +1915,8 @@ function initLogModalListeners() {
             activeLogFilter = btn.dataset.logFilter || 'ALL';
             document.querySelectorAll('.log-filter-btn').forEach(b => {
                 b.className = (b === btn)
-                    ? 'log-filter-btn bg-indigo-600 text-white px-2.5 py-1 rounded font-semibold text-[11px] border border-indigo-400/40 transition-all'
-                    : 'log-filter-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded font-medium text-[11px] border border-gray-700 transition-all';
+                    ? 'log-filter-btn bg-[#FFB8B8] text-[#231113] px-3 py-1 rounded-md font-semibold text-[11px] border border-[#F39E9E] shadow-sm transition-all'
+                    : 'log-filter-btn bg-white hover:bg-[#FFF0F0] text-[#634548] px-3 py-1 rounded-md font-medium text-[11px] border border-[#FFD6D6] transition-all';
             });
             renderAllLogs();
         };
@@ -1913,8 +1957,13 @@ async function initApp() {
     initLogModalListeners();
     addEmulatorLog({ id: 'SYS', vmName: 'System', log: 'Dashboard initialized. Listening for v86 console output...', level: 'info' });
     
+    const closeMobileSidebar = () => {
+        if (elements.sidebar) elements.sidebar.classList.add('-translate-x-full');
+        if (elements.overlay) elements.overlay.classList.add('hidden');
+    };
+
     // Listeners
-    elements.createVmBtn.onclick = () => { resetModal(); elements.createVmModal.classList.remove('hidden'); };
+    elements.createVmBtn.onclick = () => { closeMobileSidebar(); resetModal(); elements.createVmModal.classList.remove('hidden'); };
     elements.closeModalBtn.onclick = () => elements.createVmModal.classList.add('hidden');
     elements.modalBackBtn.onclick = () => { if(currentStep > 1) { currentStep--; updateStepUI(); }};
     elements.modalNextBtn.onclick = () => { 
@@ -1932,7 +1981,7 @@ async function initApp() {
     elements.loadSnapshotBtn.onclick = () => elements.snapshotUpload.click();
     elements.snapshotUpload.onchange = importSnapshot;
     elements.resetAppBtn.onclick = factoryReset;
-    elements.helpBtn.onclick = () => elements.helpModal.classList.remove('hidden');
+    elements.helpBtn.onclick = () => { closeMobileSidebar(); elements.helpModal.classList.remove('hidden'); };
     elements.closeHelpBtn.onclick = () => elements.helpModal.classList.add('hidden');
 
 
@@ -1973,8 +2022,8 @@ async function initApp() {
             }
             document.querySelectorAll('.disk-size-preset-btn').forEach(b => {
                 b.className = (b === btn)
-                    ? 'disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-semibold text-center bg-indigo-600 text-white border border-indigo-400 shadow-md shadow-indigo-600/30 transition-all whitespace-nowrap'
-                    : 'disk-size-preset-btn py-2 px-1 rounded-lg text-xs font-medium text-center bg-gray-750 hover:bg-gray-700 text-gray-300 border border-gray-650 transition-all whitespace-nowrap';
+                    ? 'disk-size-preset-btn py-2 px-2 rounded-lg text-xs font-mono font-semibold text-center bg-[#FFB8B8] text-[#231113] border border-[#F09292] shadow-sm transition-all whitespace-nowrap tabular-nums'
+                    : 'disk-size-preset-btn py-2 px-2 rounded-lg text-xs font-mono font-medium text-center bg-white hover:bg-[#FFF0F0] text-[#634548] border border-[#FFD6D6] transition-all whitespace-nowrap tabular-nums';
             });
         };
     });
@@ -1986,16 +2035,20 @@ async function initApp() {
     elements.ramSlider.oninput = (e) => {
         newVM.ram = e.target.value;
         elements.ramValue.textContent = e.target.value + ' MB';
+        updateSliderProgress(e.target);
     };
     elements.vramSlider.oninput = (e) => {
         elements.vramValue.textContent = e.target.value + ' MB';
+        updateSliderProgress(e.target);
     };
+    updateSliderProgress(elements.ramSlider);
+    updateSliderProgress(elements.vramSlider);
     elements.vmNameInput.oninput = (e) => newVM.name = e.target.value;
 
     // Sidebar
     elements.menuOpenBtn.onclick = () => { elements.sidebar.classList.remove('-translate-x-full'); elements.overlay.classList.remove('hidden'); };
-    elements.menuCloseBtn.onclick = () => { elements.sidebar.classList.add('-translate-x-full'); elements.overlay.classList.add('hidden'); };
-    elements.overlay.onclick = () => { elements.sidebar.classList.add('-translate-x-full'); elements.overlay.classList.add('hidden'); };
+    elements.menuCloseBtn.onclick = closeMobileSidebar;
+    elements.overlay.onclick = closeMobileSidebar;
 
     // VM List Actions
     elements.vmList.onclick = (e) => {
@@ -2013,6 +2066,7 @@ async function initApp() {
     // System Diagnostics Modal
     if (elements.sysInfoBtn) {
         elements.sysInfoBtn.onclick = () => {
+            closeMobileSidebar();
             if (elements.systemDiagnosticsModal) elements.systemDiagnosticsModal.classList.remove('hidden');
         };
     }
@@ -2040,6 +2094,7 @@ async function initApp() {
     // Storage Manager
     if (elements.storageManagerBtn) {
         elements.storageManagerBtn.onclick = async () => {
+            closeMobileSidebar();
             if (elements.storageManagerModal) elements.storageManagerModal.classList.remove('hidden');
             await renderStorageManager();
         };
@@ -2081,12 +2136,16 @@ async function initApp() {
     elements.saveChangesBtn.onclick = saveVmChanges;
     elements.editRamSlider.oninput = (e) => {
         elements.editRamValue.textContent = `${e.target.value} MB`;
+        updateSliderProgress(e.target);
     };
     if (elements.editVramSlider) {
         elements.editVramSlider.oninput = (e) => {
             if (elements.editVramValue) elements.editVramValue.textContent = `${e.target.value} MB`;
+            updateSliderProgress(e.target);
         };
     }
+    updateSliderProgress(elements.editRamSlider);
+    updateSliderProgress(elements.editVramSlider);
 
 // --- Offline Caching & PWA Engine ---
 let deferredPwaPrompt = null;
@@ -2104,21 +2163,21 @@ async function initPWAAndOfflineCaching() {
     function updateToggleUI(enabled, textOverride = null) {
         if (!toggleBtn || !knob || !statusText) return;
         if (enabled) {
-            toggleBtn.classList.remove('bg-gray-600');
-            toggleBtn.classList.add('bg-indigo-600');
+            toggleBtn.classList.remove('bg-[#EBD3D3]');
+            toggleBtn.classList.add('bg-[#FFB8B8]');
             toggleBtn.setAttribute('aria-checked', 'true');
             knob.classList.remove('translate-x-0');
             knob.classList.add('translate-x-5');
             statusText.textContent = textOverride || 'ACTIVE';
-            statusText.className = 'font-mono text-emerald-400 font-semibold';
+            statusText.className = 'font-mono text-emerald-700 font-semibold';
         } else {
-            toggleBtn.classList.remove('bg-indigo-600');
-            toggleBtn.classList.add('bg-gray-600');
+            toggleBtn.classList.remove('bg-[#FFB8B8]');
+            toggleBtn.classList.add('bg-[#EBD3D3]');
             toggleBtn.setAttribute('aria-checked', 'false');
             knob.classList.remove('translate-x-5');
             knob.classList.add('translate-x-0');
             statusText.textContent = textOverride || 'DISABLED';
-            statusText.className = 'font-mono text-gray-400 font-medium';
+            statusText.className = 'font-mono text-[#634548] font-medium';
         }
     }
 

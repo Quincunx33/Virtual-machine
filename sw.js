@@ -1,5 +1,5 @@
 // === WebVM Progressive Web App (PWA) Service Worker ===
-const CACHE_NAME = 'webvm-offline-v3-ui-fix';
+const CACHE_NAME = 'webvm-offline-v4-blush-white';
 
 const CORE_ASSETS = [
     './',
@@ -16,7 +16,7 @@ const CORE_ASSETS = [
     './src/assets/images/pwa_app_icon_1787090612548.jpg',
     'https://cdn.tailwindcss.com',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-    'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap'
+    'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap'
 ];
 
 // Installation: Cache essential assets

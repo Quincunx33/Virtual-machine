@@ -11,6 +11,7 @@ function copyStaticAssets(): Plugin {
         'vgabios.bin',
         'v86.wasm',
         'libv86.js',
+        'landing.js',
         'dashboard.js',
         'vm-manager.js',
         'sw.js',

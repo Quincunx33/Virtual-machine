@@ -10,17 +10,24 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
 
     <!-- SEO Meta Tags -->
-    <title>Web VM – Browser Virtual Machine &amp; PC Emulator</title>
+    <title>WebVM – Browser Virtual Machine &amp; PC Emulator</title>
     <meta name="description" content="Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline."/>
+    <meta name="keywords" content="WebVM, browser virtual machine, x86 emulator, WebAssembly VM, run Linux in browser, libv86, FreeDOS emulator, online PC emulator, boot ISO in browser, IndexedDB virtual disk"/>
     <meta name="author" content="WebVM Team"/>
+    <meta name="application-name" content="WebVM"/>
+    <meta name="apple-mobile-web-app-title" content="WebVM"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1"/>
-    <meta name="theme-color" content="#4f46e5"/>
+    <meta name="theme-color" content="#FFB8B8"/>
     <link rel="canonical" href="https://virtual-machine.pages.dev/"/>
+    <link rel="alternate" hreflang="en" href="https://virtual-machine.pages.dev/"/>
+    <link rel="alternate" hreflang="x-default" href="https://virtual-machine.pages.dev/"/>
 
     <!-- OpenGraph Social Cards -->
     <meta property="og:type" content="website"/>
     <meta property="og:url" content="https://virtual-machine.pages.dev/"/>
-    <meta property="og:title" content="Web VM – Browser Virtual Machine &amp; PC Emulator"/>
+    <meta property="og:title" content="WebVM – Browser Virtual Machine &amp; PC Emulator"/>
     <meta property="og:description" content="Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline."/>
     <meta property="og:site_name" content="WebVM"/>
     <meta property="og:locale" content="en_US"/>
@@ -34,7 +41,7 @@
     <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image"/>
     <meta name="twitter:url" content="https://virtual-machine.pages.dev/"/>
-    <meta name="twitter:title" content="Web VM – Browser Virtual Machine &amp; PC Emulator"/>
+    <meta name="twitter:title" content="WebVM – Browser Virtual Machine &amp; PC Emulator"/>
     <meta name="twitter:description" content="Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline."/>
     <meta name="twitter:image" content="https://virtual-machine.pages.dev/og-image.jpg"/>
     <meta name="twitter:image:alt" content="WebVM - Browser Virtual Machine &amp; PC Emulator"/>
@@ -43,16 +50,49 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebApplication",
+      "@type": "WebSite",
+      "@id": "https://virtual-machine.pages.dev/#website",
       "name": "WebVM",
+      "alternateName": ["Web VM", "Browser Virtual Machine"],
+      "url": "https://virtual-machine.pages.dev/",
+      "inLanguage": "en"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "@id": "https://virtual-machine.pages.dev/#app",
+      "name": "WebVM",
+      "alternateName": "Web VM",
       "url": "https://virtual-machine.pages.dev/",
       "applicationCategory": "UtilitiesApplication",
+      "applicationSubCategory": "Virtual Machine & x86 PC Emulator",
       "operatingSystem": "All",
-      "browserRequirements": "Requires WebAssembly support",
+      "browserRequirements": "Requires modern browser with WebAssembly and IndexedDB support",
+      "softwareVersion": "2.2",
+      "isAccessibleForFree": true,
+      "inLanguage": "en",
+      "screenshot": "https://virtual-machine.pages.dev/og-image.jpg",
+      "image": "https://virtual-machine.pages.dev/og-image.jpg",
+      "keywords": "WebVM, browser virtual machine, x86 emulator, WebAssembly, Linux, Windows, FreeDOS, libv86",
+      "featureList": [
+        "Client-side x86 CPU emulation via WebAssembly and libv86",
+        "Boot ISO, floppy IMG, raw hard disk images, or Linux bzImage/initrd",
+        "Local IndexedDB virtual hard disks and RAM state snapshots",
+        "Offline Progressive Web App caching via Service Worker",
+        "Touch virtual keyboard and draggable Assistive Touch controls"
+      ],
       "description": "Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline.",
       "author": {
-        "@type": "Organization",
-        "name": "WebVM Project"
+        "@type": "Person",
+        "name": "Tasfiya Tabassum",
+        "url": "https://taissu.pages.dev",
+        "sameAs": [
+          "https://taissu.pages.dev",
+          "https://facebook.com/taissuuu",
+          "https://instagram.com/tasfiya__tabassum__"
+        ]
       },
       "offers": {
         "@type": "Offer",
@@ -61,11 +101,119 @@
       }
     }
     </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "How to Run an Operating System in Your Browser with WebVM",
+      "description": "Create and boot a client-side Linux, Windows, or DOS virtual machine locally inside your web browser using WebAssembly.",
+      "totalTime": "PT2M",
+      "step": [
+        {
+          "@type": "HowToStep",
+          "position": 1,
+          "name": "Open Dashboard and Select Boot Media",
+          "text": "Launch the WebVM dashboard, click Create New Machine, and select a CD-ROM (.iso), Floppy (.img), or Hard Disk image.",
+          "url": "https://virtual-machine.pages.dev/text.html"
+        },
+        {
+          "@type": "HowToStep",
+          "position": 2,
+          "name": "Configure RAM, VRAM, and Virtual Hard Disk",
+          "text": "Allocate system memory, video memory, optional blank HDA disk capacity, and CPU profile suited to your device."
+        },
+        {
+          "@type": "HowToStep",
+          "position": 3,
+          "name": "Boot Machine and Save Local Snapshots",
+          "text": "Start the virtual machine in your browser and save or export RAM state snapshots locally in IndexedDB to resume anytime."
+        }
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://virtual-machine.pages.dev/"
+        }
+      ]
+    }
+    </script>
+
+    <!-- FAQPage Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is WebVM and how does it run an operating system in a browser?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "WebVM is a client-side x86 PC emulator powered by libv86 and WebAssembly. It compiles x86 CPU instructions directly inside your browser so you can boot and run real operating systems without installing virtual machine software or relying on cloud servers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which operating systems and disk image formats are supported?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "WebVM supports lightweight Linux distributions such as Alpine Linux, TinyCore, and Arch Linux, as well as FreeDOS and classic Windows environments. You can boot from CD-ROM (.iso), floppy (.img, .bin), and hard disk images (.img, .raw), or configure direct Linux kernel booting with bzImage and initrd."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Are my files, virtual hard disks, and snapshots private?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. All virtual machine execution happens locally on your device, and your configurations, virtual hard disks, and RAM state snapshots are stored inside your browser's local IndexedDB storage. No disk images or personal data are uploaded to any server."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use WebVM offline or on mobile and tablet devices?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. You can enable Offline Caching in the dashboard to precache the WebAssembly core and assets via Service Worker for offline use. On phones and tablets, WebVM includes a touch-friendly virtual keyboard and an Assistive Touch menu for mouse clicks, Ctrl+Alt+Del, fullscreen, and state saving."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much RAM should I allocate to a virtual machine?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "For DOS and lightweight Linux distros like TinyCore or Alpine, 64 MB to 128 MB of RAM works reliably. WebVM automatically inspects your host device memory to set a safe upper limit and offers a Potato Mode CPU profile for lower-spec hardware."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does WebVM support saving state and continuing later?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. While a virtual machine is running, you can save a complete RAM snapshot locally or export and import state files (.bin, .v86state) to resume your session exactly where you left off."
+          }
+        }
+      ]
+    }
+    </script>
     
     <!-- App Icon & Manifest (Install Logic) -->
     <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg">
     <link rel="manifest" href="manifest.json">
+
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin/>
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com"/>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -74,170 +222,506 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet"/>
     
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0B0F19; color: #f3f4f6; overflow-x: hidden; }
-        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
-        
-        /* 3D Effects */
-        .perspective-1000 { perspective: 1000px; }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: #FFFFFF;
+            color: #231113;
+            overflow-x: hidden;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        code, pre, .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Scroll Progress Hairline & Scrolled Navbar */
+        #scroll-progress {
+            transform: scaleX(0);
+            transform-origin: left center;
+            will-change: transform;
+        }
+        #main-nav {
+            transition: box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.25s ease;
+        }
+        #main-nav.nav-scrolled {
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 10px 30px -12px rgba(184, 59, 72, 0.16);
+        }
+
+        .perspective-1000 { perspective: 1100px; }
         .preserve-3d { transform-style: preserve-3d; }
-        
+
+        /* Decoupled float wrapper so 3D tilt on .hero-card never conflicts with translateY */
+        .hero-float {
+            animation: heroFloat 5.2s ease-in-out infinite;
+            will-change: transform;
+        }
+        @keyframes heroFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-14px); }
+        }
+
+        .hero-aura {
+            animation: heroAuraPulse 6s ease-in-out infinite;
+            will-change: transform, opacity;
+        }
+        @keyframes heroAuraPulse {
+            0%, 100% { transform: scale(0.95); opacity: 0.55; }
+            50% { transform: scale(1.06); opacity: 0.9; }
+        }
+
         .hero-card {
-            transform: rotateX(10deg) rotateY(-10deg) rotateZ(2deg);
-            transition: transform 0.5s ease-out;
-            box-shadow: -20px 20px 60px rgba(0,0,0,0.5), 0 0 20px rgba(99, 102, 241, 0.2);
-        }০
-        .hero-card:hover {
-            transform: rotateX(5deg) rotateY(-5deg) rotateZ(1deg) scale(1.02);
+            --tilt-x: 8deg;
+            --tilt-y: -8deg;
+            --tilt-z: 1.5deg;
+            --tilt-scale: 1;
+            transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) rotateZ(var(--tilt-z)) scale(var(--tilt-scale));
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: -16px 24px 48px rgba(184, 59, 72, 0.14), 0 0 0 1px rgba(255, 184, 184, 0.55);
+            will-change: transform;
+        }
+        .hero-card.is-tilting {
+            transition: box-shadow 0.25s ease;
+            box-shadow: -10px 28px 60px rgba(184, 59, 72, 0.22), 0 0 0 1px rgba(255, 184, 184, 0.9);
+        }
+        @media (hover: hover) {
+            .hero-card:not(.is-tilting):hover {
+                --tilt-x: 3deg;
+                --tilt-y: -3deg;
+                --tilt-z: 0.5deg;
+                --tilt-scale: 1.015;
+                box-shadow: -12px 28px 56px rgba(184, 59, 72, 0.2), 0 0 0 1px rgba(255, 184, 184, 0.85);
+            }
         }
 
-        .feature-card {
-            transition: all 0.3s ease;
-            transform: translateY(0);
+        .float-badge-a {
+            animation: badgeFloatA 4s ease-in-out infinite;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            will-change: transform;
         }
-        .feature-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        .float-badge-b {
+            animation: badgeFloatB 4.6s ease-in-out infinite;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            will-change: transform;
+        }
+        .hero-card:hover .float-badge-a {
+            animation-play-state: paused;
+            transform: translateY(-6px) scale(1.08) rotate(-4deg);
+        }
+        .hero-card:hover .float-badge-b {
+            animation-play-state: paused;
+            transform: translateY(6px) scale(1.08) rotate(4deg);
+        }
+        @keyframes badgeFloatA {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-9px) rotate(-2deg); }
+        }
+        @keyframes badgeFloatB {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(9px) rotate(2deg); }
         }
 
-        .gradient-text {
-            background: linear-gradient(to right, #818cf8, #c084fc, #f472b6);
+        .blob-drift-a {
+            animation: blobDriftA 11s ease-in-out infinite;
+            will-change: transform, opacity;
+        }
+        .blob-drift-b {
+            animation: blobDriftB 14s ease-in-out infinite;
+            will-change: transform, opacity;
+        }
+        @keyframes blobDriftA {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+            50% { transform: translate3d(28px, 18px, 0) scale(1.08); opacity: 1; }
+        }
+        @keyframes blobDriftB {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.8; }
+            50% { transform: translate3d(-26px, -16px, 0) scale(1.1); opacity: 1; }
+        }
+
+        /* Terminal Boot Sequence Lines */
+        .boot-line {
+            opacity: 0;
+            transform: translateX(-8px);
+            animation: bootLineIn 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation-delay: var(--boot-delay, 0ms);
+        }
+        .boot-card-in {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+            animation: bootCardIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation-delay: var(--boot-delay, 720ms);
+        }
+        @keyframes bootLineIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes bootCardIn {
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .cursor-blink {
+            animation: cursorBlink 1s steps(1, end) infinite;
+        }
+        @keyframes cursorBlink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        /* Staggered Hero Entrance */
+        .hero-enter-1 { animation: heroEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both; }
+        .hero-enter-2 { animation: heroEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both; }
+        .hero-enter-3 { animation: heroEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both; }
+        .hero-enter-4 { animation: heroEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.34s both; }
+        .hero-enter-delay { animation: heroEnterScale 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both; }
+        @keyframes heroEnter {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes heroEnterScale {
+            from { opacity: 0; transform: translateY(22px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Hero Headline Word Reveal & Coral-Ink Shimmer */
+        .hero-word-mask {
+            display: inline-block;
+            overflow: hidden;
+            vertical-align: bottom;
+            padding-bottom: 0.1em;
+            margin-bottom: -0.1em;
+        }
+        .hero-word {
+            display: inline-block;
+            opacity: 0;
+            transform: translate3d(0, 112%, 0) rotate(2deg);
+            animation: heroWordRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation-delay: var(--word-delay, 0ms);
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            will-change: transform, opacity;
+        }
+        .hero-word-mask:hover .hero-word {
+            transform: translate3d(0, -3px, 0);
+        }
+        @keyframes heroWordRise {
+            from { opacity: 0; transform: translate3d(0, 112%, 0) rotate(2deg); }
+            to { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+        }
+
+        .hero-title-shimmer {
+            background-image: linear-gradient(110deg, #231113 0%, #231113 36%, #B83B48 50%, #231113 64%, #231113 100%);
+            background-size: 240% 100%;
+            background-position: 100% 0;
             -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-size: 200% auto;
-            animation: gradient 5s linear infinite;
+            background-clip: text;
+            color: transparent;
+            animation: heroWordRise 0.65s cubic-bezier(0.16, 1, 0.3, 1) var(--word-delay, 260ms) forwards,
+                       titleShimmer 4.8s ease-in-out 1.1s infinite;
+        }
+        @keyframes titleShimmer {
+            0%, 100% { background-position: 100% 0; }
+            50% { background-position: 0% 0; }
         }
 
-        @keyframes gradient { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        /* Compositor-Only Blush Underline Sweep + Gentle Breathe */
+        .blush-underline {
+            position: relative;
+            display: inline-block;
+            z-index: 1;
+        }
+        .blush-underline::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0.08em;
+            height: 0.32em;
+            background: linear-gradient(120deg, #FFB8B8 0%, #FFD6D6 100%);
+            border-radius: 999px;
+            z-index: -1;
+            transform-origin: left center;
+            animation: underlineSweep 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.42s both,
+                       underlineBreathe 4.2s ease-in-out 1.2s infinite;
+        }
+        @keyframes underlineSweep {
+            from { transform: scaleX(0); opacity: 0.4; }
+            to { transform: scaleX(1); opacity: 1; }
+        }
+        @keyframes underlineBreathe {
+            0%, 100% { opacity: 0.92; transform: scaleX(1) scaleY(1); }
+            50% { opacity: 1; transform: scaleX(1.015) scaleY(1.08); }
+        }
 
-        /* Floating Animation */
-        .float { animation: float 6s ease-in-out infinite; }
-        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0px); } }
+        /* Tactile CTA Sheen */
+        .btn-sheen {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-sheen::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+            transform: skewX(-20deg);
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+        }
+        .btn-sheen:hover::after {
+            transform: translateX(340%) skewX(-20deg);
+        }
 
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* Cards & Interactive Icons */
+        .feature-card, .tech-card {
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+        }
+        .feature-card:hover, .tech-card:hover {
+            transform: translateY(-6px);
+            border-color: #FFB8B8;
+            box-shadow: 0 20px 36px -10px rgba(255, 184, 184, 0.38);
+        }
+        .card-icon-box {
+            transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+        }
+        .feature-card:hover .card-icon-box,
+        .tech-card:hover .card-icon-box {
+            transform: scale(1.1) rotate(-4deg);
+            box-shadow: 0 8px 18px -4px rgba(184, 59, 72, 0.22);
+        }
+
+        /* Scroll-Reveal System (Zero-Latency Fallback if JS disabled) */
+        [data-reveal] {
+            opacity: 1;
+            transform: none;
+        }
+        html.reveal-init [data-reveal] {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+            transition-delay: var(--reveal-delay, 0ms);
+            will-change: opacity, transform;
+        }
+        html.reveal-init [data-reveal="scale"] {
+            transform: translateY(16px) scale(0.96);
+        }
+        html.reveal-init [data-reveal].is-visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* CTA Ambient Rings */
+        .cta-ring-a {
+            animation: ctaRingSpin 16s linear infinite;
+            will-change: transform;
+        }
+        .cta-ring-b {
+            animation: ctaRingPulse 5s ease-in-out infinite;
+            will-change: transform, opacity;
+        }
+        @keyframes ctaRingSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes ctaRingPulse {
+            0%, 100% { transform: scale(1); opacity: 0.35; }
+            50% { transform: scale(1.12); opacity: 0.6; }
+        }
+
+        #mobile-menu:not(.hidden) {
+            animation: menuDropIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes menuDropIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        details > summary .faq-chevron {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, color 0.2s ease;
+        }
+        details[open] > summary .faq-chevron {
+            transform: rotate(180deg);
+        }
+        details[open] > div {
+            animation: faqOpen 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        @keyframes faqOpen {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .hero-float, .hero-aura, .float-badge-a, .float-badge-b, .blob-drift-a, .blob-drift-b,
+            .cursor-blink, .hero-enter-1, .hero-enter-2, .hero-enter-3, .hero-enter-4, .hero-enter-delay,
+            .hero-word, .hero-title-shimmer, .blush-underline::after, .boot-line, .boot-card-in, .cta-ring-a, .cta-ring-b {
+                animation: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+            .hero-title-shimmer {
+                background-image: none;
+                color: #231113;
+            }
+            html.reveal-init [data-reveal] {
+                opacity: 1 !important;
+                transform: none !important;
+                transition: none !important;
+            }
+            .hero-card, .hero-word, .feature-card, .tech-card, .card-icon-box, .btn-sheen::after,
+            details > summary .faq-chevron, #main-nav {
+                transition: none !important;
+                transform: none !important;
+            }
+            #mobile-menu:not(.hidden), details[open] > div { animation: none !important; }
         }
     </style>
 </head>
-<body class="antialiased selection:bg-indigo-500 selection:text-white">
+<body class="antialiased selection:bg-[#FFB8B8] selection:text-[#231113]">
 
-    <!-- Navbar -->
-    <nav class="fixed top-0 w-full z-50 glass border-b border-gray-800/50">
+    <!-- Navbar (3-Zone Top Bar Contract) -->
+    <nav id="main-nav" aria-label="Primary navigation" class="fixed top-0 w-full z-50 glass-nav border-b border-[#FFD8D8]">
+        <div id="scroll-progress" class="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-[#FFB8B8] via-[#E87A82] to-[#B83B48] pointer-events-none"></div>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16 sm:h-20">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                        <i class="fas fa-cube text-white text-base sm:text-lg"></i>
-                    </div>
-                    <span class="text-xl sm:text-2xl font-bold text-white tracking-tight">Web<span class="text-indigo-400">VM</span></span>
-                </div>
+            <div class="flex justify-between items-center h-16 sm:h-20 gap-8">
+                <a href="index.html" class="group flex items-center gap-2.5 whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B83B48] rounded-lg">
+                    <span class="w-9 h-9 bg-[#FFB8B8] border border-[#F39E9E] rounded-xl flex items-center justify-center shadow-sm transition-transform duration-200 group-hover:rotate-6 group-hover:scale-105">
+                        <i class="fas fa-cube text-[#231113] text-base" aria-hidden="true"></i>
+                    </span>
+                    <span class="font-display text-xl sm:text-2xl font-bold text-[#231113] tracking-tight">Web<span class="text-[#B83B48]">VM</span></span>
+                </a>
                 
                 <div class="hidden md:flex items-center gap-8">
-                    <a href="#features" class="text-sm font-medium text-gray-400 hover:text-white transition-colors">Capabilities</a>
-                    <a href="#tech" class="text-sm font-medium text-gray-400 hover:text-white transition-colors">Engine</a>
-                    <a href="text.html" class="bg-white text-black px-6 py-2.5 rounded-full font-bold hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)]">
+                    <a href="#features" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">Capabilities</a>
+                    <a href="#tech" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">Engine</a>
+                    <a href="#faq" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">FAQ</a>
+                </div>
+
+                <div class="hidden md:flex items-center shrink-0">
+                    <a href="text.html" class="btn-sheen bg-[#FFB8B8] hover:bg-[#FFA3A3] active:scale-[0.98] text-[#231113] border border-[#F39E9E] px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap shrink-0 shadow-sm">
                         Launch Dashboard
                     </a>
                 </div>
 
-                <button class="md:hidden text-white text-xl p-2 rounded-lg hover:bg-gray-800/60 focus:outline-none" aria-label="Toggle navigation" onclick="const menu = document.getElementById('mobile-menu'); menu.classList.toggle('hidden');">
+                <button id="mobile-menu-toggle" type="button" class="md:hidden text-[#231113] text-xl p-2 rounded-lg hover:bg-[#FFF0F0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B83B48]" aria-label="Toggle navigation" aria-controls="mobile-menu" aria-expanded="false">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
         </div>
         
         <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden md:hidden bg-[#0B0F19]/95 backdrop-blur-xl border-b border-gray-800 transition-all">
-            <div class="p-4 space-y-3">
-                <a href="#features" onclick="document.getElementById('mobile-menu').classList.add('hidden')" class="block px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg text-sm font-medium">Capabilities</a>
-                <a href="#tech" onclick="document.getElementById('mobile-menu').classList.add('hidden')" class="block px-4 py-2.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg text-sm font-medium">Engine</a>
-                <a href="text.html" class="block w-full text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/20">Launch Dashboard</a>
+        <div id="mobile-menu" class="hidden md:hidden bg-white/95 backdrop-blur-xl border-b border-[#FFD8D8] transition-all">
+            <div class="p-4 space-y-2">
+                <a href="#features" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">Capabilities</a>
+                <a href="#tech" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">Engine</a>
+                <a href="#faq" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">FAQ</a>
+                <a href="text.html" class="block w-full text-center bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] py-3 rounded-xl font-bold shadow-sm">Launch Dashboard</a>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
-    <main class="relative pt-24 pb-16 sm:pt-32 sm:pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
-        <!-- Background Blobs -->
+    <main class="relative pt-28 pb-16 sm:pt-36 sm:pb-24 lg:pt-44 lg:pb-28 bg-white overflow-hidden">
+        <!-- Soft #FFB8B8 Ambient Accents -->
         <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-            <div class="absolute top-1/4 left-1/4 w-64 h-64 sm:w-96 sm:h-96 bg-indigo-600/20 rounded-full blur-[80px] sm:blur-[100px] animate-pulse"></div>
-            <div class="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-purple-600/10 rounded-full blur-[100px] sm:blur-[120px]"></div>
+            <div class="blob-drift-a absolute -top-16 left-1/4 w-72 h-72 sm:w-[420px] sm:h-[420px] bg-[#FFB8B8]/35 rounded-full blur-[100px]"></div>
+            <div class="blob-drift-b absolute bottom-0 right-1/6 w-72 h-72 sm:w-[480px] sm:h-[480px] bg-[#FFB8B8]/25 rounded-full blur-[120px]"></div>
         </div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div class="flex flex-col lg:flex-row items-center gap-10 sm:gap-16">
+            <div class="flex flex-col lg:flex-row items-center gap-12 sm:gap-16">
                 
                 <!-- Text Content -->
                 <div class="lg:w-1/2 text-center lg:text-left">
-                    <div class="inline-flex items-center px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-[11px] sm:text-xs font-bold mb-6 sm:mb-8 uppercase tracking-widest">
-                        <span class="w-2 h-2 rounded-full bg-green-400 mr-2 animate-ping"></span>
-                        v2.0 Stable Release
-                    </div>
-                    
-                    <h1 class="text-3xl sm:text-5xl lg:text-7xl font-bold text-white mb-4 sm:mb-6 leading-[1.15] sm:leading-[1.1]">
-                        The Browser is <br/>
-                        <span class="gradient-text">Your Computer.</span>
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#231113] mb-5 sm:mb-6 leading-[1.15] tracking-tight [text-wrap:balance]">
+                        <span class="hero-word-mask"><span class="hero-word" style="--word-delay: 40ms;">The</span></span>
+                        <span class="hero-word-mask"><span class="hero-word" style="--word-delay: 110ms;">Browser</span></span>
+                        <span class="hero-word-mask"><span class="hero-word" style="--word-delay: 180ms;">is</span></span>
+                        <br class="hidden sm:inline"/>
+                        <span class="blush-underline px-1">
+                            <span class="hero-word-mask"><span class="hero-word hero-title-shimmer" style="--word-delay: 260ms;">Your</span></span>
+                            <span class="hero-word-mask"><span class="hero-word hero-title-shimmer" style="--word-delay: 340ms;">Computer.</span></span>
+                        </span>
                     </h1>
                     
-                    <p class="text-base sm:text-lg text-gray-400 mb-8 sm:mb-10 leading-relaxed max-w-lg mx-auto lg:mx-0">
-                        Experience a full PC environment without leaving Chrome. Boot ISOs, run Linux, and emulate classic hardware with zero installation.
+                    <p class="hero-enter-2 text-base sm:text-lg text-[#634548] mb-8 sm:mb-10 leading-relaxed max-w-lg mx-auto lg:mx-0">
+                        Experience a full PC environment directly inside your browser. Boot ISOs, run Linux, and emulate classic x86 hardware with zero installation.
                     </p>
                     
-                    <div class="flex flex-col sm:flex-row gap-3.5 sm:gap-4 justify-center lg:justify-start">
-                        <a href="text.html" class="px-7 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-indigo-500/40 transition-all flex items-center justify-center gap-2 group active:scale-98">
-                            <i class="fas fa-power-off group-hover:animate-pulse"></i> Boot Machine
+                    <div class="hero-enter-3 flex flex-col sm:flex-row gap-3.5 sm:gap-4 justify-center lg:justify-start">
+                        <a href="text.html" class="btn-sheen group px-7 py-3.5 sm:px-8 sm:py-4 bg-[#FFB8B8] hover:bg-[#FFA3A3] active:scale-[0.98] text-[#231113] border border-[#F39E9E] rounded-xl font-bold shadow-sm transition-all duration-150 flex items-center justify-center gap-2.5 whitespace-nowrap">
+                            <i class="fas fa-power-off transition-transform duration-200 group-hover:scale-110" aria-hidden="true"></i>
+                            <span>Boot Machine</span>
                         </a>
-                        <a href="https://github.com/Quincunx33/Virtual-machine" target="_blank" class="px-7 py-3.5 sm:px-8 sm:py-4 glass text-white rounded-xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2 active:scale-98">
-                            <i class="fab fa-github"></i> Source Code
+                        <a href="https://github.com/Quincunx33/Virtual-machine" target="_blank" rel="noopener noreferrer" class="group px-7 py-3.5 sm:px-8 sm:py-4 bg-white hover:bg-[#FFF5F5] active:scale-[0.98] text-[#231113] border border-[#FFD2D2] hover:border-[#FFB8B8] rounded-xl font-bold transition-all duration-150 flex items-center justify-center gap-2.5 whitespace-nowrap">
+                            <i class="fab fa-github text-[#B83B48] transition-transform duration-200 group-hover:-rotate-12" aria-hidden="true"></i>
+                            <span>Source Code</span>
                         </a>
                     </div>
                     
-                    <div class="mt-8 sm:mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-4 sm:gap-6 text-gray-500 text-xs sm:text-sm font-mono">
-                        <span class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> WASM Core</span>
-                        <span class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Local Storage</span>
-                        <span class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i> Offline</span>
+                    <div class="hero-enter-4 mt-8 sm:mt-10 flex flex-wrap items-center justify-center lg:justify-start gap-3 text-[#634548] text-xs sm:text-sm font-mono">
+                        <span>WASM Core</span>
+                        <span aria-hidden="true" class="text-[#D9888E]">·</span>
+                        <span>Local IndexedDB</span>
+                        <span aria-hidden="true" class="text-[#D9888E]">·</span>
+                        <span>Offline Ready</span>
                     </div>
                 </div>
 
                 <!-- 3D Visual Content -->
-                <div class="lg:w-1/2 w-full perspective-1000 flex justify-center px-2 sm:px-0">
-                    <div class="relative w-full max-w-sm sm:max-w-lg hero-card float">
-                        <!-- Simulated Laptop Screen -->
-                        <div class="bg-[#1a1f2e] rounded-xl overflow-hidden border border-gray-700/50 shadow-2xl">
-                            <!-- Window Bar -->
-                            <div class="h-8 bg-[#0f111a] flex items-center px-4 gap-2 border-b border-gray-700">
-                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                                <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                                <div class="ml-auto text-xs text-gray-500 font-mono">root@webvm:~</div>
-                            </div>
-                            <!-- Screen Content -->
-                            <div class="p-4 sm:p-6 font-mono text-xs sm:text-sm h-56 sm:h-64 bg-[#13161f] text-gray-300 relative overflow-hidden">
-                                <div class="absolute inset-0 bg-[url('https://media.giphy.com/media/26tn33aiTi1jkl6H6/giphy.gif')] opacity-5 mix-blend-overlay bg-cover"></div>
-                                <p class="text-green-400">➜  ~ starting v86 emulation...</p>
-                                <p class="text-blue-400">➜  ~ loading kernel.bin [OK]</p>
-                                <p class="text-blue-400">➜  ~ mounting filesystems [OK]</p>
-                                <p class="text-purple-400">➜  ~ initializing wasm modules...</p>
-                                <br/>
-                                <div class="p-3 sm:p-4 border border-indigo-500/30 bg-indigo-500/5 rounded">
-                                    <p class="text-white font-bold text-center text-base sm:text-lg">Welcome to WebVM</p>
-                                    <p class="text-center text-xs text-gray-500 mt-1">x86 Virtualization Engine</p>
+                <div id="hero-stage" class="lg:w-1/2 w-full perspective-1000 flex justify-center px-4 sm:px-0 py-2 sm:py-0 hero-enter-delay relative">
+                    <div class="hero-aura absolute inset-6 rounded-3xl bg-[#FFB8B8]/25 blur-3xl pointer-events-none"></div>
+                    <div class="hero-float w-full max-w-sm sm:max-w-lg relative z-10">
+                        <div id="hero-tilt-card" class="relative w-full hero-card rounded-2xl bg-white p-2 border border-[#FFB8B8]">
+                            <!-- Simulated Laptop Screen -->
+                            <div class="bg-[#231416] rounded-xl overflow-hidden border border-[#FFB8B8]/40">
+                                <!-- Window Bar -->
+                                <div class="h-9 bg-white flex items-center px-4 gap-2 border-b border-[#FFD8D8]">
+                                    <div class="w-3 h-3 rounded-full bg-[#FFB8B8]"></div>
+                                    <div class="w-3 h-3 rounded-full bg-[#FFD8D8]"></div>
+                                    <div class="w-3 h-3 rounded-full bg-[#FFEFEF]"></div>
+                                    <div class="ml-auto flex items-center gap-2">
+                                        <span class="text-xs text-[#634548] font-mono">root@webvm:~</span>
+                                        <button id="hero-terminal-replay" type="button" class="text-[#B83B48] hover:text-[#231113] p-1 rounded transition-transform active:rotate-180 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B83B48]" title="Replay boot sequence" aria-label="Replay terminal boot preview">
+                                            <i class="fas fa-rotate-right text-[11px]" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                                <br/>
-                                <span class="animate-pulse">_</span>
+                                <!-- Screen Content -->
+                                <div id="hero-terminal-body" class="p-5 sm:p-6 font-mono text-xs sm:text-sm h-56 sm:h-64 bg-[#231416] text-[#FFF5F5] relative overflow-hidden">
+                                    <p class="boot-line text-[#FFB8B8]" style="--boot-delay: 140ms;">➜  ~ starting v86 emulation...</p>
+                                    <p class="boot-line text-white/90" style="--boot-delay: 340ms;">➜  ~ loading kernel.bin [OK]</p>
+                                    <p class="boot-line text-white/90" style="--boot-delay: 540ms;">➜  ~ mounting filesystems [OK]</p>
+                                    <p class="boot-line text-[#FFD6D6]" style="--boot-delay: 740ms;">➜  ~ initializing wasm modules...</p>
+                                    <br/>
+                                    <div class="boot-card-in p-3.5 sm:p-4 border border-[#FFB8B8]/45 bg-[#FFB8B8]/10 rounded-lg" style="--boot-delay: 960ms;">
+                                        <p class="text-white font-bold text-center text-base sm:text-lg">Welcome to WebVM</p>
+                                        <p class="text-center text-xs text-[#FFB8B8] mt-1">x86 Virtualization Engine</p>
+                                    </div>
+                                    <br/>
+                                    <span class="boot-line text-[#FFB8B8] cursor-blink font-bold" style="--boot-delay: 1120ms;">_</span>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- Floating Badges -->
-                        <div class="absolute -right-2 sm:-right-8 top-6 sm:top-10 bg-gray-800 p-2.5 sm:p-3 rounded-lg border border-gray-700 shadow-xl preserve-3d transform translate-z-10 animate-bounce">
-                            <i class="fab fa-linux text-2xl sm:text-3xl text-yellow-500"></i>
-                        </div>
-                        <div class="absolute -left-2 sm:-left-8 bottom-6 sm:bottom-10 bg-gray-800 p-2.5 sm:p-3 rounded-lg border border-gray-700 shadow-xl preserve-3d transform translate-z-10 animate-pulse">
-                            <i class="fab fa-windows text-2xl sm:text-3xl text-blue-500"></i>
+                            
+                            <!-- Floating OS Markers -->
+                            <div class="float-badge-a flex absolute -right-2.5 sm:-right-6 -top-3 sm:top-8 z-20 bg-white p-2.5 sm:p-3 rounded-xl border border-[#FFB8B8] shadow-md items-center justify-center">
+                                <i class="fab fa-linux text-xl sm:text-2xl text-[#231113]" aria-hidden="true"></i>
+                            </div>
+                            <div class="float-badge-b flex absolute -left-2.5 sm:-left-6 -bottom-3 sm:bottom-8 z-20 bg-[#FFB8B8] p-2.5 sm:p-3 rounded-xl border border-[#F39E9E] shadow-md items-center justify-center">
+                                <i class="fab fa-windows text-xl sm:text-2xl text-[#231113]" aria-hidden="true"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -246,47 +730,44 @@
     </main>
 
     <!-- Features Section -->
-    <section id="features" class="py-16 sm:py-24 bg-[#0F131F]">
+    <section id="features" aria-labelledby="features-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12 sm:mb-16">
-                <h2 class="text-2xl sm:text-4xl lg:text-5xl font-bold text-white mb-3 sm:mb-4">Beyond Simple Emulation</h2>
-                <p class="text-sm sm:text-base text-gray-400">Engineered for performance, designed for mobile, tablet & desktop.</p>
+            <div class="text-center mb-12 sm:mb-16" data-reveal>
+                <h2 id="features-heading" class="text-2xl sm:text-4xl lg:text-5xl font-bold text-[#231113] mb-3 sm:mb-4 [text-wrap:balance]">Beyond Simple Emulation</h2>
+                <p class="text-sm sm:text-base text-[#634548] max-w-2xl mx-auto">Engineered for client-side speed and built cleanly for mobile, tablet, and desktop viewports.</p>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                 <!-- Feature 1 -->
-                <div class="feature-card bg-[#161b29] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-gray-800 relative group overflow-hidden">
-                    <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-blue-600/20"></div>
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 bg-blue-900/30 rounded-2xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-blue-400 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-tachometer-alt"></i>
+                <div class="feature-card bg-white p-6 sm:p-8 rounded-2xl border border-[#FFD8D8] relative overflow-hidden" data-reveal="scale" style="--reveal-delay: 0ms;">
+                    <div class="card-icon-box w-12 h-12 sm:w-14 sm:h-14 bg-[#FFB8B8] rounded-xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-[#231113] border border-[#F39E9E]">
+                        <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
                     </div>
-                    <h3 class="text-lg sm:text-xl font-bold text-white mb-2.5 sm:mb-3">Native Speed</h3>
-                    <p class="text-xs sm:text-sm text-gray-400 leading-relaxed">
-                        Compiles x86 instructions to WebAssembly at runtime. Experience near-native performance for legacy OS and lightweight distros.
+                    <h3 class="text-lg sm:text-xl font-bold text-[#231113] mb-2.5 sm:mb-3">01. Native-Speed Core</h3>
+                    <p class="text-sm text-[#634548] leading-relaxed">
+                        Compiles x86 instructions to WebAssembly at runtime. Experience responsive performance for legacy OSes and lightweight Linux distros.
                     </p>
                 </div>
 
                 <!-- Feature 2 -->
-                <div class="feature-card bg-[#161b29] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-gray-800 relative group overflow-hidden">
-                    <div class="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-purple-600/20"></div>
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 bg-purple-900/30 rounded-2xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-purple-400 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-save"></i>
+                <div class="feature-card bg-white p-6 sm:p-8 rounded-2xl border border-[#FFD8D8] relative overflow-hidden" data-reveal="scale" style="--reveal-delay: 90ms;">
+                    <div class="card-icon-box w-12 h-12 sm:w-14 sm:h-14 bg-[#FFF0F0] rounded-xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-[#B83B48] border border-[#FFB8B8]">
+                        <i class="fas fa-save" aria-hidden="true"></i>
                     </div>
-                    <h3 class="text-lg sm:text-xl font-bold text-white mb-2.5 sm:mb-3">State Persistence</h3>
-                    <p class="text-xs sm:text-sm text-gray-400 leading-relaxed">
-                        Don't lose your progress. Save complete RAM snapshots to your local device and resume exactly where you left off, instantly.
+                    <h3 class="text-lg sm:text-xl font-bold text-[#231113] mb-2.5 sm:mb-3">02. State Persistence</h3>
+                    <p class="text-sm text-[#634548] leading-relaxed">
+                        Save complete RAM snapshots and virtual hard disks to local IndexedDB storage and resume your session right where you left off.
                     </p>
                 </div>
 
                 <!-- Feature 3 -->
-                <div class="feature-card bg-[#161b29] p-6 sm:p-8 rounded-2xl sm:rounded-3xl border border-gray-800 relative group overflow-hidden sm:col-span-2 lg:col-span-1">
-                    <div class="absolute top-0 right-0 w-32 h-32 bg-green-600/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-green-600/20"></div>
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 bg-green-900/30 rounded-2xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-green-400 group-hover:scale-110 transition-transform">
-                        <i class="fas fa-mobile-screen"></i>
+                <div class="feature-card bg-white p-6 sm:p-8 rounded-2xl border border-[#FFD8D8] relative overflow-hidden" data-reveal="scale" style="--reveal-delay: 180ms;">
+                    <div class="card-icon-box w-12 h-12 sm:w-14 sm:h-14 bg-[#FFB8B8] rounded-xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-[#231113] border border-[#F39E9E]">
+                        <i class="fas fa-mobile-screen" aria-hidden="true"></i>
                     </div>
-                    <h3 class="text-lg sm:text-xl font-bold text-white mb-2.5 sm:mb-3">Touch & Mobile Optimized</h3>
-                    <p class="text-xs sm:text-sm text-gray-400 leading-relaxed">
-                        A custom virtual keyboard and iOS-style Assistive Touch menu give you full control of mouse and keyboard inputs on any phone or tablet.
+                    <h3 class="text-lg sm:text-xl font-bold text-[#231113] mb-2.5 sm:mb-3">03. Touch &amp; Mobile Ready</h3>
+                    <p class="text-sm text-[#634548] leading-relaxed">
+                        A custom virtual keyboard and draggable Assistive Touch control pad give you full mouse, scancode, and fullscreen access on any screen.
                     </p>
                 </div>
             </div>
@@ -294,50 +775,177 @@
     </section>
 
     <!-- Architecture / Tech Section -->
-    <section id="tech" class="py-16 sm:py-24 relative overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-b from-[#0B0F19] to-[#1a1f2e] opacity-50"></div>
+    <section id="tech" aria-labelledby="tech-heading" class="py-16 sm:py-24 bg-white border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 relative z-10 text-center">
-            <h2 class="text-2xl sm:text-3xl font-bold text-white mb-8 sm:mb-12">Powered by Modern Standards</h2>
-            
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6 max-w-2xl mx-auto">
-                <div class="bg-gray-800/50 backdrop-blur border border-gray-700 p-4 sm:p-6 rounded-2xl flex flex-col items-center hover:bg-gray-700/50 transition-colors cursor-default">
-                    <i class="fab fa-js text-yellow-400 text-2xl sm:text-3xl mb-2"></i>
-                    <span class="font-bold text-white text-xs sm:text-base">JavaScript</span>
-                </div>
-                <div class="bg-gray-800/50 backdrop-blur border border-gray-700 p-4 sm:p-6 rounded-2xl flex flex-col items-center hover:bg-gray-700/50 transition-colors cursor-default">
-                    <i class="fas fa-cube text-indigo-400 text-2xl sm:text-3xl mb-2"></i>
-                    <span class="font-bold text-white text-xs sm:text-base">WebAssembly</span>
-                </div>
-                <div class="bg-gray-800/50 backdrop-blur border border-gray-700 p-4 sm:p-6 rounded-2xl flex flex-col items-center hover:bg-gray-700/50 transition-colors cursor-default col-span-2 sm:col-span-1">
-                    <i class="fas fa-database text-blue-400 text-2xl sm:text-3xl mb-2"></i>
-                    <span class="font-bold text-white text-xs sm:text-base">IndexedDB</span>
-                </div>
+            <div data-reveal>
+                <h2 id="tech-heading" class="text-2xl sm:text-3xl font-bold text-[#231113] mb-4">Powered by Modern Web Standards</h2>
+                <p class="text-sm sm:text-base text-[#634548] mb-10 sm:mb-12 max-w-xl mx-auto">Every layer runs inside your browser sandbox with zero external servers.</p>
             </div>
-
-            <div class="mt-12 sm:mt-16 p-6 sm:p-8 bg-gradient-to-r from-indigo-900/40 to-purple-900/40 rounded-2xl sm:rounded-3xl border border-indigo-500/20">
-                <h3 class="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Ready to boot?</h3>
-                <p class="text-xs sm:text-sm text-gray-300 mb-6 sm:mb-8 max-w-xl mx-auto">
-                    No account needed. No tracking. Just pure, open-source emulation technology running in your hands.
-                </p>
-                <a href="text.html" class="inline-block px-8 py-3.5 sm:px-10 sm:py-4 bg-white text-indigo-900 text-sm sm:text-base font-bold rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-transform">
-                    Launch App Now
-                </a>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-2xl mx-auto">
+                <div class="tech-card bg-[#FFF8F8] border border-[#FFD8D8] p-6 rounded-2xl flex flex-col items-center" data-reveal="scale" style="--reveal-delay: 0ms;">
+                    <div class="card-icon-box w-12 h-12 rounded-xl bg-white border border-[#FFD8D8] flex items-center justify-center mb-3">
+                        <i class="fab fa-js text-[#B83B48] text-2xl" aria-hidden="true"></i>
+                    </div>
+                    <span class="font-bold text-[#231113] text-sm sm:text-base">JavaScript</span>
+                </div>
+                <div class="tech-card bg-[#FFB8B8]/25 border border-[#FFB8B8] p-6 rounded-2xl flex flex-col items-center hover:bg-[#FFB8B8]/35" data-reveal="scale" style="--reveal-delay: 90ms;">
+                    <div class="card-icon-box w-12 h-12 rounded-xl bg-white border border-[#FFB8B8] flex items-center justify-center mb-3">
+                        <i class="fas fa-cube text-[#231113] text-2xl" aria-hidden="true"></i>
+                    </div>
+                    <span class="font-bold text-[#231113] text-sm sm:text-base">WebAssembly</span>
+                </div>
+                <div class="tech-card bg-[#FFF8F8] border border-[#FFD8D8] p-6 rounded-2xl flex flex-col items-center" data-reveal="scale" style="--reveal-delay: 180ms;">
+                    <div class="card-icon-box w-12 h-12 rounded-xl bg-white border border-[#FFD8D8] flex items-center justify-center mb-3">
+                        <i class="fas fa-database text-[#B83B48] text-2xl" aria-hidden="true"></i>
+                    </div>
+                    <span class="font-bold text-[#231113] text-sm sm:text-base">IndexedDB</span>
+                </div>
             </div>
         </div>
     </section>
 
-    <footer class="py-8 bg-[#0B0F19] border-t border-gray-800 text-center">
-        <p class="text-gray-600 text-sm">
-            Based on <a href="https://github.com/copy/v86" class="text-indigo-500 hover:underline">libv86</a>. Built for the modern web.
-        </p>
+    <!-- FAQ Section (SEO Structured Q&A) -->
+    <section id="faq" aria-labelledby="faq-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-10 sm:mb-14" data-reveal>
+                <h2 id="faq-heading" class="text-2xl sm:text-4xl font-bold text-[#231113] mb-3 [text-wrap:balance]">
+                    Frequently Asked Questions
+                </h2>
+                <p class="text-sm sm:text-base text-[#634548] max-w-2xl mx-auto">
+                    Everything you need to know about running Linux, Windows, and DOS virtual machines directly inside your browser.
+                </p>
+            </div>
+
+            <div class="space-y-3.5">
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 0ms;" open>
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            What is WebVM and how does it run an operating system in a browser?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 pt-4 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA]">
+                        WebVM is a client-side x86 PC emulator powered by libv86 and WebAssembly. It compiles x86 CPU instructions directly inside your browser so you can boot and run real operating systems without installing virtual machine software or relying on cloud servers.
+                    </div>
+                </details>
+
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 45ms;">
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            Which operating systems and disk image formats are supported?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA] pt-4">
+                        WebVM supports lightweight Linux distributions such as Alpine Linux, TinyCore, and Arch Linux, as well as FreeDOS and classic Windows environments. You can boot from CD-ROM (<code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.iso</code>), floppy (<code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.img</code>, <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.bin</code>), and hard disk images (<code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.img</code>, <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.raw</code>), or configure direct Linux kernel booting with <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">bzImage</code> and <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">initrd</code>.
+                    </div>
+                </details>
+
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 90ms;">
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            Are my files, virtual hard disks, and snapshots private?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA] pt-4">
+                        Yes. All virtual machine execution happens locally on your device, and your configurations, virtual hard disks, and RAM state snapshots are stored inside your browser's local IndexedDB storage. No disk images or personal data are uploaded to any server.
+                    </div>
+                </details>
+
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 135ms;">
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            Can I use WebVM offline or on mobile and tablet devices?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA] pt-4">
+                        Yes. You can enable Offline Caching in the dashboard to precache the WebAssembly core and assets via Service Worker for offline use. On phones and tablets, WebVM includes a touch-friendly virtual keyboard and an Assistive Touch menu for mouse clicks, Ctrl+Alt+Del, fullscreen, and state saving.
+                    </div>
+                </details>
+
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 180ms;">
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            How much RAM should I allocate to a virtual machine?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA] pt-4">
+                        For DOS and lightweight Linux distros like TinyCore or Alpine, 64 MB to 128 MB of RAM works reliably. WebVM automatically inspects your host device memory to set a safe upper limit and offers a Potato Mode CPU profile for lower-spec hardware.
+                    </div>
+                </details>
+
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 225ms;">
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            Does WebVM support saving state and continuing later?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA] pt-4">
+                        Yes. While a virtual machine is running, you can save a complete RAM snapshot locally or export and import state files (<code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.bin</code>, <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.v86state</code>) to resume your session exactly where you left off.
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA Section -->
+    <section aria-labelledby="cta-heading" class="py-14 sm:py-20 bg-white border-t border-[#FFE2E2]">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <div class="relative overflow-hidden p-8 sm:p-12 bg-[#FFB8B8] rounded-3xl border border-[#F39E9E]" data-reveal="scale">
+                <div class="cta-ring-a absolute -top-24 -right-24 w-64 h-64 rounded-full border border-white/45 pointer-events-none"></div>
+                <div class="cta-ring-b absolute -bottom-20 -left-20 w-56 h-56 rounded-full bg-white/25 pointer-events-none"></div>
+                <div class="relative z-10">
+                    <h2 id="cta-heading" class="text-2xl sm:text-3xl font-bold text-[#231113] mb-3 sm:mb-4">Ready to boot?</h2>
+                    <p class="text-sm sm:text-base text-[#3A1E21] mb-6 sm:mb-8 max-w-xl mx-auto leading-relaxed">
+                        No account needed. No tracking. Just pure, open-source x86 emulation running directly in your browser.
+                    </p>
+                    <a href="text.html" class="btn-sheen inline-block px-8 py-3.5 sm:px-10 sm:py-4 bg-white hover:bg-[#FFF5F5] active:scale-[0.98] text-[#231113] text-sm sm:text-base font-bold rounded-xl shadow-sm border border-white transition-all whitespace-nowrap">
+                        Launch App Now
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-8 sm:py-10 bg-white border-t border-[#FFE2E2]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+            <p class="text-[#634548] text-center sm:text-left">
+                Based on <a href="https://github.com/copy/v86" target="_blank" rel="noopener noreferrer" class="text-[#B83B48] font-medium hover:underline">libv86</a>. Built for the modern web.
+            </p>
+            <nav aria-label="Creator links" class="flex flex-wrap items-center justify-center gap-5 sm:gap-6">
+                <a href="https://taissu.pages.dev" target="_blank" rel="noopener noreferrer" class="text-[#634548] hover:text-[#231113] transition-colors inline-flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-globe text-[#B83B48]" aria-hidden="true"></i>
+                    <span>Portfolio</span>
+                </a>
+                <a href="https://facebook.com/taissuuu" target="_blank" rel="noopener noreferrer" class="text-[#634548] hover:text-[#231113] transition-colors inline-flex items-center gap-2 whitespace-nowrap">
+                    <i class="fab fa-facebook text-[#B83B48]" aria-hidden="true"></i>
+                    <span>Facebook</span>
+                </a>
+                <a href="https://instagram.com/tasfiya__tabassum__" target="_blank" rel="noopener noreferrer" class="text-[#634548] hover:text-[#231113] transition-colors inline-flex items-center gap-2 whitespace-nowrap">
+                    <i class="fab fa-instagram text-[#B83B48]" aria-hidden="true"></i>
+                    <span>Instagram</span>
+                </a>
+            </nav>
+        </div>
     </footer>
 
-    <script>
-        if ('serviceWorker' in navigator && localStorage.getItem('webvm_offline_cache') !== 'false') {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration note:', err));
-            });
-        }
-    </script>
+    <script src="landing.js"></script>
 </body>
 </html>
