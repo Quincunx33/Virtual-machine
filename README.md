@@ -1,167 +1,180 @@
-<p align="center">
-  <video src="https://github.com/user-attachments/assets/338656cf-cc76-4a87-a494-750f81ccee6b" controls playsinline preload="metadata" width="100%" aria-label="Web VM Emulator demo video">Your browser does not support the video element.</video>
-</p>
+<div align="center">
 
-<h1 align="center">Web VM Emulator</h1>
+  <video src="https://github.com/user-attachments/assets/338656cf-cc76-4a87-a494-750f81ccee6b" controls playsinline preload="metadata" width="100%">Your browser does not support the video element.</video>
 
-<p align="center">
-  <strong>Run x86 operating systems directly in a modern browser.</strong><br />
-  A mobile-first virtual machine workspace powered by v86, WebAssembly, IndexedDB, and touch-friendly controls.
-</p>
+  <h1>Web VM Emulator</h1>
+  <p><strong>Your own x86 virtual machine. Right inside your browser.</strong></p>
+  <p>Boot operating systems, create virtual disks, and use a touch-friendly VM workspace — no traditional hypervisor installation required.</p>
 
-<p align="center">
-  <a href="https://github.com/Quincunx33/Virtual-machine"><img src="https://img.shields.io/badge/status-stable-22c55e?style=for-the-badge" alt="Stable" /></a>
-  <a href="https://github.com/copy/v86"><img src="https://img.shields.io/badge/engine-v86%20%2B%20WASM-06b6d4?style=for-the-badge" alt="v86 and WebAssembly" /></a>
-  <a href="https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API"><img src="https://img.shields.io/badge/storage-IndexedDB-6366f1?style=for-the-badge" alt="IndexedDB" /></a>
-  <a href="https://github.com/Quincunx33/Virtual-machine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-a855f7?style=for-the-badge" alt="MIT License" /></a>
-</p>
+  <p>
+    <a href="https://virtual-machine.pages.dev/"><strong>🚀 Launch Live Demo</strong></a>
+    &nbsp;·&nbsp;
+    <a href="#getting-started">Get Started</a>
+    &nbsp;·&nbsp;
+    <a href="#features">Features</a>
+  </p>
 
-<p align="center">
-  <a href="https://virtual-machine.pages.dev/">Live Demo</a> ·
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#troubleshooting">Troubleshooting</a>
-</p>
+  <p>
+    <img src="https://img.shields.io/badge/Engine-v86%20%2B%20WebAssembly-2563eb?style=flat-square" alt="v86 and WebAssembly">
+    <img src="https://img.shields.io/badge/Platform-Browser-0f766e?style=flat-square" alt="Browser">
+    <img src="https://img.shields.io/badge/Storage-IndexedDB-7c3aed?style=flat-square" alt="IndexedDB">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-16a34a?style=flat-square" alt="MIT License"></a>
+  </p>
 
-> Web VM Emulator turns a browser tab into a portable x86 workstation. Upload boot media, configure a machine, and interact with the guest OS without installing a native hypervisor.
+</div>
 
-## Why this project
+---
 
-Traditional emulators often assume a desktop environment, local installation, and a physical keyboard. Web VM Emulator is designed around a different experience: a responsive browser interface that works across desktop and touch devices, keeps machine data in the browser, and exposes the controls needed to operate a guest OS from an iPad or phone.
+## What is Web VM Emulator?
 
-The project is intentionally client-side. The emulator runs in the browser through WebAssembly, while IndexedDB stores large media files, virtual disks, machine settings, and snapshots locally. No guest-operating-system data needs to be uploaded to a central application server.
+**Web VM Emulator** is a browser-based x86 virtual machine environment powered by [v86](https://github.com/copy/v86) and WebAssembly.
+
+It brings the essentials of a desktop VM manager to the web. Create a machine, load an ISO or IMG image, configure memory and storage, then boot your guest operating system — directly in a modern browser.
+
+The experience is designed for desktop and mobile devices, including iPad and Android tablets. Your machine configurations and virtual storage stay in your browser using IndexedDB.
 
 ## Features
 
-| Capability | What it provides |
-|---|---|
-| **x86 emulation** | Runs legacy and lightweight x86 operating systems through v86 and WebAssembly. |
-| **ISO and IMG media** | Boot from CD-ROM images and floppy/disk images through the creation wizard. |
-| **Virtual hard disks** | Create browser-backed virtual disks for persistent guest storage. |
-| **Touch-first controls** | iPad/Android-friendly assistive controls, touch-to-mouse input, and a virtual keyboard. |
-| **Mouse coordinate mapping** | Maps guest pointer coordinates to the actual emulator canvas rather than the full page container. |
-| **Local persistence** | Stores VM configurations, uploaded media, snapshots, and disk data with IndexedDB. |
-| **Offline caching** | Service-worker support for caching the application shell and core emulator assets. |
-| **Snapshot workflow** | Save and import VM state files for repeatable experiments. |
-| **Responsive interface** | Dashboard and VM controls adapt to desktop, tablet, and mobile layouts. |
-| **Lifecycle controls** | Start, pause, reset, stop, fullscreen, keyboard, and Ctrl+Alt+Del actions. |
+| | Feature | Description |
+|---|---|---|
+| ⚡ | **x86 emulation** | Run compatible x86 operating systems with v86 + WebAssembly. |
+| 💿 | **Bootable media** | Load ISO and IMG files to boot a guest system. |
+| 💾 | **Virtual disks** | Create browser-backed storage for your virtual machines. |
+| 📱 | **Touch controls** | Use touch-to-mouse input and an on-screen keyboard. |
+| 🧩 | **VM snapshots** | Save and import machine states for later sessions. |
+| 💽 | **Local persistence** | Keep machine settings, media, disks, and snapshots in IndexedDB. |
+| 🌐 | **Offline support** | Cache the application shell and core emulator assets. |
+| 🖥️ | **Dedicated VM screen** | Run the guest display in its own screen view. |
+| 🎛️ | **Machine controls** | Start, pause, reset, stop, fullscreen, and send Ctrl+Alt+Del. |
+| 📐 | **Responsive UI** | Adapt the workspace to desktop, tablet, and mobile screens. |
 
-## Quick start
+## Getting started
 
-### Use the hosted application
+### Use it online
 
-Open the [Web VM Emulator live demo](https://virtual-machine.pages.dev/) in a modern browser. Allow pop-ups for the site because each running VM opens in its own screen view for better isolation and performance.
+1. Open the **[Live Demo](https://virtual-machine.pages.dev/)**.
+2. Allow pop-ups for the site. Each VM opens in a separate screen view.
+3. Select **Create New Machine**.
+4. Choose an ISO or IMG boot image and upload it.
+5. Configure memory, boot order, and optional virtual storage.
+6. Create your machine and press **Start**.
 
-1. Select **Create New Machine**.
-2. Choose **CD-ROM / ISO** or **Floppy / IMG**.
-3. Upload a bootable image, such as a lightweight Linux ISO or a bootable DOS image.
-4. Choose memory, boot order, and optional virtual storage.
-5. Create the machine and press **Start**.
-6. On touch devices, open the floating controls to use the virtual keyboard and VM actions.
+> **Tip:** Start with a lightweight, bootable guest image for the smoothest experience, especially on mobile devices.
 
 ### Run locally
 
-This repository is a static browser application. A local HTTP server is recommended because WebAssembly, service workers, and browser storage behave more consistently over HTTP than over a `file://` URL.
+You'll need Git and Python 3 (or another static HTTP server).
 
 ```bash
 git clone https://github.com/Quincunx33/Virtual-machine.git
 cd Virtual-machine
-
-# Any static server works. For example:
 python3 -m http.server 8080
 ```
 
-Then open:
+Open **http://localhost:8080/text.html** in your browser.
 
-```text
-http://localhost:8080/text.html
+A local HTTP server is recommended instead of opening the HTML file directly, because browser features such as WebAssembly loading and service workers work more reliably over HTTP or HTTPS.
+
+If you're using the included Vite workflow, install the project dependencies and run:
+
+```bash
+npm install
+npm run dev
 ```
 
-The repository also contains Vite metadata for development workflows. If you use the package scripts, install the project dependencies first and run `npm run dev`.
+## Built with
 
-## Architecture
+| Technology | Role |
+|---|---|
+| **JavaScript** | Application logic and user interface |
+| **v86** | x86 system emulation |
+| **WebAssembly** | Runs the emulator engine in the browser |
+| **IndexedDB** | Local machine, media, disk, and snapshot storage |
+| **Service Worker** | Application asset caching and offline support |
+| **Browser APIs** | Keyboard, pointer, touch, fullscreen, and cross-window communication |
 
-The application is split into a dashboard, a dedicated VM screen, a storage layer, and the v86 runtime. The dashboard creates and persists machine definitions; the VM screen owns the emulator lifecycle and input bridge; BroadcastChannel coordinates state between views; and the service worker manages the application cache.
+## How it works
+
+The application is organized around a dashboard and a dedicated VM screen:
+
+- **Dashboard** — create machines, manage uploaded media, configure storage, and manage snapshots.
+- **VM screen** — initialize the emulator, render the guest display, and handle keyboard, pointer, and touch input.
+- **IndexedDB** — persist machine data locally in the browser.
+- **BroadcastChannel** — coordinate communication between the dashboard and VM screen.
+- **Service Worker** — cache application resources for supported offline use.
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Web VM Emulator architecture diagram" width="100%" />
+  <img src="docs/architecture.png" alt="Web VM Emulator architecture" width="100%">
 </p>
 
-### Main components
+## Mobile experience
 
-| Component | Responsibility |
-|---|---|
-| `text.html` | Dashboard, machine list, creation wizard, storage manager, and global controls. |
-| `dashboard.js` | VM creation, IndexedDB operations, snapshots, storage management, and dashboard interactions. |
-| `vm-screen.html` | Dedicated guest display and VM control surface. |
-| `vm-manager.js` | v86 initialization, lifecycle management, canvas sizing, keyboard, touch, and mouse input. |
-| `libv86.js` | JavaScript v86 runtime and browser adapters. |
-| `v86.wasm` | WebAssembly x86 emulation engine. |
-| `seabios.bin` / `vgabios.bin` | Firmware assets used during guest boot. |
-| `sw.js` | Application-shell and emulator-asset caching. |
+Web VM Emulator is built to be usable beyond a traditional desktop setup.
 
-## Input model
+- Open it in Safari on iPad or Chrome on Android.
+- Use the virtual keyboard for guest OS input.
+- Tap the guest display to interact with the virtual pointer.
+- Try landscape orientation for operating systems with wide displays.
 
-The VM screen uses the emulator canvas as the source of truth for pointer coordinates. The screen container is fitted to the rendered canvas so that browser coordinates and guest coordinates remain aligned after scaling. On touch devices, tap gestures are translated into guest mouse events, while the virtual keyboard sends keyboard events to the active emulator.
+For the best results, use a modern browser, keep browser zoom at 100%, and choose a guest OS that fits your device's available memory.
 
-For the best touch experience, open the VM in Safari on iPadOS or Chrome on Android, use landscape orientation for wide guest desktops, and keep the browser zoom at 100%.
+## Storage & privacy
 
-## Browser compatibility
+Machine configurations, uploaded boot media, virtual disks, and snapshots are stored locally in your browser's **IndexedDB** for this website's origin.
 
-| Platform | Recommended browser | Notes |
-|---|---|---|
-| iPadOS / iOS | Safari 15+ | WebAssembly and IndexedDB are required; allow pop-ups for VM screens. |
-| Android | Chrome or Chromium-based browser | Touch controls and virtual keyboard are supported. |
-| Windows | Chrome, Edge, or Firefox | Desktop keyboard and pointer input are recommended. |
-| Linux | Firefox or Chromium | Use a local HTTP server for development. |
-| macOS | Safari, Chrome, or Firefox | Hardware acceleration can improve rendering performance. |
-
-The emulator is resource-intensive. Lightweight guest operating systems and moderate memory allocations generally provide the best experience on mobile hardware.
-
-## Storage and privacy
-
-Machine configurations, uploaded media, virtual disks, and snapshots are stored in the browser's IndexedDB storage for the current origin. The service worker stores only application resources and emulator assets in Cache Storage. Turning **Offline Caching** off unregisters the service worker and removes cached application resources; it does not intentionally remove VM records, virtual disks, uploaded media, or snapshots from IndexedDB.
-
-Use **Factory Reset** only when you intentionally want to clear application data. Browser privacy settings, private browsing modes, storage quotas, and operating-system cleanup policies can still remove local data outside the application's control.
+The service worker uses Cache Storage for application resources. Clearing browser site data, using private browsing, or browser storage cleanup may remove locally stored VM data. Export important snapshots before clearing site data or changing browsers.
 
 ## Troubleshooting
 
-### The VM does not open after pressing Start
+<details>
+<summary><strong>Start button opens no VM window</strong></summary>
 
-Allow pop-ups for the host, then start the VM again. The dashboard opens the running emulator in a separate screen view.
+Allow pop-ups for the live demo, then try starting the machine again.
+</details>
 
-### The guest shows a blank screen or does not boot
+<details>
+<summary><strong>The guest OS does not boot</strong></summary>
 
-Confirm that the selected ISO or IMG is genuinely bootable, that the boot order prioritizes the correct device, and that the allocated memory is appropriate for the guest. Very large modern operating systems may exceed the practical limits of browser emulation.
+Check that your ISO or IMG is bootable, verify the boot order, and try a lightweight guest image. Not every operating system or image format is compatible with browser-based x86 emulation.
+</details>
 
-### The mouse is offset or clicks the wrong location
+<details>
+<summary><strong>Touch or pointer input feels inaccurate</strong></summary>
 
-Reload the latest application shell after a release so that the service worker cannot serve an old engine bundle. Confirm that browser zoom is 100% and that the VM canvas is fully visible. The current VM manager maps pointer coordinates against the fitted canvas container.
+Set browser zoom to 100%, make sure the VM display is fully visible, and reload the latest application version.
+</details>
 
-### The iPad keyboard covers the guest
+<details>
+<summary><strong>Offline mode is not working</strong></summary>
 
-Use the VM screen's virtual keyboard control and rotate to landscape for wide guests. The interface includes safe-area and dynamic-viewport handling, but individual guest resolutions can still require scrolling or a different orientation.
-
-### Offline mode appears disabled
-
-Enable the **Offline Caching** switch from the dashboard and reload once. If the browser blocks service workers, use HTTPS or a local HTTP development server rather than opening the page directly from the filesystem.
-
-## Development notes
-
-The project is intentionally lightweight and uses browser-native APIs rather than a large application framework. Keep emulator lifecycle cleanup explicit: event listeners, BroadcastChannel instances, canvas resources, and large ArrayBuffers should be released when a VM is stopped or closed.
-
-When changing `libv86.js`, `v86.wasm`, BIOS assets, or service-worker behavior, bump the cache identifier in `sw.js` and test both a clean browser profile and an existing profile with an older cache.
+Enable Offline Caching in the dashboard and reload the application. Service workers require a secure context, such as HTTPS or localhost.
+</details>
 
 ## Contributing
 
-Improvements are welcome. Please keep pull requests focused, explain how the change was tested on desktop and touch layouts, and avoid committing guest media files or private snapshots. For emulator changes, include the browser versions and guest image used during verification.
+Found a bug or have an idea? Contributions are welcome.
 
-## License and attribution
+1. Fork the repository.
+2. Create a focused branch for your change.
+3. Test the change in a desktop browser and, where relevant, a touch device.
+4. Open a pull request with a clear description and testing notes.
 
-This project is released under the MIT License. The x86 emulation layer is based on the open-source [v86 project](https://github.com/copy/v86), and the browser storage and service-worker behavior rely on standard web platform APIs documented by [MDN](https://developer.mozilla.org/).
+Please don't commit copyrighted guest OS images, private VM snapshots, or other large user media files.
 
-## References
+## License & credits
 
-[1]: https://github.com/copy/v86 "v86 x86 emulator"
-[2]: https://virtual-machine.pages.dev/ "Web VM Emulator live demo"
+Released under the **MIT License**. See [LICENSE](LICENSE).
+
+The emulation engine is powered by the open-source [v86 project](https://github.com/copy/v86). Web VM Emulator also uses standard browser technologies such as WebAssembly, IndexedDB, and Service Workers.
+
+---
+
+<div align="center">
+
+  **A virtual machine, one browser tab away.**
+
+  <a href="https://virtual-machine.pages.dev/">Try Web VM Emulator</a>
+  <br>
+  <sub>Built for the open web · Made by <a href="https://github.com/Quincunx33">Quincunx33</a></sub>
+
+</div>
