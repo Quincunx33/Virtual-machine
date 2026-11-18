@@ -4,12 +4,10 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     
-    <!-- Security Headers -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* wss://* blob:; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self';"/>
     <meta name="referrer" content="strict-origin-when-cross-origin"/>
     <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
 
-    <!-- SEO Meta Tags -->
     <title>WebVM – Browser Virtual Machine &amp; PC Emulator</title>
     <meta name="description" content="Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline."/>
     <meta name="keywords" content="WebVM, browser virtual machine, x86 emulator, WebAssembly VM, run Linux in browser, libv86, FreeDOS emulator, online PC emulator, boot ISO in browser, IndexedDB virtual disk"/>
@@ -24,7 +22,6 @@
     <link rel="alternate" hreflang="en" href="https://virtual-machine.pages.dev/"/>
     <link rel="alternate" hreflang="x-default" href="https://virtual-machine.pages.dev/"/>
 
-    <!-- OpenGraph Social Cards -->
     <meta property="og:type" content="website"/>
     <meta property="og:url" content="https://virtual-machine.pages.dev/"/>
     <meta property="og:title" content="WebVM – Browser Virtual Machine &amp; PC Emulator"/>
@@ -34,11 +31,10 @@
     <meta property="og:image" content="https://virtual-machine.pages.dev/og-image.jpg"/>
     <meta property="og:image:secure_url" content="https://virtual-machine.pages.dev/og-image.jpg"/>
     <meta property="og:image:type" content="image/jpeg"/>
-    <meta property="og:image:width" content="1200"/>
-    <meta property="og:image:height" content="630"/>
+    <meta property="og:image:width" content="1376"/>
+    <meta property="og:image:height" content="768"/>
     <meta property="og:image:alt" content="WebVM - Browser Virtual Machine &amp; PC Emulator"/>
 
-    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image"/>
     <meta name="twitter:url" content="https://virtual-machine.pages.dev/"/>
     <meta name="twitter:title" content="WebVM – Browser Virtual Machine &amp; PC Emulator"/>
@@ -46,7 +42,6 @@
     <meta name="twitter:image" content="https://virtual-machine.pages.dev/og-image.jpg"/>
     <meta name="twitter:image:alt" content="WebVM - Browser Virtual Machine &amp; PC Emulator"/>
 
-    <!-- Schema.org Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -75,10 +70,11 @@
       "inLanguage": "en",
       "screenshot": "https://virtual-machine.pages.dev/og-image.jpg",
       "image": "https://virtual-machine.pages.dev/og-image.jpg",
-      "keywords": "WebVM, browser virtual machine, x86 emulator, WebAssembly, Linux, Windows, FreeDOS, libv86",
+      "keywords": "WebVM, browser virtual machine, x86 emulator, WebAssembly, Linux, Windows, FreeDOS, libv86, custom WebSocket networking",
       "featureList": [
         "Client-side x86 CPU emulation via WebAssembly and libv86",
         "Boot ISO, floppy IMG, raw hard disk images, or Linux bzImage/initrd",
+        "Custom WebSocket networking with built-in default relay and live switching",
         "Local IndexedDB virtual hard disks and RAM state snapshots",
         "Offline Progressive Web App caching via Service Worker",
         "Touch virtual keyboard and draggable Assistive Touch controls"
@@ -146,7 +142,6 @@
     }
     </script>
 
-    <!-- FAQPage Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -204,24 +199,19 @@
     }
     </script>
     
-    <!-- App Icon & Manifest (Install Logic) -->
     <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg">
     <link rel="manifest" href="manifest.json">
 
-    <!-- Resource Hints -->
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin/>
     <link rel="dns-prefetch" href="https://cdn.tailwindcss.com"/>
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet"/>
     
     <style>
@@ -241,7 +231,6 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* Scroll Progress Hairline & Scrolled Navbar */
         #scroll-progress {
             transform: scaleX(0);
             transform-origin: left center;
@@ -258,7 +247,6 @@
         .perspective-1000 { perspective: 1100px; }
         .preserve-3d { transform-style: preserve-3d; }
 
-        /* Decoupled float wrapper so 3D tilt on .hero-card never conflicts with translateY */
         .hero-float {
             animation: heroFloat 5.2s ease-in-out infinite;
             will-change: transform;
@@ -345,7 +333,6 @@
             50% { transform: translate3d(-26px, -16px, 0) scale(1.1); opacity: 1; }
         }
 
-        /* Terminal Boot Sequence Lines */
         .boot-line {
             opacity: 0;
             transform: translateX(-8px);
@@ -373,7 +360,6 @@
             50%, 100% { opacity: 0; }
         }
 
-        /* Staggered Hero Entrance */
         .hero-enter-1 { animation: heroEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both; }
         .hero-enter-2 { animation: heroEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both; }
         .hero-enter-3 { animation: heroEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both; }
@@ -388,7 +374,6 @@
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        /* Hero Headline Word Reveal & Coral-Ink Shimmer */
         .hero-word-mask {
             display: inline-block;
             overflow: hidden;
@@ -428,7 +413,6 @@
             50% { background-position: 0% 0; }
         }
 
-        /* Compositor-Only Blush Underline Sweep + Gentle Breathe */
         .blush-underline {
             position: relative;
             display: inline-block;
@@ -457,7 +441,6 @@
             50% { opacity: 1; transform: scaleX(1.015) scaleY(1.08); }
         }
 
-        /* Tactile CTA Sheen */
         .btn-sheen {
             position: relative;
             overflow: hidden;
@@ -478,7 +461,6 @@
             transform: translateX(340%) skewX(-20deg);
         }
 
-        /* Cards & Interactive Icons */
         .feature-card, .tech-card {
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
         }
@@ -496,7 +478,6 @@
             box-shadow: 0 8px 18px -4px rgba(184, 59, 72, 0.22);
         }
 
-        /* Scroll-Reveal System (Zero-Latency Fallback if JS disabled) */
         [data-reveal] {
             opacity: 1;
             transform: none;
@@ -516,7 +497,6 @@
             transform: translateY(0) scale(1);
         }
 
-        /* CTA Ambient Rings */
         .cta-ring-a {
             animation: ctaRingSpin 16s linear infinite;
             will-change: transform;
@@ -591,7 +571,6 @@
 </head>
 <body class="antialiased selection:bg-[#FFB8B8] selection:text-[#231113]">
 
-    <!-- Navbar (3-Zone Top Bar Contract) -->
     <nav id="main-nav" aria-label="Primary navigation" class="fixed top-0 w-full z-50 glass-nav border-b border-[#FFD8D8]">
         <div id="scroll-progress" class="absolute top-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-[#FFB8B8] via-[#E87A82] to-[#B83B48] pointer-events-none"></div>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -621,7 +600,6 @@
             </div>
         </div>
         
-        <!-- Mobile Menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-white/95 backdrop-blur-xl border-b border-[#FFD8D8] transition-all">
             <div class="p-4 space-y-2">
                 <a href="#features" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">Capabilities</a>
@@ -632,9 +610,7 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
     <main class="relative pt-28 pb-16 sm:pt-36 sm:pb-24 lg:pt-44 lg:pb-28 bg-white overflow-hidden">
-        <!-- Soft #FFB8B8 Ambient Accents -->
         <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
             <div class="blob-drift-a absolute -top-16 left-1/4 w-72 h-72 sm:w-[420px] sm:h-[420px] bg-[#FFB8B8]/35 rounded-full blur-[100px]"></div>
             <div class="blob-drift-b absolute bottom-0 right-1/6 w-72 h-72 sm:w-[480px] sm:h-[480px] bg-[#FFB8B8]/25 rounded-full blur-[120px]"></div>
@@ -643,7 +619,6 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <div class="flex flex-col lg:flex-row items-center gap-12 sm:gap-16">
                 
-                <!-- Text Content -->
                 <div class="lg:w-1/2 text-center lg:text-left">
                     <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#231113] mb-5 sm:mb-6 leading-[1.15] tracking-tight [text-wrap:balance]">
                         <span class="hero-word-mask"><span class="hero-word" style="--word-delay: 40ms;">The</span></span>
@@ -680,14 +655,11 @@
                     </div>
                 </div>
 
-                <!-- 3D Visual Content -->
                 <div id="hero-stage" class="lg:w-1/2 w-full perspective-1000 flex justify-center px-4 sm:px-0 py-2 sm:py-0 hero-enter-delay relative">
                     <div class="hero-aura absolute inset-6 rounded-3xl bg-[#FFB8B8]/25 blur-3xl pointer-events-none"></div>
                     <div class="hero-float w-full max-w-sm sm:max-w-lg relative z-10">
                         <div id="hero-tilt-card" class="relative w-full hero-card rounded-2xl bg-white p-2 border border-[#FFB8B8]">
-                            <!-- Simulated Laptop Screen -->
                             <div class="bg-[#231416] rounded-xl overflow-hidden border border-[#FFB8B8]/40">
-                                <!-- Window Bar -->
                                 <div class="h-9 bg-white flex items-center px-4 gap-2 border-b border-[#FFD8D8]">
                                     <div class="w-3 h-3 rounded-full bg-[#FFB8B8]"></div>
                                     <div class="w-3 h-3 rounded-full bg-[#FFD8D8]"></div>
@@ -699,7 +671,6 @@
                                         </button>
                                     </div>
                                 </div>
-                                <!-- Screen Content -->
                                 <div id="hero-terminal-body" class="p-5 sm:p-6 font-mono text-xs sm:text-sm h-56 sm:h-64 bg-[#231416] text-[#FFF5F5] relative overflow-hidden">
                                     <p class="boot-line text-[#FFB8B8]" style="--boot-delay: 140ms;">➜  ~ starting v86 emulation...</p>
                                     <p class="boot-line text-white/90" style="--boot-delay: 340ms;">➜  ~ loading kernel.bin [OK]</p>
@@ -715,7 +686,6 @@
                                 </div>
                             </div>
                             
-                            <!-- Floating OS Markers -->
                             <div class="float-badge-a flex absolute -right-2.5 sm:-right-6 -top-3 sm:top-8 z-20 bg-white p-2.5 sm:p-3 rounded-xl border border-[#FFB8B8] shadow-md items-center justify-center">
                                 <i class="fab fa-linux text-xl sm:text-2xl text-[#231113]" aria-hidden="true"></i>
                             </div>
@@ -729,7 +699,6 @@
         </div>
     </main>
 
-    <!-- Features Section -->
     <section id="features" aria-labelledby="features-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12 sm:mb-16" data-reveal>
@@ -738,7 +707,6 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-                <!-- Feature 1 -->
                 <div class="feature-card bg-white p-6 sm:p-8 rounded-2xl border border-[#FFD8D8] relative overflow-hidden" data-reveal="scale" style="--reveal-delay: 0ms;">
                     <div class="card-icon-box w-12 h-12 sm:w-14 sm:h-14 bg-[#FFB8B8] rounded-xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-[#231113] border border-[#F39E9E]">
                         <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
@@ -749,7 +717,6 @@
                     </p>
                 </div>
 
-                <!-- Feature 2 -->
                 <div class="feature-card bg-white p-6 sm:p-8 rounded-2xl border border-[#FFD8D8] relative overflow-hidden" data-reveal="scale" style="--reveal-delay: 90ms;">
                     <div class="card-icon-box w-12 h-12 sm:w-14 sm:h-14 bg-[#FFF0F0] rounded-xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-[#B83B48] border border-[#FFB8B8]">
                         <i class="fas fa-save" aria-hidden="true"></i>
@@ -760,7 +727,6 @@
                     </p>
                 </div>
 
-                <!-- Feature 3 -->
                 <div class="feature-card bg-white p-6 sm:p-8 rounded-2xl border border-[#FFD8D8] relative overflow-hidden" data-reveal="scale" style="--reveal-delay: 180ms;">
                     <div class="card-icon-box w-12 h-12 sm:w-14 sm:h-14 bg-[#FFB8B8] rounded-xl flex items-center justify-center mb-5 sm:mb-6 text-xl sm:text-2xl text-[#231113] border border-[#F39E9E]">
                         <i class="fas fa-mobile-screen" aria-hidden="true"></i>
@@ -774,7 +740,6 @@
         </div>
     </section>
 
-    <!-- Architecture / Tech Section -->
     <section id="tech" aria-labelledby="tech-heading" class="py-16 sm:py-24 bg-white border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 relative z-10 text-center">
             <div data-reveal>
@@ -805,7 +770,6 @@
         </div>
     </section>
 
-    <!-- FAQ Section (SEO Structured Q&A) -->
     <section id="faq" aria-labelledby="faq-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-10 sm:mb-14" data-reveal>
@@ -905,7 +869,6 @@
         </div>
     </section>
 
-    <!-- Final CTA Section -->
     <section aria-labelledby="cta-heading" class="py-14 sm:py-20 bg-white border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 text-center">
             <div class="relative overflow-hidden p-8 sm:p-12 bg-[#FFB8B8] rounded-3xl border border-[#F39E9E]" data-reveal="scale">

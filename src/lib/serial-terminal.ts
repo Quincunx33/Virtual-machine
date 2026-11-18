@@ -188,7 +188,6 @@ export class SerialTerminalBuffer {
       return;
     }
 
-    // Ignore non-printable control bytes (bell, etc.)
     if (code < 0x20) {
       return;
     }

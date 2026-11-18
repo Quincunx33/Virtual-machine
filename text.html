@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-    <!-- Stricter CSP: scripts only from self and trusted CDNs, no unsafe-inline for logic -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://* blob:; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' ws: wss: https://* blob:; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self';">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     
@@ -22,7 +21,6 @@
     <link rel="alternate" hreflang="en" href="https://virtual-machine.pages.dev/text.html">
     <link rel="alternate" hreflang="x-default" href="https://virtual-machine.pages.dev/text.html">
 
-    <!-- OpenGraph Social Cards -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://virtual-machine.pages.dev/text.html">
     <meta property="og:title" content="WebVM Dashboard – Virtual Machine Manager &amp; Emulator">
@@ -32,11 +30,10 @@
     <meta property="og:image" content="https://virtual-machine.pages.dev/og-image.jpg">
     <meta property="og:image:secure_url" content="https://virtual-machine.pages.dev/og-image.jpg">
     <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
+    <meta property="og:image:width" content="1376">
+    <meta property="og:image:height" content="768">
     <meta property="og:image:alt" content="WebVM Dashboard - Virtual Machine Manager &amp; Emulator">
 
-    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://virtual-machine.pages.dev/text.html">
     <meta name="twitter:title" content="WebVM Dashboard – Virtual Machine Manager &amp; Emulator">
@@ -44,7 +41,6 @@
     <meta name="twitter:image" content="https://virtual-machine.pages.dev/og-image.jpg">
     <meta name="twitter:image:alt" content="WebVM Dashboard - Virtual Machine Manager &amp; Emulator">
 
-    <!-- Schema.org Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -54,7 +50,16 @@
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "All",
       "isAccessibleForFree": true,
+      "screenshot": "https://virtual-machine.pages.dev/og-image.jpg",
+      "image": "https://virtual-machine.pages.dev/og-image.jpg",
       "browserRequirements": "Requires WebAssembly and IndexedDB support",
+      "keywords": "WebVM dashboard, virtual machine manager, create browser VM, boot ISO online, custom WebSocket relay, IndexedDB hard disk",
+      "featureList": [
+        "Create and configure x86 virtual machines in the browser",
+        "Mount ISO, floppy IMG, and virtual HDA/HDB disk images",
+        "Custom WebSocket networking with built-in default relay",
+        "Local IndexedDB hard disks, snapshots, and serial console logs"
+      ],
       "description": "Create, configure, and launch browser virtual machines with WebAssembly. Mount ISOs, format virtual hard drives, and run x86 operating systems.",
       "offers": {
         "@type": "Offer",
@@ -84,12 +89,10 @@
     }
     </script>
     
-    <!-- App Icon & Manifest -->
     <link rel="icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="src/assets/images/pwa_app_icon_1787090612548.jpg">
     <link rel="manifest" href="manifest.json">
 
-    <!-- Resource Hints -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
@@ -117,7 +120,6 @@
         :focus-visible { outline: 2px solid #B83B48; outline-offset: 2px; }
         button:not(.compact-btn), input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), select, textarea { min-height: 2.25rem; }
 
-        /* Cross-browser Range Slider */
         input[type="range"].vm-range-slider {
             -webkit-appearance: none;
             appearance: none;
@@ -201,7 +203,6 @@
             .modal-content, [role="dialog"] > div { max-height: calc(100dvh - 0.5rem); }
         }
 
-        /* Custom Scrollbar for #FFB8B8 + White theme */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #FFF5F5; }
         ::-webkit-scrollbar-thumb { background: #F5B8B8; border-radius: 4px; }
@@ -209,7 +210,6 @@
 
         .source-type-card.border-\[\#B83B48\] { box-shadow: 0 0 0 2px #FFB8B8; }
         
-        /* --- Notification System --- */
         #toast-container {
             position: fixed;
             z-index: 10000;
@@ -319,7 +319,6 @@
             to { transform: scaleX(0); }
         }
 
-        /* Modal, Overlay & Stepper Entrance Animations */
         #overlay:not(.hidden),
         [id$="-modal"]:not(.hidden) {
             animation: modalBackdropIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -389,7 +388,6 @@
             }
         }
         
-        /* Potato Mode Styles */
         body.potato-mode * {
             animation: none !important;
             transition: none !important;
@@ -400,13 +398,10 @@
 </head>
 <body class="bg-[#FFF8F8] text-[#231113] h-screen flex overflow-hidden selection:bg-[#FFB8B8] selection:text-[#231113]">
 
-    <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <!-- Mobile Sidebar Overlay -->
     <div id="overlay" class="fixed inset-0 bg-[#231113]/40 z-20 hidden lg:hidden transition-opacity"></div>
 
-    <!-- Sidebar -->
     <aside id="sidebar" class="w-72 bg-white border-r border-[#FFD6D6] flex flex-col fixed lg:static h-full z-30 transition-transform transform -translate-x-full lg:translate-x-0 shadow-xl lg:shadow-none">
         <div class="p-6 border-b border-[#FFE2E2] flex items-center justify-between">
             <a href="index.html" class="text-2xl font-bold flex items-center gap-3 text-[#231113]">
@@ -421,7 +416,6 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 space-y-5">
-            <!-- Host Environment Status Card -->
             <div class="bg-[#FFF6F6] rounded-xl p-3.5 border border-[#FFD6D6] space-y-3">
                 <div class="flex items-center justify-between gap-2 min-w-0">
                     <span class="text-xs font-semibold text-[#9E2F3B] flex items-center gap-1.5 min-w-0 truncate">
@@ -434,7 +428,6 @@
                     </button>
                 </div>
 
-                <!-- Detected OS & Browser -->
                 <div class="grid grid-cols-2 gap-2 text-xs">
                     <div id="sys-os-badge" class="bg-white border border-[#FFD8D8] rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-w-0">
                         <span id="sys-os-icon" class="w-4 h-4 flex-shrink-0 flex items-center justify-center">
@@ -450,7 +443,6 @@
                     </div>
                 </div>
 
-                <!-- Hardware & Specs Rows -->
                 <div class="space-y-2 pt-2.5 border-t border-[#FFE2E2] text-[11px]">
                     <div class="flex items-center justify-between gap-2 text-[#231113]">
                         <span class="text-[#634548] flex items-center gap-1.5 whitespace-nowrap">
@@ -477,7 +469,6 @@
                     </div>
                 </div>
 
-                <!-- Wasm & Engine Capabilities -->
                 <div class="flex items-center justify-between gap-2 text-[10px] text-[#634548] pt-2.5 border-t border-[#FFE2E2]">
                     <div class="flex items-center gap-1.5">
                         <span id="sys-wasm-badge" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono">
@@ -490,14 +481,12 @@
                     <span id="low-end-badge" class="hidden bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 font-medium whitespace-nowrap">Low Spec</span>
                 </div>
 
-                <!-- Offline Caching & PWA Panel -->
                 <div class="pt-3 border-t border-[#FFE2E2] space-y-2.5 overflow-visible">
                     <div class="flex items-center justify-between gap-3">
                         <span class="min-w-0 text-xs font-semibold text-[#231113] flex items-center gap-1.5">
                             <i class="fas fa-wifi text-[#B83B48] text-xs"></i>
                             <span>Offline Caching</span>
                         </span>
-                        <!-- Toggle Switch Button -->
                         <button id="offline-cache-toggle" class="compact-btn offline-cache-switch relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border border-[#E89696] transition-colors duration-200 ease-in-out focus:outline-none bg-[#FFB8B8]" style="min-height:24px;height:24px;width:44px" role="switch" aria-checked="true">
                             <span id="offline-cache-knob" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
                         </button>
@@ -507,13 +496,11 @@
                         <span id="offline-cache-status" class="font-mono text-emerald-700 font-semibold">ACTIVE</span>
                     </div>
 
-                    <!-- Install PWA App Button -->
                     <button id="pwa-install-btn" class="hidden w-full bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] font-semibold py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-sm border border-[#F39E9E]">
                         <i class="fas fa-download"></i> Install App
                     </button>
                 </div>
 
-                <!-- Ghost File Warning -->
                 <div id="storage-doctor-panel" class="hidden pt-2 border-t border-[#FFE2E2]">
                     <div class="flex items-center gap-2 text-red-700 text-xs mb-2">
                         <i class="fas fa-triangle-exclamation"></i>
@@ -525,7 +512,6 @@
                 </div>
             </div>
 
-            <!-- Main Actions -->
             <button id="create-vm-btn" class="w-full bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] font-bold py-3 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 group">
                 <i class="fas fa-plus group-hover:rotate-90 transition-transform"></i> Create New Machine
             </button>
@@ -536,7 +522,14 @@
             <input type="file" id="snapshot-upload" accept=".bin,.v86state,.86state" class="hidden" />
 
             <div class="pt-4 border-t border-[#FFE2E2]">
-                <button id="storage-manager-btn" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-[#634548] hover:text-[#231113] hover:bg-[#FFF2F2] transition-colors font-medium text-sm">
+                <button id="relay-manager-btn" class="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-[#634548] hover:text-[#231113] hover:bg-[#FFF2F2] transition-colors font-medium text-sm">
+                    <span class="flex items-center gap-3 min-w-0">
+                        <i class="fas fa-network-wired text-[#B83B48]"></i>
+                        <span class="truncate">WebSocket Servers</span>
+                    </span>
+                    <span id="sidebar-relay-count" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#FFF0F0] text-[#9E2F3B] border border-[#FFD6D6] tabular-nums">1</span>
+                </button>
+                <button id="storage-manager-btn" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-[#634548] hover:text-[#231113] hover:bg-[#FFF2F2] transition-colors mt-1 font-medium text-sm">
                     <i class="fas fa-database text-[#B83B48]"></i> Storage Manager
                 </button>
                 <button id="reset-app-btn" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-700 hover:text-red-800 hover:bg-red-50 transition-colors mt-1 font-medium text-sm">
@@ -550,9 +543,7 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-1 flex flex-col h-full relative bg-[#FFF8F8]">
-        <!-- Header (Mobile/Tablet Top Bar) -->
         <header class="h-16 bg-white/95 border-b border-[#FFD6D6] flex items-center justify-between px-4 sm:px-6 backdrop-blur-md lg:hidden z-10 sticky top-0">
             <a href="index.html" class="flex items-center gap-2.5">
                 <div class="w-8 h-8 bg-[#FFB8B8] rounded-lg flex items-center justify-center shadow-sm border border-[#F39E9E]">
@@ -575,9 +566,8 @@
         <div class="flex-1 overflow-y-auto p-4 lg:p-8">
             <div class="max-w-5xl mx-auto">
                 <div class="flex items-center justify-between mb-6 gap-4">
-                    <h2 class="text-2xl font-bold text-[#231113] hidden lg:block">My Machines</h2>
+                    <h1 class="text-xl sm:text-2xl font-bold text-[#231113]">My Machines</h1>
                     <div class="flex items-center gap-3 ml-auto">
-                        <!-- Desktop-only logs button -->
                         <button class="header-logs-btn hidden lg:flex bg-white hover:bg-[#FFF2F2] text-[#231113] border border-[#FFD6D6] hover:border-[#FFB8B8] px-3.5 py-1.5 rounded-lg text-xs font-semibold items-center gap-2 transition-colors shadow-sm active:scale-95 whitespace-nowrap">
                             <i class="fas fa-terminal text-[#B83B48]"></i>
                             <span>Emulator Logs</span>
@@ -588,10 +578,8 @@
                 </div>
 
                 <div id="vm-list" class="space-y-3">
-                    <!-- VM Items injected here -->
                 </div>
 
-                <!-- Empty State -->
                 <div id="empty-list-placeholder" class="hidden flex flex-col items-center justify-center py-20 text-[#634548] bg-white rounded-2xl border border-dashed border-[#FFB8B8]">
                     <div class="w-16 h-16 rounded-2xl bg-[#FFF2F2] border border-[#FFD6D6] flex items-center justify-center text-[#B83B48] mb-4">
                         <i class="fas fa-microchip text-3xl"></i>
@@ -603,12 +591,11 @@
         </div>
     </main>
 
-    <!-- Create VM Modal -->
     <div id="create-vm-modal" class="fixed inset-0 z-50 hidden bg-[#231113]/50 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-[#FFD6D6] flex flex-col max-h-[90vh]">
             <div class="p-6 border-b border-[#FFE2E2] flex justify-between items-center gap-3 flex-shrink-0">
                 <div class="min-w-0">
-                    <h3 class="text-xl font-bold text-[#231113]">Create Virtual Machine</h3>
+                    <h2 class="text-xl font-bold text-[#231113]">Create Virtual Machine</h2>
                     <p class="text-sm text-[#634548] mt-1">Configure your hardware environment</p>
                 </div>
                 <button id="close-modal-btn" class="text-[#634548] hover:text-[#231113] hover:bg-[#FFF2F2] w-8 h-8 rounded-lg flex items-center justify-center transition-colors flex-shrink-0">
@@ -617,7 +604,6 @@
             </div>
             
             <div class="p-6 overflow-y-auto custom-scrollbar">
-                <!-- Stepper -->
                 <div class="flex items-center justify-center mb-6 sm:mb-8">
                     <div id="step-indicator-1" class="flex flex-col items-center gap-1.5 text-[#9E2F3B]">
                         <div class="w-8 h-8 rounded-full bg-[#FFB8B8] flex items-center justify-center text-[#231113] font-bold border-2 border-[#F09292] text-xs">1</div>
@@ -635,7 +621,6 @@
                     </div>
                 </div>
 
-                <!-- Step 1: Media Selection -->
                 <div id="modal-step-1" class="space-y-5">
                     <div>
                         <label class="block text-xs sm:text-sm font-semibold text-[#231113] mb-2">Boot Media Source</label>
@@ -674,7 +659,6 @@
                         </div>
                     </div>
 
-                    <!-- Target Hard Disk for OS Installation -->
                     <div id="target-disk-container" class="bg-[#FFF8F8] rounded-xl border border-[#FFD6D6] p-3.5 sm:p-4 space-y-3.5 transition-all">
                         <div class="flex items-center justify-between gap-3">
                             <div class="flex items-center gap-3 min-w-0">
@@ -765,7 +749,6 @@
                     </details>
                 </div>
 
-                <!-- Step 2: Hardware -->
                 <div id="modal-step-2" class="space-y-4 hidden">
                     <div class="bg-[#FFF8F8] p-3.5 sm:p-4 rounded-xl border border-[#FFD6D6] space-y-2">
                         <div class="flex justify-between items-center gap-3">
@@ -824,22 +807,31 @@
                         </div>
                     </div>
 
-                    <!-- Custom WebSocket Relay URL Input (Shown when Networking enabled) -->
                     <div id="network-relay-container" class="hidden bg-[#FFF8F8] p-3.5 rounded-xl border border-[#FFD6D6] space-y-2.5">
                         <div class="flex items-center justify-between gap-2">
                             <label for="network-relay-input" class="text-xs font-semibold text-[#231113] flex items-center gap-1.5">
                                 <i class="fas fa-network-wired text-[#B83B48]"></i>
-                                <span>WebSocket Relay URL</span>
+                                <span>WebSocket Server</span>
                             </label>
-                            <span class="text-[11px] font-mono text-[#634548]">Custom or public</span>
+                            <span class="text-[10px] text-[#634548]">Use default or add custom link</span>
                         </div>
-                        <input type="text" id="network-relay-input" value="wss://relay.widgetry.org/" placeholder="wss://relay.widgetry.org/ or ws://localhost:8080/" class="w-full bg-white border border-[#FFD6D6] rounded-lg px-3 py-2 text-xs font-mono text-[#231113] placeholder:text-[#9E787C] focus:outline-none focus:border-[#B83B48]">
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <span class="text-[10px] text-[#634548] mr-1">Presets:</span>
-                            <button type="button" class="relay-preset-btn compact-btn px-2 py-1 rounded-md text-[10px] font-mono bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap" data-target="network-relay-input" data-relay-url="wss://relay.widgetry.org/">Widgetry</button>
-                            <button type="button" class="relay-preset-btn compact-btn px-2 py-1 rounded-md text-[10px] font-mono bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap" data-target="network-relay-input" data-relay-url="ws://localhost:8080/">Localhost :8080</button>
-                            <button type="button" class="relay-preset-btn compact-btn px-2 py-1 rounded-md text-[10px] font-mono bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap" data-target="network-relay-input" data-relay-url="inbrowser">In-Browser</button>
+                        <div id="network-relay-presets" class="flex flex-wrap items-center gap-1.5">
+                            <button type="button" class="relay-preset-btn compact-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#FFB8B8] text-[#231113] border border-[#F09292] transition-colors whitespace-nowrap" data-target="network-relay-input" data-relay-url="wss://relay.widgetry.org/">Default</button>
                         </div>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input type="text" id="network-relay-input" value="wss://relay.widgetry.org/" placeholder="wss://your-websocket-server.com/ or ws://localhost:8080/" class="flex-1 bg-white border border-[#FFD6D6] rounded-lg px-3 py-2 text-xs font-mono text-[#231113] placeholder:text-[#9E787C] focus:outline-none focus:border-[#B83B48]">
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" id="save-network-relay-btn" class="compact-btn px-3 py-2 rounded-lg text-xs font-semibold bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Add custom WebSocket to your saved list">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Add Custom</span>
+                                </button>
+                                <button type="button" id="test-network-relay-btn" class="compact-btn px-3 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Test WebSocket connection">
+                                    <i class="fas fa-plug text-[#B83B48]"></i>
+                                    <span>Test</span>
+                                </button>
+                            </div>
+                        </div>
+                        <p id="network-relay-status" class="hidden text-[11px] font-mono px-2.5 py-1.5 rounded-lg border"></p>
                         <p id="network-relay-error" class="hidden text-[11px] text-red-700 font-medium"></p>
                     </div>
                     
@@ -872,17 +864,23 @@
                                     <option value="smooth">Smooth (Blur)</option>
                                 </select>
                             </div>
+                            <div>
+                                <label for="network-device-select" class="block text-xs text-[#634548] font-medium mb-1">Network Adapter Type</label>
+                                <select id="network-device-select" class="w-full bg-white border border-[#FFD6D6] rounded px-2 py-1.5 text-xs text-[#231113]">
+                                    <option value="ne2k">NE2000 (Compatible · Default)</option>
+                                    <option value="virtio">VirtIO-Net (High Speed · Linux)</option>
+                                </select>
+                            </div>
                         </div>
                     </details>
                 </div>
 
-                <!-- Step 3: Finish -->
                 <div id="modal-step-3" class="space-y-6 hidden">
                     <div class="bg-[#FFF8F8] p-6 rounded-xl border border-[#FFD6D6] text-center">
                         <div class="w-16 h-16 bg-[#FFB8B8] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#F39E9E]">
                             <i class="fas fa-rocket text-2xl text-[#231113]"></i>
                         </div>
-                        <h4 class="text-lg font-bold text-[#231113] mb-1">Ready to Launch</h4>
+                        <h3 class="text-lg font-bold text-[#231113] mb-1">Ready to Launch</h3>
                         <p class="text-[#634548] text-sm mb-6">Review your configuration</p>
                         
                         <div class="text-left bg-white p-4 rounded-lg border border-[#FFD6D6] space-y-2 mb-6 text-sm">
@@ -894,9 +892,13 @@
                                 <span class="text-[#634548]">Target Disk (HDA):</span>
                                 <span class="text-[#9E2F3B] font-mono text-xs font-semibold" id="summary-disk">1024 MB Blank Disk</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between gap-3">
                                 <span class="text-[#634548]">Memory:</span>
                                 <span class="text-[#231113] font-mono tabular-nums font-semibold" id="summary-ram">64 MB</span>
+                            </div>
+                            <div class="flex justify-between gap-3">
+                                <span class="text-[#634548]">Networking:</span>
+                                <span class="text-[#231113] font-mono text-xs font-semibold truncate max-w-[220px]" id="summary-network">Disabled</span>
                             </div>
                         </div>
 
@@ -922,7 +924,6 @@
         </div>
     </div>
     
-    <!-- Disk Allocation Progress Modal -->
     <div id="disk-allocation-modal" class="fixed inset-0 z-[70] hidden bg-[#231113]/55 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-[#FFD6D6] p-6 space-y-5">
             <div class="flex items-center gap-4">
@@ -930,12 +931,11 @@
                     <i class="fas fa-hard-drive text-xl animate-pulse"></i>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <h3 class="text-base font-bold text-[#231113] tracking-tight" id="disk-progress-title">Allocating Virtual Hard Disk</h3>
+                    <h2 class="text-base font-bold text-[#231113] tracking-tight" id="disk-progress-title">Allocating Virtual Hard Disk</h2>
                     <p class="text-xs text-[#634548] truncate" id="disk-progress-subtitle">Creating raw storage blocks...</p>
                 </div>
             </div>
 
-            <!-- Progress Bar -->
             <div class="space-y-2">
                 <div class="w-full bg-[#FFF2F2] rounded-full h-3.5 p-0.5 border border-[#FFD6D6] overflow-hidden relative">
                     <div id="disk-progress-bar" class="bg-gradient-to-r from-[#FFB8B8] to-[#E87A82] h-full rounded-full transition-all duration-150 relative" style="width: 0%"></div>
@@ -954,14 +954,13 @@
         </div>
     </div>
     
-    <!-- Edit VM Modal -->
     <div id="edit-vm-modal" class="fixed inset-0 z-50 hidden bg-[#231113]/50 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-[#FFD6D6] p-6 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center gap-3 pb-4 mb-4 border-b border-[#FFE2E2] flex-shrink-0">
-                <h3 class="text-lg font-bold text-[#231113] flex items-center gap-2 min-w-0">
+                <h2 class="text-lg font-bold text-[#231113] flex items-center gap-2 min-w-0">
                     <i class="fas fa-sliders text-[#B83B48] flex-shrink-0"></i>
                     <span class="truncate">Edit Machine Settings</span>
-                </h3>
+                </h2>
                 <button id="close-edit-modal-x" type="button" class="text-[#634548] hover:text-[#231113] hover:bg-[#FFF2F2] w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" aria-label="Close edit machine dialog">
                     <i class="fas fa-times"></i>
                 </button>
@@ -970,13 +969,11 @@
             <input type="hidden" id="edit-vm-id">
             
             <div class="space-y-4 overflow-y-auto pr-1 flex-1">
-                <!-- Machine Name -->
                 <div>
                     <label class="block text-xs font-semibold text-[#231113] mb-1">Machine Name</label>
                     <input type="text" id="edit-vm-name-input" class="w-full bg-[#FFF8F8] border border-[#FFD6D6] rounded-lg px-3 py-2 text-sm text-[#231113] focus:outline-none focus:border-[#B83B48]">
                 </div>
                 
-                <!-- RAM Slider -->
                 <div class="bg-[#FFF8F8] p-3.5 rounded-xl border border-[#FFD6D6] space-y-2">
                     <div class="flex justify-between items-center gap-3">
                         <label for="edit-ram-slider" class="text-xs font-semibold text-[#231113] flex items-center gap-1.5">
@@ -991,7 +988,6 @@
                     </div>
                 </div>
 
-                <!-- VRAM Slider -->
                 <div class="bg-[#FFF8F8] p-3.5 rounded-xl border border-[#FFD6D6] space-y-2">
                     <div class="flex justify-between items-center gap-3">
                         <label for="edit-vram-slider" class="text-xs font-semibold text-[#231113] flex items-center gap-1.5">
@@ -1006,7 +1002,6 @@
                     </div>
                 </div>
 
-                <!-- Hardware Toggles Grid -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                     <label class="bg-[#FFF8F8] p-2.5 rounded-lg border border-[#FFD6D6] flex items-center justify-between cursor-pointer">
                         <span class="text-xs text-[#231113] font-medium flex items-center gap-1.5 whitespace-nowrap">
@@ -1037,25 +1032,34 @@
                     </label>
                 </div>
 
-                <!-- Custom WebSocket Relay URL (Edit Modal) -->
-                <div id="edit-network-relay-container" class="hidden bg-[#FFF8F8] p-3.5 rounded-xl border border-[#FFD6D6] space-y-2">
+                <div id="edit-network-relay-container" class="hidden bg-[#FFF8F8] p-3.5 rounded-xl border border-[#FFD6D6] space-y-2.5">
                     <div class="flex items-center justify-between gap-2">
                         <label for="edit-network-relay-input" class="text-xs font-semibold text-[#231113] flex items-center gap-1.5">
                             <i class="fas fa-network-wired text-[#B83B48]"></i>
-                            <span>Custom Relay URL</span>
+                            <span>WebSocket Server</span>
                         </label>
-                        <span class="text-[10px] font-mono text-[#634548]">wss:// · ws:// · inbrowser</span>
+                        <span class="text-[10px] text-[#634548]">Use default or add custom link</span>
                     </div>
-                    <input type="text" id="edit-network-relay-input" placeholder="wss://relay.widgetry.org/" class="w-full bg-white border border-[#FFD6D6] rounded-lg px-3 py-2 text-xs font-mono text-[#231113] placeholder:text-[#9E787C] focus:outline-none focus:border-[#B83B48]">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                        <button type="button" class="edit-relay-preset-btn compact-btn px-2 py-1 rounded-md text-[10px] font-mono bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap" data-target="edit-network-relay-input" data-relay-url="wss://relay.widgetry.org/">Widgetry</button>
-                        <button type="button" class="edit-relay-preset-btn compact-btn px-2 py-1 rounded-md text-[10px] font-mono bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap" data-target="edit-network-relay-input" data-relay-url="ws://localhost:8080/">Localhost :8080</button>
-                        <button type="button" class="edit-relay-preset-btn compact-btn px-2 py-1 rounded-md text-[10px] font-mono bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap" data-target="edit-network-relay-input" data-relay-url="inbrowser">In-Browser</button>
+                    <div id="edit-network-relay-presets" class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" class="edit-relay-preset-btn compact-btn px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#FFB8B8] text-[#231113] border border-[#F09292] transition-colors whitespace-nowrap" data-target="edit-network-relay-input" data-relay-url="wss://relay.widgetry.org/">Default</button>
                     </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text" id="edit-network-relay-input" placeholder="wss://your-websocket-server.com/ or ws://localhost:8080/" class="flex-1 bg-white border border-[#FFD6D6] rounded-lg px-3 py-2 text-xs font-mono text-[#231113] placeholder:text-[#9E787C] focus:outline-none focus:border-[#B83B48]">
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" id="edit-save-network-relay-btn" class="compact-btn px-3 py-2 rounded-lg text-xs font-semibold bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Add custom WebSocket to your saved list">
+                                <i class="fas fa-plus"></i>
+                                <span>Add Custom</span>
+                            </button>
+                            <button type="button" id="edit-test-network-relay-btn" class="compact-btn px-3 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Test WebSocket connection">
+                                <i class="fas fa-plug text-[#B83B48]"></i>
+                                <span>Test</span>
+                            </button>
+                        </div>
+                    </div>
+                    <p id="edit-network-relay-status" class="hidden text-[11px] font-mono px-2.5 py-1.5 rounded-lg border"></p>
                     <p id="edit-network-relay-error" class="hidden text-[11px] text-red-700 font-medium"></p>
                 </div>
 
-                <!-- Boot & Performance Options -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div>
                         <label class="block text-xs font-semibold text-[#634548] mb-1">Boot Order Priority</label>
@@ -1076,8 +1080,7 @@
                     </div>
                 </div>
 
-                <!-- Graphics & Kernel Cmdline -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-semibold text-[#634548] mb-1">Graphics Rendering</label>
                         <select id="edit-graphics-scale-select" class="w-full bg-[#FFF8F8] border border-[#FFD6D6] rounded-lg px-2.5 py-2 text-xs text-[#231113]">
@@ -1087,12 +1090,19 @@
                     </div>
 
                     <div>
+                        <label for="edit-network-device-select" class="block text-xs font-semibold text-[#634548] mb-1">Network Adapter</label>
+                        <select id="edit-network-device-select" class="w-full bg-[#FFF8F8] border border-[#FFD6D6] rounded-lg px-2.5 py-2 text-xs text-[#231113]">
+                            <option value="ne2k">NE2000</option>
+                            <option value="virtio">VirtIO-Net</option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label class="block text-xs font-semibold text-[#634548] mb-1">Kernel Options (cmdline)</label>
                         <input type="text" id="edit-cmdline-input" placeholder="e.g. quiet console=ttyS0" class="w-full bg-[#FFF8F8] border border-[#FFD6D6] rounded-lg px-2.5 py-1.5 text-xs text-[#231113]">
                     </div>
                 </div>
 
-                <!-- Storage Hard Disk Section -->
                 <div class="bg-[#FFF8F8] p-3.5 sm:p-4 rounded-xl border border-[#FFD6D6] space-y-3">
                     <div class="flex items-center justify-between gap-3 text-xs">
                         <span class="font-semibold text-[#231113] flex items-center gap-2">
@@ -1103,7 +1113,6 @@
                     </div>
 
                     <div id="edit-disk-container">
-                        <!-- Attached HDD info or Attach Blank Disk Button -->
                         <button id="edit-attach-disk-btn" class="hidden w-full bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] rounded-lg py-2 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-2">
                             <i class="fas fa-plus-circle"></i> Create &amp; Attach 1GB Blank Hard Disk
                         </button>
@@ -1119,12 +1128,53 @@
         </div>
     </div>
     
-    <!-- Storage Manager Modal -->
+    <div id="relay-manager-modal" class="fixed inset-0 z-50 hidden bg-[#231113]/55 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-[#FFD6D6] flex flex-col max-h-[85vh]">
+            <div class="p-5 border-b border-[#FFE2E2] flex justify-between items-start gap-3 flex-shrink-0">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-[#FFB8B8] border border-[#F39E9E] flex items-center justify-center text-[#231113] flex-shrink-0">
+                        <i class="fas fa-network-wired text-base"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-bold text-[#231113]">WebSocket Servers</h2>
+                        <p class="text-xs text-[#634548] mt-0.5">1 default WebSocket is included — add your own custom WebSocket below</p>
+                    </div>
+                </div>
+                <button id="close-relay-manager-btn" type="button" class="text-[#634548] hover:text-[#231113] bg-[#FFF2F2] hover:bg-[#FFB8B8] w-8 h-8 rounded-full flex items-center justify-center transition-colors border border-[#FFD6D6] flex-shrink-0" aria-label="Close WebSocket Servers">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="p-4 sm:p-5 bg-[#FFF8F8] border-b border-[#FFE2E2] space-y-2.5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input type="text" id="relay-mgr-label-input" placeholder="Name (optional)" class="bg-white border border-[#FFD6D6] rounded-lg px-3 py-2 text-xs text-[#231113] placeholder:text-[#9E787C] focus:outline-none focus:border-[#B83B48]">
+                    <input type="text" id="relay-mgr-url-input" placeholder="wss://your-server.com/ or ws://localhost:8080/" class="sm:col-span-2 bg-white border border-[#FFD6D6] rounded-lg px-3 py-2 text-xs font-mono text-[#231113] placeholder:text-[#9E787C] focus:outline-none focus:border-[#B83B48]">
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p id="relay-mgr-feedback" class="text-[11px] font-mono text-[#634548] min-h-[1rem]"></p>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" id="relay-mgr-test-btn" class="px-3 py-1.5 rounded-lg bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] text-xs font-semibold transition-colors flex items-center gap-1.5">
+                            <i class="fas fa-plug text-[#B83B48]"></i>
+                            <span>Test</span>
+                        </button>
+                        <button type="button" id="relay-mgr-add-btn" class="px-3.5 py-1.5 rounded-lg bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm">
+                            <i class="fas fa-plus"></i>
+                            <span>Add WebSocket</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="relay-mgr-list" class="flex-1 overflow-y-auto p-4 space-y-2">
+            </div>
+        </div>
+    </div>
+
     <div id="storage-manager-modal" class="fixed inset-0 z-50 hidden bg-[#231113]/55 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-[#FFD6D6] flex flex-col h-[80vh]">
             <div class="p-6 border-b border-[#FFE2E2] flex justify-between items-start gap-3 flex-shrink-0">
                 <div class="min-w-0">
-                    <h3 class="text-2xl font-bold text-[#231113]">Storage Manager</h3>
+                    <h2 class="text-2xl font-bold text-[#231113]">Storage Manager</h2>
                     <p class="text-sm text-[#634548] mt-1">Manage local database and storage quota</p>
                 </div>
                 <button id="close-storage-manager-btn" class="text-[#634548] hover:text-[#231113] bg-[#FFF2F2] hover:bg-[#FFB8B8] w-8 h-8 rounded-full flex items-center justify-center transition-colors border border-[#FFD6D6] flex-shrink-0">
@@ -1154,18 +1204,16 @@
                         </tr>
                     </thead>
                     <tbody id="storage-items-list" class="divide-y divide-[#FFEAEA]">
-                        <!-- Items injected here -->
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Help Modal -->
     <div id="help-modal" class="fixed inset-0 z-50 hidden bg-[#231113]/50 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-[#FFD6D6] flex flex-col max-h-[90vh]">
             <div class="p-6 border-b border-[#FFE2E2] flex justify-between items-center gap-3 flex-shrink-0">
-                <h3 class="text-xl font-bold text-[#231113]">Help &amp; FAQ</h3>
+                <h2 class="text-xl font-bold text-[#231113]">Help &amp; FAQ</h2>
                 <button id="close-help-btn" class="text-[#634548] hover:text-[#231113] hover:bg-[#FFF2F2] w-8 h-8 rounded-lg flex items-center justify-center transition-colors flex-shrink-0">
                     <i class="fas fa-times text-xl"></i>
                 </button>
@@ -1215,7 +1263,7 @@
                          <ul class="list-disc list-inside text-[#634548] mt-3 pt-3 border-t border-[#FFE2E2] leading-relaxed space-y-2">
                             <li><strong>Black Screen?</strong> The most common cause is not enough memory. Try creating the machine again with less RAM (e.g., 64MB or 128MB). Some operating systems also take a while to boot.</li>
                             <li><strong>Slow Performance?</strong> This is emulation, so it will be slower than a real computer. For low-spec devices, use the "Potato Mode" CPU profile in the advanced hardware options.</li>
-                             <li><strong>No Internet?</strong> Networking is experimental and requires a public WebSocket relay. It may not always be reliable.</li>
+                             <li><strong>No Internet / Custom Relay?</strong> Enable Networking and enter your own WebSocket relay (<code class="text-[#9E2F3B] font-mono">wss://</code>, <code class="text-[#9E2F3B] font-mono">ws://localhost:8080/</code>, <code class="text-[#9E2F3B] font-mono">wisps://</code>, or <code class="text-[#9E2F3B] font-mono">inbrowser</code>). Use the <strong>Test</strong> button or <strong>WebSocket Relays</strong> manager to verify connectivity before booting.</li>
                         </ul>
                     </details>
 
@@ -1241,7 +1289,6 @@
         </div>
     </div>
 
-    <!-- System Diagnostics Modal -->
     <div id="system-diagnostics-modal" class="fixed inset-0 z-50 hidden bg-[#231113]/50 flex items-center justify-center p-4">
         <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-[#FFD6D6] p-5 sm:p-6 max-h-[90vh] flex flex-col overflow-hidden">
             <div class="flex items-start sm:items-center justify-between gap-3 pb-4 border-b border-[#FFE2E2] flex-shrink-0">
@@ -1260,7 +1307,6 @@
             </div>
 
             <div class="overflow-y-auto py-4 space-y-4 flex-1 pr-0.5">
-                <!-- Overview Grid -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                     <div class="bg-[#FFF8F8] p-3 rounded-xl border border-[#FFD6D6] min-w-0">
                         <div class="text-[#634548] text-[11px] mb-1">Operating System</div>
@@ -1276,12 +1322,10 @@
                     </div>
                 </div>
 
-                <!-- Detailed Browser & Engine Panel -->
                 <div class="bg-[#FFF8F8] rounded-xl p-4 border border-[#FFD6D6] space-y-3.5">
                     <div class="flex flex-wrap items-center justify-between gap-3 min-w-0">
                         <div class="flex items-center gap-3 min-w-0">
                             <div id="diag-browser-logo-lg" class="w-10 h-10 rounded-xl bg-white border border-[#FFD6D6] flex items-center justify-center p-1.5 flex-shrink-0">
-                                <!-- Dynamic SVG Logo -->
                             </div>
                             <div class="min-w-0">
                                 <h3 id="diag-browser-title" class="text-sm font-bold text-[#231113] flex flex-wrap items-baseline gap-2">
@@ -1312,7 +1356,6 @@
                         </div>
                     </div>
 
-                    <!-- User-Agent inspector with Copy -->
                     <div class="pt-3 border-t border-[#FFE2E2] space-y-1.5">
                         <div class="flex items-center justify-between text-[11px] text-[#634548]">
                             <span class="flex items-center gap-1.5 font-medium"><i class="fas fa-terminal text-[#B83B48]"></i> Full User-Agent</span>
@@ -1327,7 +1370,6 @@
                     </div>
                 </div>
 
-                <!-- Hardware & Execution Environment -->
                 <div class="bg-[#FFF8F8] rounded-xl p-4 border border-[#FFD6D6] space-y-2">
                     <h3 class="text-xs font-semibold text-[#9E2F3B] tracking-wider flex items-center gap-2 pb-1">
                         <i class="fas fa-microchip"></i> Hardware &amp; Execution Profile
@@ -1356,7 +1398,6 @@
                     </div>
                 </div>
 
-                <!-- WebAssembly & Storage Capabilities -->
                 <div class="bg-[#FFF8F8] rounded-xl p-4 border border-[#FFD6D6] space-y-3">
                     <h3 class="text-xs font-semibold text-[#9E2F3B] tracking-wider flex items-center gap-2">
                         <i class="fas fa-layer-group"></i> Emulation Engine Capabilities
@@ -1394,17 +1435,15 @@
         </div>
     </div>
 
-    <!-- Emulator Console Logs Modal -->
     <div id="emulator-logs-modal" class="fixed inset-0 z-[100] hidden bg-[#231113]/55 flex items-center justify-center p-3 sm:p-6 lg:p-8">
         <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-[#FFD6D6] flex flex-col h-[82vh] max-h-[800px] overflow-hidden my-auto">
-            <!-- Modal Header -->
             <div class="p-4 bg-white border-b border-[#FFE2E2] flex items-center justify-between flex-wrap gap-2 flex-shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-[#FFB8B8] flex items-center justify-center text-[#231113] border border-[#F39E9E] shrink-0">
                         <i class="fas fa-terminal text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="text-sm font-bold text-[#231113]">Emulator Console Logs</h3>
+                        <h2 class="text-sm font-bold text-[#231113]">Emulator Console Logs</h2>
                         <p class="text-[11px] text-[#634548]">v86 hardware events, SeaBIOS POST, serial output, and WASM messages</p>
                     </div>
                 </div>
@@ -1422,7 +1461,6 @@
                 </div>
             </div>
 
-            <!-- Terminal Toolbar & Filters -->
             <div class="px-4 py-2.5 bg-[#FFF8F8] border-b border-[#FFE2E2] flex items-center justify-between text-xs flex-wrap gap-2">
                 <div class="flex items-center gap-1.5">
                     <button data-log-filter="ALL" class="log-filter-btn bg-[#FFB8B8] text-[#231113] px-3 py-1 rounded-md font-semibold text-[11px] border border-[#F39E9E] shadow-sm transition-all">ALL</button>
@@ -1437,7 +1475,6 @@
                 </label>
             </div>
 
-            <!-- Terminal Output Area (Dark rosewood screen for authentic terminal readability) -->
             <div class="flex-1 bg-[#231416] p-4 overflow-y-auto font-mono text-xs leading-relaxed select-text space-y-1.5" id="emulator-logs-content">
                 <div class="text-[#FFD6D6] italic flex items-center gap-2 py-4 justify-center">
                     <i class="fas fa-circle-notch fa-spin text-[#FFB8B8]"></i> Listening for v86 console logs and serial output...

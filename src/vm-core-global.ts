@@ -1,8 +1,17 @@
 import {
   DEFAULT_RELAY_URL,
   RELAY_PRESETS,
+  deleteCustomRelay,
   formatRelayHost,
+  getAllRelayOptions,
+  getDefaultRelayUrl,
+  isWebSocketRelayUrl,
+  loadSavedRelays,
+  normalizeNetDeviceType,
+  probeRelayConnection,
   resolveRelayUrl,
+  saveCustomRelay,
+  setDefaultRelayUrl,
   validateRelayUrl,
 } from './lib/relay-config';
 import {
@@ -27,6 +36,15 @@ declare global {
         validateRelayUrl: typeof validateRelayUrl;
         resolveRelayUrl: typeof resolveRelayUrl;
         formatRelayHost: typeof formatRelayHost;
+        normalizeNetDeviceType: typeof normalizeNetDeviceType;
+        isWebSocketRelayUrl: typeof isWebSocketRelayUrl;
+        probeRelayConnection: typeof probeRelayConnection;
+        loadSavedRelays: typeof loadSavedRelays;
+        saveCustomRelay: typeof saveCustomRelay;
+        deleteCustomRelay: typeof deleteCustomRelay;
+        getDefaultRelayUrl: typeof getDefaultRelayUrl;
+        setDefaultRelayUrl: typeof setDefaultRelayUrl;
+        getAllRelayOptions: typeof getAllRelayOptions;
       };
       telemetry: {
         computeMipsSample: typeof computeMipsSample;
@@ -51,6 +69,15 @@ window.WebVMCore = {
     validateRelayUrl,
     resolveRelayUrl,
     formatRelayHost,
+    normalizeNetDeviceType,
+    isWebSocketRelayUrl,
+    probeRelayConnection,
+    loadSavedRelays,
+    saveCustomRelay,
+    deleteCustomRelay,
+    getDefaultRelayUrl,
+    setDefaultRelayUrl,
+    getAllRelayOptions,
   },
   telemetry: {
     computeMipsSample,

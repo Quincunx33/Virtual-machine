@@ -1,4 +1,3 @@
-// === WebVM Progressive Web App (PWA) Service Worker ===
 const CACHE_NAME = 'webvm-offline-v4-blush-white';
 
 const CORE_ASSETS = [
@@ -19,7 +18,6 @@ const CORE_ASSETS = [
     'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap'
 ];
 
-// Installation: Cache essential assets
 self.addEventListener('install', (event) => {
     console.log('[Service Worker] Installing WebVM PWA Service Worker...');
     event.waitUntil(
@@ -39,7 +37,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activation: Clean up old caches
 self.addEventListener('activate', (event) => {
     console.log('[Service Worker] Activating WebVM Service Worker...');
     event.waitUntil(
@@ -56,15 +53,12 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch: Cache-first strategy for emulator binaries & local assets; Network-first for dynamic requests
 self.addEventListener('fetch', (event) => {
-    // Skip non-GET requests or browser extension requests
     if (event.request.method !== 'GET') return;
     if (!event.request.url.startsWith('http')) return;
 
     const url = new URL(event.request.url);
 
-    // Cache-first for local assets, WebAssembly, and BIOS files
     const isLocalAsset = url.origin === location.origin || 
                          url.pathname.endsWith('.js') || 
                          url.pathname.endsWith('.wasm') || 
@@ -75,14 +69,13 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             caches.match(event.request).then((cachedResponse) => {
                 if (cachedResponse) {
-                    // Return cached response immediately and update cache in background
                     fetch(event.request)
                         .then(networkResponse => {
                             if (networkResponse && networkResponse.ok) {
                                 caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse));
                             }
                         })
-                        .catch(() => {}); // Ignore network errors offline
+                        .catch(() => {});
                     return cachedResponse;
                 }
 
@@ -92,7 +85,6 @@ self.addEventListener('fetch', (event) => {
                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
                     return networkResponse;
                 }).catch(() => {
-                    // Offline fallback for html pages
                     if (event.request.headers.get('accept')?.includes('text/html')) {
                         return caches.match('./index.html') || caches.match('./vm-screen.html');
                     }
@@ -102,7 +94,6 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Network-first for other remote resources
     event.respondWith(
         fetch(event.request)
             .then((response) => {
@@ -118,7 +109,6 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Custom message listener for explicit cache commands
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'FORCE_PRECACHE') {
         console.log('[Service Worker] Explicit precache requested by user.');

@@ -1,7 +1,4 @@
-// === Web VM Emulator v2.2 - Assistive Touch Fixed ===
-// Production-ready with Zero Memory Leaks
 
-// --- Robust Polyfill for BroadcastChannel ---
 if (!window.BroadcastChannel) {
     window.BroadcastChannel = class {
         constructor() { this.listeners = []; }
@@ -11,7 +8,6 @@ if (!window.BroadcastChannel) {
     };
 }
 
-// --- Enhanced Event Manager ---
 class EventManager {
     constructor() {
         this.listeners = new Map();
@@ -28,7 +24,6 @@ class EventManager {
         const record = { type, listener, options };
         this.listeners.get(target).push(record);
         
-        // Return disposer
         return () => this.remove(target, type, listener, options);
     }
 
@@ -40,10 +35,9 @@ class EventManager {
         
         if (idx !== -1) {
             const r = records[idx];
-            target.removeEventListener(type, listener, r.options); // Use stored options
+            target.removeEventListener(type, listener, r.options);
             records.splice(idx, 1);
         } else {
-            // Fallback try
             target.removeEventListener(type, listener, options);
         }
         
@@ -58,7 +52,6 @@ class EventManager {
         }
         this.listeners.clear();
         
-        // Safety clean globals
         ['mousemove', 'touchmove', 'mouseup', 'touchend', 'resize'].forEach(evt => {
             try { window.removeEventListener(evt, null); } catch(e) {}
         });
@@ -67,7 +60,6 @@ class EventManager {
 
 const eventManager = new EventManager();
 
-// --- Globals ---
 let emulator = null;
 let selectedOS = null;
 let isShuttingDown = false;
@@ -82,7 +74,6 @@ let currentMemConfig = { ramMB: 64, vramMB: 4, isUltraLowSpec: false, wasClamped
 let isHeadlessDisplayOff = false;
 let fitCanvasFn = null;
 
-// --- Performance Profiler State ---
 const profilerState = {
     prevCounter: 0,
     prevSampleTime: 0,
@@ -102,7 +93,6 @@ const profilerState = {
     isInHlt: false
 };
 
-// --- Serial Terminal State ---
 let serialTermBuffer = null;
 let serialRenderPending = false;
 let serialHasReceivedOutput = false;
@@ -130,7 +120,6 @@ const elements = {
     statusLed: document.getElementById('status-led'),
     statusText: document.getElementById('status-text'),
     headlessBadge: document.getElementById('headless-badge'),
-    // Assistive Live Strip
     assistiveLiveLed: document.getElementById('assistive-live-led'),
     assistiveVmName: document.getElementById('assistive-vm-name'),
     assistiveVmState: document.getElementById('assistive-vm-state'),
@@ -141,7 +130,24 @@ const elements = {
     assistiveMipsVal: document.getElementById('assistive-mips-val'),
     assistiveUptimeVal: document.getElementById('assistive-uptime-val'),
     assistiveProfilerSummaryBtn: document.getElementById('assistive-profiler-summary-btn'),
-    // Full Performance Profiler Modal
+    assistiveNetworkBtn: document.getElementById('assistive-network-btn'),
+    assistiveNetLed: document.getElementById('assistive-net-led'),
+    assistiveNetState: document.getElementById('assistive-net-state'),
+    assistiveNetHost: document.getElementById('assistive-net-host'),
+    vmNetworkModal: document.getElementById('vm-network-modal'),
+    closeVmNetBtn: document.getElementById('close-vm-net-btn'),
+    vmNetLiveStatus: document.getElementById('vm-net-live-status'),
+    vmNetNicLabel: document.getElementById('vm-net-nic-label'),
+    vmNetTraffic: document.getElementById('vm-net-traffic'),
+    vmNetRelayInput: document.getElementById('vm-net-relay-input'),
+    vmNetSaveBtn: document.getElementById('vm-net-save-btn'),
+    vmNetTestBtn: document.getElementById('vm-net-test-btn'),
+    vmNetPresets: document.getElementById('vm-net-presets'),
+    vmNetProbeStatus: document.getElementById('vm-net-probe-status'),
+    vmNetError: document.getElementById('vm-net-error'),
+    vmNetDisableBtn: document.getElementById('vm-net-disable-btn'),
+    vmNetRebootBtn: document.getElementById('vm-net-reboot-btn'),
+    vmNetApplyBtn: document.getElementById('vm-net-apply-btn'),
     profilerModal: document.getElementById('vm-profiler-modal'),
     closeProfilerBtn: document.getElementById('close-profiler-btn'),
     profilerPauseBtn: document.getElementById('profiler-pause-btn'),
@@ -164,7 +170,6 @@ const elements = {
     profSparklineArea: document.getElementById('prof-sparkline-area'),
     profSparklineLine: document.getElementById('prof-sparkline-line'),
     profSparklinePeakLabel: document.getElementById('prof-sparkline-peak-label'),
-    // Serial Console Panel
     serialPanel: document.getElementById('serial-console-panel'),
     serialWindow: document.getElementById('serial-console-window'),
     serialOutput: document.getElementById('serial-terminal-output'),
@@ -178,7 +183,6 @@ const elements = {
     serialCmdInput: document.getElementById('serial-cmd-input')
 };
 
-// --- Utilities ---
 function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -220,14 +224,12 @@ async function fullCleanup() {
     if (db) db.close();
 }
 
-// --- Assistive Touch Floating Ball & Action Pad Logic ---
 let isDragging = false;
 let hasDragged = false;
 let dragStartX = 0, dragStartY = 0;
 let offsetX = 0, offsetY = 0;
 let isPanelOpen = false;
 
-// Store disposers to remove exact listeners later
 let dragMoveDisposer = null;
 let dragEndDisposer = null;
 
@@ -239,7 +241,6 @@ function positionAssistivePanel() {
     const winH = window.innerHeight;
     const safePad = 12;
 
-    // Measure actual rendered panel size accurately
     const wasHidden = elements.assistivePanel.classList.contains('hidden');
     if (wasHidden) {
         elements.assistivePanel.style.visibility = 'hidden';
@@ -252,7 +253,6 @@ function positionAssistivePanel() {
         elements.assistivePanel.style.visibility = '';
     }
 
-    // Horizontal positioning:
     let left;
     if (btnRect.left + btnRect.width / 2 > winW / 2) {
         left = btnRect.right - panelW;
@@ -260,7 +260,6 @@ function positionAssistivePanel() {
         left = btnRect.left;
     }
 
-    // Vertical positioning:
     let top;
     if (btnRect.top + btnRect.height / 2 > winH / 2) {
         top = btnRect.top - panelH - 12;
@@ -268,7 +267,6 @@ function positionAssistivePanel() {
         top = btnRect.bottom + 12;
     }
 
-    // Strict boundary safety clamp to guarantee NO cutoff anywhere
     left = Math.max(safePad, Math.min(left, winW - panelW - safePad));
     top = Math.max(safePad, Math.min(top, winH - panelH - safePad));
 
@@ -362,7 +360,7 @@ function ensureAssistiveTouchWithinScreen() {
 function dragStart(e) {
     if (!elements.assistiveTouch || e.target.closest('#assistive-panel')) return;
     
-    if (e.type === 'touchstart') e.preventDefault(); // Prevent accidental scroll
+    if (e.type === 'touchstart') e.preventDefault();
     
     isDragging = true;
     hasDragged = false;
@@ -379,7 +377,6 @@ function dragStart(e) {
     
     elements.assistiveTouch.classList.add('dragging');
     
-    // Add temporary listeners using disposers
     if (dragMoveDisposer) dragMoveDisposer();
     if (dragEndDisposer) dragEndDisposer();
     
@@ -399,7 +396,6 @@ function dragMove(e) {
     if (dist > 6) {
         hasDragged = true;
         
-        // Auto-close panel on drag start
         if (isPanelOpen) {
             setAssistivePanelVisible(false);
         }
@@ -421,7 +417,6 @@ function dragMove(e) {
 function dragEnd(e) {
     isDragging = false;
     
-    // Cleanup listeners
     if (dragMoveDisposer) { dragMoveDisposer(); dragMoveDisposer = null; }
     if (dragEndDisposer) { dragEndDisposer(); dragEndDisposer = null; }
     
@@ -429,12 +424,10 @@ function dragEnd(e) {
         snapAssistiveTouchToEdge();
     } else {
         elements.assistiveTouch.classList.remove('dragging');
-        // Clicked to toggle action pad
         setAssistivePanelVisible(!isPanelOpen);
     }
 }
 
-// Initialize Assistive Touch
 if (elements.mainAssistiveBtn) {
     eventManager.add(elements.mainAssistiveBtn, 'mousedown', dragStart);
     eventManager.add(elements.mainAssistiveBtn, 'touchstart', dragStart, { passive: false });
@@ -450,11 +443,9 @@ if (closePanelBtn) {
     eventManager.add(closePanelBtn, 'click', () => setAssistivePanelVisible(false));
 }
 
-// Handle window resize
 eventManager.add(window, 'resize', ensureAssistiveTouchWithinScreen);
 window.addEventListener('load', ensureAssistiveTouchWithinScreen);
 
-// --- Menu Button Actions ---
 const bindBtn = (id, fn) => {
     const btn = document.getElementById(id);
     if(btn) {
@@ -488,6 +479,7 @@ bindBtn('vm-download-disk-btn', () => exportHardDisk());
 bindBtn('vm-serial-btn', () => openSerialConsole());
 bindBtn('vm-profiler-btn', () => openProfilerModal());
 bindBtn('assistive-profiler-summary-btn', () => openProfilerModal());
+bindBtn('assistive-network-btn', () => openVmNetworkModal());
 
 async function exportHardDisk() {
     if (!emulator) return;
@@ -529,7 +521,6 @@ async function exportHardDisk() {
     }
 }
 
-// --- Virtual Keyboard ---
 function handleKey(e, isPress) {
     const key = e.target.closest('.key');
     if (!key || !emulator) return;
@@ -554,7 +545,6 @@ if(elements.virtualKeyboard) {
     ['mouseup', 'touchend', 'mouseleave', 'touchcancel'].forEach(e => eventManager.add(elements.virtualKeyboard, e, release));
 }
 
-// --- Non-blocking In-Screen Toast Notification ---
 function showVmToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -575,7 +565,6 @@ function showVmToast(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// --- Emulator Logic ---
 function initDB() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -588,6 +577,27 @@ function getFromDB(store, key) {
     return new Promise((resolve, reject) => {
         const req = store.get(key);
         req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveVmConfigToDB(config) {
+    if (!config || !config.id) return;
+    if (!db) await initDB();
+    const toSave = { ...config };
+    delete toSave.initial_state_data;
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_CONFIGS], 'readwrite');
+        const store = tx.objectStore(STORE_CONFIGS);
+        const req = store.put(toSave);
+        req.onsuccess = () => {
+            if (channel) {
+                try {
+                    channel.postMessage({ type: 'VM_CONFIG_UPDATED', id: toSave.id });
+                } catch (e) {}
+            }
+            resolve();
+        };
         req.onerror = () => reject(req.error);
     });
 }
@@ -605,7 +615,6 @@ async function loadData(id) {
     
     if (config && snapshot && snapshot.state) {
         try {
-            // Memory-efficient snapshot extraction: convert Blob to ArrayBuffer
             if (snapshot.state instanceof Blob) {
                 config.initial_state_data = await snapshot.state.arrayBuffer();
             } else if (snapshot.state instanceof ArrayBuffer) {
@@ -622,7 +631,6 @@ async function loadData(id) {
     return config;
 }
 
-// --- Safe Memory Helper: Prevents Browser Tab OOM Crash on Low RAM Devices ---
 function getSafeMemoryConfig(config) {
     const rawRam = parseInt(config.ram, 10) || 64;
     const rawVram = parseInt(config.vram, 10) || 8;
@@ -631,12 +639,10 @@ function getSafeMemoryConfig(config) {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const cores = navigator.hardwareConcurrency || 2;
     
-    // Low spec detection (1GB RAM devices, single/dual core phones)
     const isUltraLowSpec = devMemoryGB <= 1 || (isMobile && devMemoryGB <= 2) || cores <= 2;
     
     let safeRam = rawRam;
     
-    // Protect low-spec devices (phones, tablets, devices with <= 2GB RAM)
     if (isUltraLowSpec) {
         if (safeRam > 128) {
             console.warn(`[WebVM Memory Optimizer] Clamping requested RAM from ${safeRam}MB to 128MB for 1GB RAM device stability.`);
@@ -666,7 +672,6 @@ function getSafeMemoryConfig(config) {
     };
 }
 
-// --- Anti-Crash Save Snapshot Engine ---
 async function saveSnapshot() {
     if (!emulator) {
         showVmToast('Emulator is not running', 'warning');
@@ -678,19 +683,16 @@ async function saveSnapshot() {
         if (elements.loadingText) elements.loadingText.textContent = "Freezing VM state...";
     }
     
-    // Pause the VM before saving to ensure registers and memory pages are not in motion
     const wasRunning = typeof emulator.is_running === 'function' ? emulator.is_running() : true;
     if (wasRunning && typeof emulator.stop === 'function') {
         try { emulator.stop(); } catch(e) {}
     }
     
-    // Brief settle delay for pending WebAssembly operations
     await new Promise(r => setTimeout(r, 60));
     
     try {
         if (elements.loadingText) elements.loadingText.textContent = "Serializing memory state...";
 
-        // Execute save_state with a 20-second timeout guard to prevent hangs
         const statePromise = new Promise((resolve, reject) => {
             let settled = false;
             const timer = setTimeout(() => {
@@ -709,7 +711,6 @@ async function saveSnapshot() {
                     else resolve(buffer);
                 });
                 
-                // If it returned a promise
                 if (res && typeof res.then === 'function') {
                     res.then(buf => {
                         if (!settled) {
@@ -737,7 +738,6 @@ async function saveSnapshot() {
         const rawState = await statePromise;
         if (!rawState) throw new Error("Empty state returned by emulator.");
 
-        // Convert state to Blob: highly memory-efficient for IndexedDB (prevents StructuredClone OOM crash)
         let stateBlob;
         let byteSize = 0;
         if (rawState instanceof Blob) {
@@ -779,7 +779,6 @@ async function saveSnapshot() {
         console.error("Save snapshot error:", e);
         showVmToast('Save state failed: ' + (e.message || 'Unknown error'), 'error');
     } finally {
-        // Resume VM if it was running previously
         if (wasRunning && emulator && typeof emulator.run === 'function') {
             try { emulator.run(); } catch(e) {}
         }
@@ -789,7 +788,6 @@ async function saveSnapshot() {
     }
 }
 
-// --- Performance Profiler Helpers & UI ---
 function getTelemetryHelpers() {
     if (window.WebVMCore && window.WebVMCore.telemetry) {
         return window.WebVMCore.telemetry;
@@ -819,11 +817,158 @@ function getRelayHelpers() {
     if (window.WebVMCore && window.WebVMCore.relay) {
         return window.WebVMCore.relay;
     }
-    return {
-        resolveRelayUrl: (u) => (u && u.trim()) ? u.trim() : 'wss://relay.widgetry.org/',
-        formatRelayHost: (u) => {
-            try { return new URL(u || 'wss://relay.widgetry.org/').host; } catch { return u || 'relay.widgetry.org'; }
+    const DEFAULT_URL = 'wss://relay.widgetry.org/';
+    const validateFallback = (raw) => {
+        const trimmed = (raw || '').trim();
+        if (!trimmed) return { valid: true, normalized: DEFAULT_URL, protocolType: 'ws' };
+        const lower = trimmed.toLowerCase();
+        if (lower === 'inbrowser' || lower === 'fetch') {
+            return { valid: true, normalized: lower, protocolType: 'special' };
         }
+        try {
+            const parsed = new URL(trimmed);
+            if (!['ws:', 'wss:', 'wisp:', 'wisps:'].includes(parsed.protocol)) {
+                return { valid: false, normalized: trimmed, error: 'Use wss://, ws://, wisps://, wisp://, or "inbrowser".' };
+            }
+            return {
+                valid: true,
+                normalized: trimmed,
+                protocolType: (parsed.protocol === 'wisp:' || parsed.protocol === 'wisps:') ? 'wisp' : 'ws'
+            };
+        } catch {
+            return { valid: false, normalized: trimmed, error: 'Enter a valid WebSocket URL (wss://, ws://, wisps://, wisp://) or "inbrowser".' };
+        }
+    };
+    return {
+        DEFAULT_RELAY_URL: DEFAULT_URL,
+        RELAY_PRESETS: [
+            { id: 'preset-default', label: 'Default', url: DEFAULT_URL }
+        ],
+        validateRelayUrl: validateFallback,
+        resolveRelayUrl: (u) => {
+            const v = validateFallback(u);
+            return v.valid ? v.normalized : DEFAULT_URL;
+        },
+        formatRelayHost: (u) => {
+            const v = validateFallback(u);
+            const resolved = v.valid ? v.normalized : DEFAULT_URL;
+            if (resolved === 'inbrowser' || resolved === 'fetch') return resolved;
+            try { return new URL(resolved).host; } catch { return resolved; }
+        },
+        normalizeNetDeviceType: (t) => (t === 'virtio' ? 'virtio' : 'ne2k'),
+        getDefaultRelayUrl: () => DEFAULT_URL,
+        getAllRelayOptions: () => [
+            { id: 'preset-default', label: 'Default', url: DEFAULT_URL, isPreset: true, isDefault: true }
+        ],
+        probeRelayConnection: async (raw) => {
+            const check = validateFallback(raw);
+            if (!check.valid) return { ok: false, status: 'invalid', message: check.error };
+            if (check.protocolType === 'special') return { ok: true, status: 'virtual', message: `${check.normalized} active.` };
+            return { ok: false, status: 'error', message: 'Probe helper unavailable.' };
+        },
+        saveCustomRelay: () => ({ ok: false, error: 'Relay bookmarks unavailable.', relays: [] }),
+        deleteCustomRelay: () => []
+    };
+}
+
+function getLiveNetworkStatus() {
+    const r = getRelayHelpers();
+    const nicType = r.normalizeNetDeviceType ? r.normalizeNetDeviceType(selectedOS?.netDeviceType) : 'ne2k';
+    const nicLabel = nicType === 'virtio' ? 'VIRTIO-NET' : 'NE2000';
+
+    if (!selectedOS || !selectedOS.network) {
+        return {
+            enabled: false,
+            state: 'OFF',
+            label: 'DISABLED',
+            ledClass: 'status-led shrink-0',
+            host: 'Disabled',
+            hostText: 'Disabled · Tap to set relay',
+            nicLabel,
+            relayUrl: ''
+        };
+    }
+
+    const relayUrl = r.resolveRelayUrl(selectedOS.networkRelayUrl);
+    const host = r.formatRelayHost(relayUrl);
+    const adapter = emulator && emulator.network_adapter ? emulator.network_adapter : null;
+
+    if (relayUrl === 'inbrowser') {
+        return {
+            enabled: true,
+            state: adapter ? 'SWITCH' : 'REBOOT',
+            label: adapter ? 'IN-BROWSER' : 'NEEDS REBOOT',
+            ledClass: adapter ? 'status-led running shrink-0' : 'status-led halted shrink-0',
+            host,
+            hostText: adapter ? 'inbrowser (virtual switch)' : 'inbrowser · Reboot required',
+            nicLabel,
+            relayUrl
+        };
+    }
+
+    if (relayUrl === 'fetch') {
+        return {
+            enabled: true,
+            state: adapter ? 'FETCH' : 'REBOOT',
+            label: adapter ? 'FETCH PROXY' : 'NEEDS REBOOT',
+            ledClass: adapter ? 'status-led running shrink-0' : 'status-led halted shrink-0',
+            host,
+            hostText: adapter ? 'fetch (browser proxy)' : 'fetch · Reboot required',
+            nicLabel,
+            relayUrl
+        };
+    }
+
+    if (!adapter) {
+        return {
+            enabled: true,
+            state: 'REBOOT',
+            label: 'NEEDS REBOOT',
+            ledClass: 'status-led halted shrink-0',
+            host,
+            hostText: `${host} · Reboot required`,
+            nicLabel,
+            relayUrl
+        };
+    }
+
+    const sock = adapter.socket || adapter.wispws || null;
+    if (sock && typeof WebSocket !== 'undefined') {
+        if (sock.readyState === WebSocket.OPEN) {
+            return {
+                enabled: true,
+                state: 'LIVE',
+                label: 'CONNECTED',
+                ledClass: 'status-led running shrink-0',
+                host,
+                hostText: `${host} · Connected`,
+                nicLabel,
+                relayUrl
+            };
+        }
+        if (sock.readyState === WebSocket.CONNECTING) {
+            return {
+                enabled: true,
+                state: 'SYNC',
+                label: 'CONNECTING',
+                ledClass: 'status-led shrink-0',
+                host,
+                hostText: `${host} · Connecting...`,
+                nicLabel,
+                relayUrl
+            };
+        }
+    }
+
+    return {
+        enabled: true,
+        state: 'WAIT',
+        label: 'OFFLINE',
+        ledClass: 'status-led halted shrink-0',
+        host,
+        hostText: `${host} · Disconnected`,
+        nicLabel,
+        relayUrl
     };
 }
 
@@ -837,7 +982,6 @@ function startPerformanceSampling() {
         ? emulator.get_instruction_counter()
         : 0;
 
-    // Fast 100ms HLT sampling (single Uint8Array read, zero allocation)
     hltSampleTimer = setInterval(() => {
         if (!emulator) return;
         const running = typeof emulator.is_running === 'function' && emulator.is_running();
@@ -853,7 +997,6 @@ function startPerformanceSampling() {
         if (!inHlt) profilerState.activeTicks++;
     }, 100);
 
-    // 500ms telemetry aggregation & UI update
     profilerTimer = setInterval(() => {
         samplePerformanceMetrics();
         renderProfilerUI();
@@ -886,7 +1029,6 @@ function samplePerformanceMetrics() {
     }
     profilerState.lastUptimeCheck = now;
 
-    // CPU % from HLT duty cycle (or MIPS activity if HLT never triggered during boot)
     let cpuPct = t.computeCpuUtilization(profilerState.activeTicks, profilerState.totalTicks, running);
     if (running && profilerState.totalTicks === 0 && mips > 0) {
         cpuPct = 100;
@@ -913,9 +1055,11 @@ function samplePerformanceMetrics() {
 function renderProfilerUI() {
     const isAssistiveVisible = elements.assistivePanel && !elements.assistivePanel.classList.contains('hidden');
     const isModalVisible = elements.profilerModal && !elements.profilerModal.classList.contains('hidden');
-    if (!isAssistiveVisible && !isModalVisible) return;
+    const isNetModalVisible = elements.vmNetworkModal && !elements.vmNetworkModal.classList.contains('hidden');
+    if (!isAssistiveVisible && !isModalVisible && !isNetModalVisible) return;
 
     const t = getTelemetryHelpers();
+    const netStatus = getLiveNetworkStatus();
     const running = emulator && typeof emulator.is_running === 'function' && emulator.is_running();
     const vmName = (selectedOS && selectedOS.name) || 'WebVM';
     const stateLabel = !emulator ? 'OFFLINE' : (!running ? 'PAUSED' : (profilerState.isInHlt ? 'IDLE (HLT)' : 'RUNNING'));
@@ -940,6 +1084,21 @@ function renderProfilerUI() {
         if (elements.assistiveWasmVal) elements.assistiveWasmVal.textContent = wasmBytes > 0 ? `WASM ${wasmStr}` : 'WASM --';
         if (elements.assistiveMipsVal) elements.assistiveMipsVal.textContent = mipsStr;
         if (elements.assistiveUptimeVal) elements.assistiveUptimeVal.textContent = uptimeStr;
+
+        if (elements.assistiveNetLed) elements.assistiveNetLed.className = netStatus.ledClass;
+        if (elements.assistiveNetState) elements.assistiveNetState.textContent = netStatus.state;
+        if (elements.assistiveNetHost) elements.assistiveNetHost.textContent = netStatus.hostText;
+    }
+
+    if (isNetModalVisible) {
+        if (elements.vmNetLiveStatus) {
+            elements.vmNetLiveStatus.textContent = netStatus.label;
+            elements.vmNetLiveStatus.className = netStatus.state === 'LIVE' || netStatus.state === 'SWITCH' || netStatus.state === 'FETCH'
+                ? 'font-semibold text-emerald-700'
+                : (netStatus.enabled ? 'font-semibold text-[#9E2F3B]' : 'font-semibold text-[#634548]');
+        }
+        if (elements.vmNetNicLabel) elements.vmNetNicLabel.textContent = netStatus.nicLabel;
+        if (elements.vmNetTraffic) elements.vmNetTraffic.textContent = `${formatBytes(profilerState.netTxBytes)} / ${formatBytes(profilerState.netRxBytes)}`;
     }
 
     if (isModalVisible) {
@@ -979,8 +1138,7 @@ function renderProfilerUI() {
 
         if (elements.profNetIo) {
             if (selectedOS && selectedOS.network) {
-                const relayHost = getRelayHelpers().formatRelayHost(selectedOS.networkRelayUrl);
-                elements.profNetIo.textContent = `${relayHost} · TX ${formatBytes(profilerState.netTxBytes)} / RX ${formatBytes(profilerState.netRxBytes)}`;
+                elements.profNetIo.textContent = `${netStatus.host} (${netStatus.label}) · TX ${formatBytes(profilerState.netTxBytes)} / RX ${formatBytes(profilerState.netRxBytes)}`;
             } else {
                 elements.profNetIo.textContent = 'Disabled';
             }
@@ -1032,13 +1190,269 @@ if (elements.profilerPauseBtn) {
     });
 }
 
-// --- Serial Console Terminal Helpers & UI ---
+function setVmNetProbeUI(kind, text) {
+    if (!elements.vmNetProbeStatus) return;
+    if (!text) {
+        elements.vmNetProbeStatus.textContent = '';
+        elements.vmNetProbeStatus.className = 'hidden text-[11px] font-mono px-2.5 py-1.5 rounded-lg border';
+        return;
+    }
+    const styles = {
+        info: 'text-[#634548] bg-[#FFF8F8] border-[#FFD6D6]',
+        ok: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+        warn: 'text-amber-800 bg-amber-50 border-amber-200',
+        error: 'text-red-800 bg-red-50 border-red-200'
+    };
+    elements.vmNetProbeStatus.textContent = text;
+    elements.vmNetProbeStatus.className = `text-[11px] font-mono px-2.5 py-1.5 rounded-lg border ${styles[kind] || styles.info}`;
+}
+
+function validateVmNetInput() {
+    if (!elements.vmNetRelayInput || !elements.vmNetError) return { valid: true, normalized: '' };
+    const r = getRelayHelpers();
+    const res = r.validateRelayUrl(elements.vmNetRelayInput.value);
+    if (!res.valid) {
+        elements.vmNetError.textContent = res.error || 'Invalid WebSocket server link.';
+        elements.vmNetError.className = 'text-[11px] text-red-700 font-medium';
+    } else if (res.warning) {
+        elements.vmNetError.textContent = res.warning;
+        elements.vmNetError.className = 'text-[11px] text-amber-700 font-medium';
+    } else {
+        elements.vmNetError.textContent = '';
+        elements.vmNetError.className = 'hidden text-[11px] text-red-700 font-medium';
+    }
+    return res;
+}
+
+function renderVmNetPresets() {
+    if (!elements.vmNetPresets) return;
+    const r = getRelayHelpers();
+    const options = r.getAllRelayOptions ? r.getAllRelayOptions() : [];
+    const currentVal = (elements.vmNetRelayInput?.value || '').trim();
+    elements.vmNetPresets.innerHTML = '';
+
+    options.forEach((opt) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'inline-flex items-center';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const active = currentVal === opt.url;
+        btn.className = active
+            ? `px-2.5 py-1 ${!opt.isPreset ? 'rounded-l-lg border-r-0' : 'rounded-lg'} bg-[#FFB8B8] text-[#231113] border border-[#F39E9E] text-[10px] font-semibold transition-colors`
+            : `px-2.5 py-1 ${!opt.isPreset ? 'rounded-l-lg border-r-0' : 'rounded-lg'} bg-[#FFF8F8] hover:bg-[#FFF0F0] text-[#634548] hover:text-[#231113] border border-[#FFD6D6] text-[10px] font-medium transition-colors`;
+        btn.textContent = opt.isDefault ? `${opt.label} ★` : opt.label;
+        btn.title = opt.url;
+        btn.addEventListener('click', () => {
+            if (elements.vmNetRelayInput) {
+                elements.vmNetRelayInput.value = opt.url;
+                validateVmNetInput();
+                setVmNetProbeUI(null, '');
+                renderVmNetPresets();
+            }
+        });
+        wrap.appendChild(btn);
+
+        if (!opt.isPreset && r.deleteCustomRelay) {
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = active
+                ? 'px-1.5 py-1 rounded-r-lg bg-[#FFB8B8] hover:bg-red-100 text-[#9E2F3B] hover:text-red-700 border border-[#F39E9E] text-[10px] transition-colors'
+                : 'px-1.5 py-1 rounded-r-lg bg-[#FFF8F8] hover:bg-red-50 text-[#9E787C] hover:text-red-700 border border-[#FFD6D6] text-[10px] transition-colors';
+            delBtn.title = `Remove ${opt.label}`;
+            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                r.deleteCustomRelay(opt.id);
+                if (elements.vmNetRelayInput && elements.vmNetRelayInput.value.trim() === opt.url) {
+                    elements.vmNetRelayInput.value = r.getDefaultRelayUrl ? r.getDefaultRelayUrl() : r.DEFAULT_RELAY_URL;
+                    validateVmNetInput();
+                }
+                renderVmNetPresets();
+                showVmToast(`Removed '${opt.label}'`, 'info', 2000);
+            });
+            wrap.appendChild(delBtn);
+        }
+
+        elements.vmNetPresets.appendChild(wrap);
+    });
+}
+
+function openVmNetworkModal() {
+    if (!elements.vmNetworkModal) return;
+    const r = getRelayHelpers();
+    const initialUrl = selectedOS && selectedOS.network
+        ? r.resolveRelayUrl(selectedOS.networkRelayUrl)
+        : (r.getDefaultRelayUrl ? r.getDefaultRelayUrl() : r.DEFAULT_RELAY_URL);
+
+    if (elements.vmNetRelayInput) {
+        elements.vmNetRelayInput.value = initialUrl;
+    }
+    if (elements.vmNetRebootBtn) {
+        elements.vmNetRebootBtn.classList.add('hidden');
+    }
+    setVmNetProbeUI(null, '');
+    validateVmNetInput();
+    renderVmNetPresets();
+
+    elements.vmNetworkModal.classList.remove('hidden');
+    renderProfilerUI();
+}
+
+function closeVmNetworkModal() {
+    if (!elements.vmNetworkModal) return;
+    elements.vmNetworkModal.classList.add('hidden');
+}
+
+async function testVmNetRelay() {
+    const check = validateVmNetInput();
+    if (!check.valid) return;
+    const r = getRelayHelpers();
+    if (elements.vmNetTestBtn) {
+        elements.vmNetTestBtn.disabled = true;
+    }
+    setVmNetProbeUI('info', `Testing ${check.normalized}...`);
+    try {
+        const res = await r.probeRelayConnection(check.normalized, 4500);
+        if (res.ok) {
+            setVmNetProbeUI(res.status === 'virtual' ? 'warn' : 'ok', res.message);
+        } else {
+            setVmNetProbeUI('error', res.message);
+        }
+    } finally {
+        if (elements.vmNetTestBtn) {
+            elements.vmNetTestBtn.disabled = false;
+        }
+    }
+}
+
+async function applyVmNetRelay() {
+    const check = validateVmNetInput();
+    if (!check.valid) return;
+    if (!selectedOS) return;
+
+    const r = getRelayHelpers();
+    const nextUrl = check.normalized;
+    const adapter = emulator && emulator.network_adapter ? emulator.network_adapter : null;
+    const canLiveSwitch = Boolean(
+        selectedOS.network &&
+        adapter &&
+        typeof adapter.change_proxy === 'function' &&
+        check.protocolType === 'ws'
+    );
+
+    selectedOS.network = true;
+    selectedOS.networkRelayUrl = nextUrl;
+
+    try {
+        await saveVmConfigToDB(selectedOS);
+    } catch (err) {
+        console.error('Failed to save network config:', err);
+        showVmToast('Failed to save network configuration', 'error', 3000);
+        return;
+    }
+
+    if (canLiveSwitch) {
+        try {
+            adapter.change_proxy(nextUrl);
+            if (typeof adapter.connect === 'function') {
+                adapter.connect();
+            }
+            showVmToast(`Switched relay live to ${r.formatRelayHost(nextUrl)}`, 'success', 3000);
+            closeVmNetworkModal();
+            renderProfilerUI();
+        } catch (err) {
+            console.error('Live proxy switch failed:', err);
+            if (elements.vmNetRebootBtn) elements.vmNetRebootBtn.classList.remove('hidden');
+            setVmNetProbeUI('warn', 'Saved URL. Click "Save & Reboot" to apply cleanly.');
+        }
+    } else {
+        if (elements.vmNetRebootBtn) {
+            elements.vmNetRebootBtn.classList.remove('hidden');
+        }
+        setVmNetProbeUI('ok', 'Saved to VM config. Click "Save & Reboot" to initialize this network adapter.');
+        showVmToast('Saved! Reboot VM to activate the new network mode.', 'info', 3500);
+        renderProfilerUI();
+    }
+}
+
+async function disableVmNet() {
+    if (!selectedOS) return;
+    selectedOS.network = false;
+    try {
+        await saveVmConfigToDB(selectedOS);
+        if (emulator && emulator.network_adapter && typeof emulator.network_adapter.destroy === 'function') {
+            try { emulator.network_adapter.destroy(); } catch (e) {}
+        }
+        showVmToast('Networking disabled (WebSocket disconnected)', 'info', 3000);
+        if (elements.vmNetRebootBtn) elements.vmNetRebootBtn.classList.add('hidden');
+        setVmNetProbeUI('info', 'Networking disabled in VM configuration.');
+        renderProfilerUI();
+    } catch (err) {
+        console.error('Failed to disable network:', err);
+        showVmToast('Could not update VM network state', 'error', 3000);
+    }
+}
+
+function saveVmNetCustom() {
+    const check = validateVmNetInput();
+    if (!check.valid) return;
+    const r = getRelayHelpers();
+    if (!r.saveCustomRelay) return;
+    if (check.normalized === (r.DEFAULT_RELAY_URL || 'wss://relay.widgetry.org/')) {
+        setVmNetProbeUI('info', 'Default WebSocket is already built in. Enter a custom URL to save.');
+        return;
+    }
+    const label = r.formatRelayHost(check.normalized);
+    const saved = r.saveCustomRelay(label, check.normalized);
+    if (saved.ok) {
+        renderVmNetPresets();
+        setVmNetProbeUI('ok', `Added '${saved.relay.label}' to your saved WebSockets.`);
+        showVmToast(`Added custom WebSocket '${saved.relay.label}'`, 'success', 2500);
+    } else {
+        setVmNetProbeUI('error', saved.error || 'Could not save WebSocket.');
+    }
+}
+
+if (elements.closeVmNetBtn) {
+    eventManager.add(elements.closeVmNetBtn, 'click', closeVmNetworkModal);
+}
+if (elements.vmNetworkModal) {
+    eventManager.add(elements.vmNetworkModal, 'click', (e) => {
+        if (e.target === elements.vmNetworkModal) closeVmNetworkModal();
+    });
+}
+if (elements.vmNetRelayInput) {
+    eventManager.add(elements.vmNetRelayInput, 'input', () => {
+        validateVmNetInput();
+        setVmNetProbeUI(null, '');
+        renderVmNetPresets();
+    });
+}
+if (elements.vmNetSaveBtn) {
+    eventManager.add(elements.vmNetSaveBtn, 'click', saveVmNetCustom);
+}
+if (elements.vmNetTestBtn) {
+    eventManager.add(elements.vmNetTestBtn, 'click', testVmNetRelay);
+}
+if (elements.vmNetApplyBtn) {
+    eventManager.add(elements.vmNetApplyBtn, 'click', applyVmNetRelay);
+}
+if (elements.vmNetRebootBtn) {
+    eventManager.add(elements.vmNetRebootBtn, 'click', () => {
+        closeVmNetworkModal();
+        location.reload();
+    });
+}
+if (elements.vmNetDisableBtn) {
+    eventManager.add(elements.vmNetDisableBtn, 'click', disableVmNet);
+}
+
 function ensureSerialTermBuffer() {
     if (serialTermBuffer) return serialTermBuffer;
     if (window.WebVMCore && window.WebVMCore.serial && window.WebVMCore.serial.SerialTerminalBuffer) {
         serialTermBuffer = new window.WebVMCore.serial.SerialTerminalBuffer(800);
     } else {
-        // Minimal inline fallback if module hasn't loaded
         const lines = [''];
         serialTermBuffer = {
             lines,
@@ -1267,16 +1681,19 @@ document.querySelectorAll('.serial-quick-key').forEach((btn) => {
 async function startEmulator(config) {
     if (!config) throw new Error("VM configuration is missing.");
     
-    // Calculate safe memory configuration
     const memConfig = getSafeMemoryConfig(config);
     currentMemConfig = memConfig;
     if (memConfig.wasClamped) {
         showVmToast(`RAM optimized to ${memConfig.ramMB}MB for device stability`, 'info', 4000);
     }
 
+    const relayHelpers = getRelayHelpers();
     const relayUrl = config.network
-        ? getRelayHelpers().resolveRelayUrl(config.networkRelayUrl)
+        ? relayHelpers.resolveRelayUrl(config.networkRelayUrl)
         : undefined;
+    const netDeviceType = relayHelpers.normalizeNetDeviceType
+        ? relayHelpers.normalizeNetDeviceType(config.netDeviceType)
+        : 'ne2k';
     
     const v86Config = {
         wasm_path: "v86.wasm",
@@ -1286,11 +1703,11 @@ async function startEmulator(config) {
         memory_size: memConfig.ramMB * 1024 * 1024,
         vga_memory_size: memConfig.vramMB * 1024 * 1024,
         autostart: true,
-        acpi: config.acpi !== false, // Crucial: Enables guest HLT idling to prevent 100% CPU heating
-        fastboot: true, // Skips CMOS self-tests for fast boot and low heat
+        acpi: config.acpi !== false,
+        fastboot: true,
         disable_speaker: (memConfig.isUltraLowSpec && !config.audio) || config.audio === false,
         network_relay_url: relayUrl,
-        ...(relayUrl ? { net_device: { type: "ne2k", id: 0, relay_url: relayUrl } } : {}),
+        ...(relayUrl ? { net_device: { type: netDeviceType, id: 0, relay_url: relayUrl } } : {}),
         cmdline: config.cmdline || ""
     };
     if (config.bootOrder) {
@@ -1324,13 +1741,11 @@ async function startEmulator(config) {
         }
     }
     
-    // --- Safe Instantiation with Automatic RAM Reduction Fallback ---
     const createV86Instance = (cfg) => {
         try {
             return new V86(cfg);
         } catch (err) {
             const msg = (err && err.message) ? err.message.toLowerCase() : '';
-            // If WebAssembly fails to allocate memory (OOM or RangeError)
             if (msg.includes('memory') || msg.includes('rangeerror') || msg.includes('wasm') || msg.includes('alloc')) {
                 console.warn("[WebVM] WASM memory allocation failed. Retrying with ultra-low RAM configuration...", err);
                 const reducedRam = Math.max(16, Math.floor(cfg.memory_size / (2 * 1024 * 1024)));
@@ -1362,10 +1777,9 @@ async function startEmulator(config) {
     }
 
     try {
-        emitVmLog(`Starting v86 instance for '${config.name}' (RAM: ${memConfig.ramMB}MB, VRAM: ${memConfig.vramMB}MB${relayUrl ? `, Relay: ${relayUrl}` : ''})...`, 'info');
+        emitVmLog(`Starting v86 instance for '${config.name}' (RAM: ${memConfig.ramMB}MB, VRAM: ${memConfig.vramMB}MB${relayUrl ? `, Relay [${netDeviceType.toUpperCase()}]: ${relayUrl}` : ''})...`, 'info');
         emulator = createV86Instance(v86Config);
         
-        // --- Serial TTY Output Listener (feeds both Serial Console Panel & Dashboard Logs) ---
         let serialBuffer = '';
         emulator.add_listener("serial0-output-byte", (byte) => {
             const char = String.fromCharCode(byte);
@@ -1389,7 +1803,6 @@ async function startEmulator(config) {
             }
         });
 
-        // --- Network I/O Counters for Profiler ---
         emulator.add_listener("eth-transmit-end", (args) => {
             const len = Array.isArray(args) ? (args[0] || 0) : (args || 0);
             profilerState.netTxBytes += Number(len) || 0;
@@ -1414,16 +1827,13 @@ async function startEmulator(config) {
                 channel.postMessage({ type: 'VM_STARTED', id: config.id });
             }
 
-            // Show Eco badge if on 1GB low-RAM profile
             const ecoBadge = document.getElementById('eco-badge');
             if (ecoBadge && (memConfig.isUltraLowSpec || memConfig.wasClamped)) {
                 ecoBadge.classList.remove('hidden');
             }
 
-            // Start live performance profiler sampling
             startPerformanceSampling();
 
-            // Open Serial Console automatically if Headless mode or ?console=1 / ?headless=1
             const urlParams = new URLSearchParams(location.search);
             const wantHeadless = Boolean(config.headless) || urlParams.get('headless') === '1';
             const wantConsole = wantHeadless || urlParams.get('console') === '1';
@@ -1435,12 +1845,12 @@ async function startEmulator(config) {
             const lockHandler = () => {
                 const serialOpen = elements.serialPanel && !elements.serialPanel.classList.contains('hidden');
                 const profOpen = elements.profilerModal && !elements.profilerModal.classList.contains('hidden');
-                if (serialOpen || profOpen || isHeadlessDisplayOff) return;
+                const netOpen = elements.vmNetworkModal && !elements.vmNetworkModal.classList.contains('hidden');
+                if (serialOpen || profOpen || netOpen || isHeadlessDisplayOff) return;
                 if(emulator && emulator.is_running()) emulator.lock_mouse();
             };
             eventManager.add(elements.screenContainer, 'click', lockHandler);
 
-            // --- Thermal & Battery Guard: Pause VM when tab is hidden to prevent background overheating ---
             let wasRunningBeforeHide = false;
             const visibilityHandler = () => {
                 if (!emulator) return;
@@ -1461,7 +1871,6 @@ async function startEmulator(config) {
             };
             eventManager.add(document, 'visibilitychange', visibilityHandler);
 
-            // --- Hardware Accelerated Canvas & Smooth Scaling ---
             const canvas = elements.screenContainer.querySelector('canvas');
             if (canvas) {
                 canvas.style.transformOrigin = 'center center';
@@ -1499,7 +1908,6 @@ async function startEmulator(config) {
             eventManager.add(window, 'resize', fit);
             fit();
             
-            // Screen update stats polling
             screenUpdateInterval = setInterval(() => {
                 if(elements.statusLed) {
                     const running = emulator.is_running();
@@ -1532,7 +1940,6 @@ async function startEmulator(config) {
     }
 }
 
-// Entry Point
 async function init() {
     try {
         channel = new BroadcastChannel('webvm_channel');

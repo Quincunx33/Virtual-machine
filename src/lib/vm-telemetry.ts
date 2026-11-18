@@ -3,10 +3,6 @@ export interface MipsSampleResult {
   mips: number;
 }
 
-/**
- * Computes instruction delta (handling 32-bit unsigned counter wrap-around)
- * and MIPS over the elapsed milliseconds.
- */
 export function computeMipsSample(
   prevCounter: number,
   currCounter: number,
@@ -27,10 +23,6 @@ export function computeMipsSample(
   };
 }
 
-/**
- * Computes CPU active percentage from HLT idle sampling and running state.
- * activeSamples / totalSamples when running; 0 when halted.
- */
 export function computeCpuUtilization(
   activeSamples: number,
   totalSamples: number,

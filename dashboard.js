@@ -1,24 +1,18 @@
-// === Web VM Dashboard v2.2 - Storage Fixed ===
-// Production-ready with IndexedDB leak fixes
 
-// --- Global Error Protection ---
 window.onerror = function(msg, url, line) {
     console.error("Dashboard Error:", msg, "at line", line);
     
-    // Show toast if available
     try {
         if (typeof showToast === 'function') {
             showToast(`App Error: ${msg}`, 'error');
         }
     } catch(e) {
-        // Fallback error display
         console.error(e);
     }
     
-    return true; // Prevent default error handler
+    return true;
 };
 
-// --- Enhanced BroadcastChannel Polyfill ---
 if (!window.BroadcastChannel) {
     window.BroadcastChannel = class {
         constructor(name) {
@@ -43,7 +37,6 @@ if (!window.BroadcastChannel) {
     };
 }
 
-// --- State Management ---
 let machines = [];
 let db = null;
 const runningVmIds = new Set();
@@ -55,7 +48,6 @@ const STORE_CONFIGS = 'vm_configs';
 const STORE_SNAPSHOTS = 'vm_snapshots';
 const STORE_METADATA = 'db_metadata';
 
-// --- DOM Elements ---
 const getEl = (id) => document.getElementById(id);
 
 const elements = {
@@ -84,6 +76,11 @@ const elements = {
     networkRelayContainer: getEl('network-relay-container'),
     networkRelayInput: getEl('network-relay-input'),
     networkRelayError: getEl('network-relay-error'),
+    networkRelayStatus: getEl('network-relay-status'),
+    networkRelayPresets: getEl('network-relay-presets'),
+    networkDeviceSelect: getEl('network-device-select'),
+    testNetworkRelayBtn: getEl('test-network-relay-btn'),
+    saveNetworkRelayBtn: getEl('save-network-relay-btn'),
     bootOrderSelect: getEl('boot-order-select'),
     cpuProfileSelect: getEl('cpu-profile-select'),
     graphicsScaleSelect: getEl('graphics-scale-select'),
@@ -93,6 +90,7 @@ const elements = {
     summarySource: getEl('summary-source'),
     summaryDisk: getEl('summary-disk'),
     summaryRam: getEl('summary-ram'),
+    summaryNetwork: getEl('summary-network'),
     enableTargetDiskToggle: getEl('enable-target-disk-toggle'),
     targetDiskContainer: getEl('target-disk-container'),
     blankDiskControls: getEl('blank-disk-controls'),
@@ -107,6 +105,16 @@ const elements = {
     primaryUploadHint: getEl('primary-upload-hint'),
     storageDisplay: getEl('storage-display'),
     storageManagerBtn: getEl('storage-manager-btn'),
+    relayManagerBtn: getEl('relay-manager-btn'),
+    sidebarRelayCount: getEl('sidebar-relay-count'),
+    relayManagerModal: getEl('relay-manager-modal'),
+    closeRelayManagerBtn: getEl('close-relay-manager-btn'),
+    relayMgrLabelInput: getEl('relay-mgr-label-input'),
+    relayMgrUrlInput: getEl('relay-mgr-url-input'),
+    relayMgrFeedback: getEl('relay-mgr-feedback'),
+    relayMgrTestBtn: getEl('relay-mgr-test-btn'),
+    relayMgrAddBtn: getEl('relay-mgr-add-btn'),
+    relayMgrList: getEl('relay-mgr-list'),
     nukeGhostsBtn: getEl('nuke-ghosts-btn'),
     storageDoctorPanel: getEl('storage-doctor-panel'),
     ghostFileCount: getEl('ghost-file-count'),
@@ -159,6 +167,11 @@ const elements = {
     editNetworkRelayContainer: getEl('edit-network-relay-container'),
     editNetworkRelayInput: getEl('edit-network-relay-input'),
     editNetworkRelayError: getEl('edit-network-relay-error'),
+    editNetworkRelayStatus: getEl('edit-network-relay-status'),
+    editNetworkRelayPresets: getEl('edit-network-relay-presets'),
+    editNetworkDeviceSelect: getEl('edit-network-device-select'),
+    editTestNetworkRelayBtn: getEl('edit-test-network-relay-btn'),
+    editSaveNetworkRelayBtn: getEl('edit-save-network-relay-btn'),
     editAcpiToggle: getEl('edit-acpi-toggle'),
     editAudioToggle: getEl('edit-audio-toggle'),
     editHeadlessToggle: getEl('edit-headless-toggle'),
@@ -203,7 +216,6 @@ const elements = {
     stepIndicators: [getEl('step-indicator-1'), getEl('step-indicator-2'), getEl('step-indicator-3')]
 };
 
-// --- Utilities ---
 function updateSliderProgress(slider) {
     if (!slider) return;
     const min = parseFloat(slider.min) || 0;
@@ -223,10 +235,16 @@ function formatBytes(bytes, decimals = 1) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
 }
 
-function validateCustomRelayUrl(rawUrl) {
+function getRelayCore() {
     if (window.WebVMCore && window.WebVMCore.relay) {
-        return window.WebVMCore.relay.validateRelayUrl(rawUrl);
+        return window.WebVMCore.relay;
     }
+    return null;
+}
+
+function validateCustomRelayUrl(rawUrl) {
+    const core = getRelayCore();
+    if (core) return core.validateRelayUrl(rawUrl);
     const trimmed = (rawUrl || '').trim();
     if (!trimmed) return { valid: true, normalized: 'wss://relay.widgetry.org/' };
     const lower = trimmed.toLowerCase();
@@ -243,9 +261,8 @@ function validateCustomRelayUrl(rawUrl) {
 }
 
 function formatRelayBadgeHost(rawUrl) {
-    if (window.WebVMCore && window.WebVMCore.relay) {
-        return window.WebVMCore.relay.formatRelayHost(rawUrl);
-    }
+    const core = getRelayCore();
+    if (core) return core.formatRelayHost(rawUrl);
     try {
         return new URL(rawUrl || 'wss://relay.widgetry.org/').host || rawUrl;
     } catch {
@@ -253,7 +270,263 @@ function formatRelayBadgeHost(rawUrl) {
     }
 }
 
-// --- Notification System ---
+function getDefaultRelayUrlSafe() {
+    const core = getRelayCore();
+    if (core && core.getDefaultRelayUrl) return core.getDefaultRelayUrl();
+    return 'wss://relay.widgetry.org/';
+}
+
+function getAllRelayOptionsSafe() {
+    const core = getRelayCore();
+    if (core && core.getAllRelayOptions) return core.getAllRelayOptions();
+    return [
+        { id: 'preset-default', label: 'Default', url: 'wss://relay.widgetry.org/', isPreset: true, isDefault: true },
+    ];
+}
+
+function normalizeNetDeviceTypeSafe(raw) {
+    const core = getRelayCore();
+    if (core && core.normalizeNetDeviceType) return core.normalizeNetDeviceType(raw);
+    return raw === 'virtio' ? 'virtio' : 'ne2k';
+}
+
+async function probeRelayConnectionSafe(rawUrl) {
+    const core = getRelayCore();
+    if (core && core.probeRelayConnection) return core.probeRelayConnection(rawUrl, 4500);
+    const check = validateCustomRelayUrl(rawUrl);
+    if (!check.valid) return { ok: false, status: 'invalid', message: check.error || 'Invalid URL' };
+    if (check.normalized === 'inbrowser' || check.normalized === 'fetch') {
+        return { ok: true, status: 'virtual', message: 'Virtual browser mode active.' };
+    }
+    return new Promise((resolve) => {
+        const started = performance.now();
+        let done = false;
+        let ws;
+        const finish = (res) => { if (!done) { done = true; clearTimeout(t); try { ws?.close(); } catch {} resolve(res); } };
+        const t = setTimeout(() => finish({ ok: false, status: 'timeout', message: 'Connection timed out.' }), 4500);
+        try {
+            ws = new WebSocket(check.normalized.replace(/^wisps:/, 'wss:').replace(/^wisp:/, 'ws:'));
+            ws.onopen = () => finish({ ok: true, status: 'connected', latencyMs: Math.max(1, Math.round(performance.now() - started)), message: `Connected (${Math.max(1, Math.round(performance.now() - started))} ms)` });
+            ws.onerror = () => finish({ ok: false, status: 'error', message: 'Could not reach WebSocket server.' });
+        } catch (err) {
+            finish({ ok: false, status: 'error', message: err.message });
+        }
+    });
+}
+
+function updateSidebarRelayCount() {
+    if (!elements.sidebarRelayCount) return;
+    const options = getAllRelayOptionsSafe();
+    elements.sidebarRelayCount.textContent = String(options.length);
+}
+
+function renderRelayPresetChips(containerEl, inputEl) {
+    if (!containerEl || !inputEl) return;
+    const core = getRelayCore();
+    const options = getAllRelayOptionsSafe();
+    const currentVal = (inputEl.value || '').trim();
+    containerEl.innerHTML = '';
+
+    options.forEach((opt) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'inline-flex items-center';
+
+        const isActive = currentVal === opt.url;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = isActive
+            ? `compact-btn px-2.5 py-1 ${!opt.isPreset ? 'rounded-l-md border-r-0' : 'rounded-md'} text-[11px] font-medium bg-[#FFB8B8] text-[#231113] border border-[#F09292] font-semibold transition-colors whitespace-nowrap flex items-center gap-1`
+            : `compact-btn px-2.5 py-1 ${!opt.isPreset ? 'rounded-l-md border-r-0' : 'rounded-md'} text-[11px] font-medium bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] transition-colors whitespace-nowrap flex items-center gap-1`;
+        btn.title = opt.url;
+        btn.innerHTML = `${!opt.isPreset ? '<i class="fas fa-link text-[9px] text-[#B83B48]"></i>' : ''}<span>${escapeHtml(opt.label)}</span>`;
+        btn.addEventListener('click', () => {
+            inputEl.value = opt.url;
+            inputEl.dispatchEvent(new Event('input'));
+            renderRelayPresetChips(containerEl, inputEl);
+            inputEl.focus();
+        });
+        wrap.appendChild(btn);
+
+        if (!opt.isPreset && core && core.deleteCustomRelay) {
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = isActive
+                ? 'compact-btn px-1.5 py-1 rounded-r-md text-[10px] bg-[#FFB8B8] hover:bg-red-100 text-[#9E2F3B] hover:text-red-700 border border-[#F09292] transition-colors'
+                : 'compact-btn px-1.5 py-1 rounded-r-md text-[10px] bg-white hover:bg-red-50 text-[#9E787C] hover:text-red-700 border border-[#FFD6D6] transition-colors';
+            delBtn.title = `Remove ${opt.label}`;
+            delBtn.innerHTML = '<i class="fas fa-times"></i>';
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                core.deleteCustomRelay(opt.id);
+                if (inputEl.value.trim() === opt.url) {
+                    inputEl.value = getDefaultRelayUrlSafe();
+                    inputEl.dispatchEvent(new Event('input'));
+                }
+                renderAllRelayPresetBars();
+                if (elements.relayManagerModal && !elements.relayManagerModal.classList.contains('hidden')) {
+                    renderRelayManagerList();
+                }
+                showToast(`Removed '${opt.label}'`, 'info');
+            });
+            wrap.appendChild(delBtn);
+        }
+
+        containerEl.appendChild(wrap);
+    });
+}
+
+function renderAllRelayPresetBars() {
+    renderRelayPresetChips(elements.networkRelayPresets, elements.networkRelayInput);
+    renderRelayPresetChips(elements.editNetworkRelayPresets, elements.editNetworkRelayInput);
+    updateSidebarRelayCount();
+}
+
+async function runRelayProbeUI(inputEl, statusEl, errorEl, testBtnEl) {
+    if (!inputEl || !statusEl) return;
+    const raw = inputEl.value;
+    const check = validateCustomRelayUrl(raw);
+    if (!check.valid) {
+        statusEl.classList.add('hidden');
+        if (errorEl) {
+            errorEl.textContent = check.error || 'Invalid WebSocket URL';
+            errorEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+
+    const origHtml = testBtnEl ? testBtnEl.innerHTML : '';
+    if (testBtnEl) {
+        testBtnEl.disabled = true;
+        testBtnEl.innerHTML = '<i class="fas fa-spinner fa-spin text-[#B83B48]"></i><span>Testing...</span>';
+    }
+    statusEl.className = 'text-[11px] font-mono px-2.5 py-1.5 rounded-lg border bg-white border-[#FFD6D6] text-[#634548] truncate';
+    statusEl.textContent = 'Testing connection...';
+    statusEl.classList.remove('hidden');
+
+    const res = await probeRelayConnectionSafe(check.normalized);
+    if (res.ok) {
+        statusEl.className = 'text-[11px] font-mono px-2.5 py-1.5 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-800 truncate';
+        statusEl.textContent = res.message;
+        statusEl.title = res.message;
+    } else {
+        statusEl.className = 'text-[11px] font-mono px-2.5 py-1.5 rounded-lg border bg-red-50 border-red-200 text-red-700 truncate';
+        statusEl.textContent = res.message;
+        statusEl.title = res.message;
+    }
+
+    if (testBtnEl) {
+        testBtnEl.disabled = false;
+        testBtnEl.innerHTML = origHtml;
+    }
+}
+
+function saveRelayBookmarkFromInput(inputEl) {
+    if (!inputEl) return;
+    const rawUrl = (inputEl.value || '').trim();
+    const check = validateCustomRelayUrl(rawUrl);
+    if (!check.valid) {
+        showToast(check.error || 'Invalid WebSocket URL', 'error');
+        return;
+    }
+    const core = getRelayCore();
+    if (!core || !core.saveCustomRelay) return;
+    if (check.normalized === (core.DEFAULT_RELAY_URL || 'wss://relay.widgetry.org/')) {
+        showToast('Default WebSocket is already in your list. Enter a custom URL to add one.', 'info');
+        return;
+    }
+    const label = formatRelayBadgeHost(check.normalized);
+    const saved = core.saveCustomRelay(label, check.normalized);
+    if (saved.ok) {
+        renderAllRelayPresetBars();
+        if (elements.relayManagerModal && !elements.relayManagerModal.classList.contains('hidden')) {
+            renderRelayManagerList();
+        }
+        showToast(`Added custom WebSocket '${saved.relay.label}'`, 'success');
+    } else {
+        showToast(saved.error || 'Failed to add WebSocket', 'error');
+    }
+}
+
+function renderRelayManagerList() {
+    if (!elements.relayMgrList) return;
+    const options = getAllRelayOptionsSafe();
+    elements.relayMgrList.innerHTML = '';
+
+    options.forEach((opt) => {
+        const row = document.createElement('div');
+        row.className = 'bg-[#FFF8F8] border border-[#FFD6D6] rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5';
+        row.innerHTML = `
+            <div class="min-w-0 flex-1 space-y-0.5">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-bold text-[#231113] truncate">${escapeHtml(opt.label)}</span>
+                    ${opt.isDefault ? '<span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#FFB8B8] text-[#231113] border border-[#F09292]">DEFAULT</span>' : ''}
+                    ${opt.isPreset ? '<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#634548] border border-[#FFD6D6]">BUILT-IN</span>' : '<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#9E2F3B] border border-[#FFB8B8]">CUSTOM</span>'}
+                </div>
+                <div class="text-[11px] font-mono text-[#634548] truncate" title="${escapeHtml(opt.url)}">${escapeHtml(opt.url)}</div>
+                <div class="relay-row-status hidden text-[11px] font-mono"></div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <button type="button" class="relay-row-test compact-btn px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#FFF0F0] text-[#231113] border border-[#FFD6D6] text-[11px] font-semibold transition-colors flex items-center gap-1">
+                    <i class="fas fa-plug text-[#B83B48]"></i> Test
+                </button>
+                ${!opt.isDefault ? `<button type="button" class="relay-row-default compact-btn px-2.5 py-1.5 rounded-lg bg-white hover:bg-[#FFB8B8] text-[#231113] border border-[#FFD6D6] text-[11px] font-semibold transition-colors">Set Default</button>` : ''}
+                ${!opt.isPreset ? `<button type="button" class="relay-row-delete compact-btn px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-red-700 border border-[#FFD6D6] hover:border-red-200 text-[11px] font-semibold transition-colors" title="Remove custom WebSocket"><i class="fas fa-trash-alt"></i></button>` : ''}
+            </div>
+        `;
+
+        const rowStatus = row.querySelector('.relay-row-status');
+        const testBtn = row.querySelector('.relay-row-test');
+        const defaultBtn = row.querySelector('.relay-row-default');
+        const deleteBtn = row.querySelector('.relay-row-delete');
+
+        if (testBtn && rowStatus) {
+            testBtn.onclick = async () => {
+                testBtn.disabled = true;
+                rowStatus.className = 'relay-row-status text-[11px] font-mono text-[#634548]';
+                rowStatus.textContent = 'Testing WebSocket handshake...';
+                rowStatus.classList.remove('hidden');
+                const res = await probeRelayConnectionSafe(opt.url);
+                rowStatus.className = res.ok
+                    ? 'relay-row-status text-[11px] font-mono text-emerald-700 font-semibold'
+                    : 'relay-row-status text-[11px] font-mono text-red-700 font-semibold';
+                rowStatus.textContent = res.message;
+                testBtn.disabled = false;
+            };
+        }
+
+        if (defaultBtn) {
+            defaultBtn.onclick = () => {
+                const core = getRelayCore();
+                if (core && core.setDefaultRelayUrl) {
+                    core.setDefaultRelayUrl(opt.url);
+                    renderRelayManagerList();
+                    renderAllRelayPresetBars();
+                    showToast(`Default relay set to '${opt.label}'`, 'success');
+                }
+            };
+        }
+
+        if (deleteBtn) {
+            deleteBtn.onclick = () => {
+                const core = getRelayCore();
+                if (core && core.deleteCustomRelay) {
+                    core.deleteCustomRelay(opt.id);
+                    renderRelayManagerList();
+                    renderAllRelayPresetBars();
+                    showToast(`Removed '${opt.label}'`, 'info');
+                }
+            };
+        }
+
+        elements.relayMgrList.appendChild(row);
+    });
+}
+
 class NotificationSystem {
     constructor() {
         this.container = elements.toastContainer;
@@ -291,7 +564,6 @@ class NotificationSystem {
 const notifier = new NotificationSystem();
 window.showToast = (msg, type) => notifier.show(msg, type);
 
-// --- Database Manager ---
 class DatabaseManager {
     constructor() {
         this.db = null;
@@ -381,7 +653,6 @@ class DatabaseManager {
 
 const dbManager = new DatabaseManager();
 
-// --- Storage Manager UI ---
 async function renderStorageManager() {
     if (!elements.storageManagerSummary || !elements.storageItemsList) return;
     
@@ -398,7 +669,6 @@ async function renderStorageManager() {
             dbManager.getStorageEstimate()
         ]);
         
-        // 1. Update Summary Bar
         if (estimate) {
             const percent = estimate.quota > 0 ? Math.min(((estimate.usage / estimate.quota) * 100), 100).toFixed(1) : 0;
             elements.storageManagerSummary.innerHTML = `
@@ -414,11 +684,9 @@ async function renderStorageManager() {
              elements.storageManagerSummary.innerHTML = `<p class="text-sm text-[#634548]">Could not retrieve storage estimate.</p>`;
         }
 
-        // 2. Render List
         let html = '';
         let count = 0;
 
-        // Valid VMs
         configs.forEach(config => {
             count++;
             const snap = snapshots.find(s => s.id === config.id);
@@ -447,7 +715,6 @@ async function renderStorageManager() {
             `;
         });
 
-        // Orphaned Snapshots (Ghosts)
         const configIds = new Set(configs.map(c => c.id));
         const ghosts = snapshots.filter(s => !configIds.has(s.id));
         
@@ -520,7 +787,6 @@ async function nukeGhostFiles() {
     }
 }
 
-// // --- Vector Brand Logos (Crisp High-Fidelity SVGs) ---
 function getBrowserBrandSvg(key, size = 16) {
     switch (key) {
         case 'chrome':
@@ -703,7 +969,6 @@ function getOsBrandSvg(key, size = 16) {
     }
 }
 
-// --- Enhanced System & Browser Detection Engine ---
 let detectedSystemSpecs = {
     os: 'Unknown OS',
     osKey: 'other',
@@ -734,7 +999,6 @@ async function detectSystemSpecs() {
         const ua = navigator.userAgent;
         const nav = navigator;
 
-        // --- 1. Comprehensive OS Detection ---
         let os = 'Unknown OS';
         let osKey = 'other';
         const isIOS = /iPhone|iPod/.test(ua) || (/iPad/.test(ua) || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1));
@@ -777,14 +1041,12 @@ async function detectSystemSpecs() {
             osKey = 'linux';
         }
 
-        // --- 2. Advanced Browser Detection with Client Hints & Feature Tests ---
         let browser = 'Browser';
         let browserKey = 'generic';
         let browserVersion = '';
         let renderingEngine = 'Blink';
         let jsEngine = 'V8 Engine';
 
-        // Check navigator.brave API
         let isBraveConfirmed = false;
         if (nav.brave && typeof nav.brave.isBrave === 'function') {
             try {
@@ -792,7 +1054,6 @@ async function detectSystemSpecs() {
             } catch(e) {}
         }
 
-        // Check Arc browser specific CSS variables / window properties
         let isArcConfirmed = false;
         try {
             const arcPalette = getComputedStyle(document.documentElement).getPropertyValue('--arc-palette-title');
@@ -801,7 +1062,6 @@ async function detectSystemSpecs() {
             }
         } catch(e) {}
 
-        // UserAgent parsing & Brand matching
         if (isBraveConfirmed || /Brave/i.test(ua)) {
             browser = 'Brave';
             browserKey = 'brave';
@@ -884,7 +1144,6 @@ async function detectSystemSpecs() {
             jsEngine = 'JavaScriptCore (Nitro)';
         }
 
-        // Check Client Hints if available (for exact high-entropy versions)
         let clientArch = '64-bit';
         let clientHintsActive = false;
         if (nav.userAgentData) {
@@ -930,13 +1189,11 @@ async function detectSystemSpecs() {
         const shortName = browser.replace('Google ', '').replace('Mozilla ', '').replace('Apple ', '').replace('Microsoft ', '');
         const browserDisplay = majorVer ? `${shortName} ${majorVer}` : shortName;
 
-        // --- 3. Device Form Factor & Touch ---
         const isTouch = nav.maxTouchPoints > 0 || 'ontouchstart' in window;
         const isMobile = isIOS || isAndroid || /Mobi|Mobile/i.test(ua);
         const isTablet = isIPad || (/Tablet|Android/i.test(ua) && !/Mobile/i.test(ua));
         const deviceType = isTablet ? 'Tablet' : (isMobile ? 'Mobile' : 'Desktop');
 
-        // --- 4. Hardware Cores & Memory ---
         const logicalCores = nav.hardwareConcurrency || 4;
         let memoryGB = nav.deviceMemory || null;
         
@@ -946,7 +1203,6 @@ async function detectSystemSpecs() {
             else memoryGB = logicalCores >= 8 ? 8 : 4;
         }
 
-        // --- 5. WebGL / GPU Renderer Query ---
         let gpuRenderer = 'Standard GPU / Hardware Acceleration';
         try {
             const canvas = document.createElement('canvas');
@@ -962,7 +1218,6 @@ async function detectSystemSpecs() {
         
         const cleanGpu = gpuRenderer.replace(/ANGLE\s*\(/i, '').replace(/\)/g, '').replace(/vs_[\d_]+|ps_[\d_]+/ig, '').trim();
 
-        // --- 6. WebAssembly & Advanced Engine Features ---
         const hasWasm = typeof WebAssembly === 'object' && typeof WebAssembly.instantiate === 'function';
         let hasWasmSimd = false;
         try {
@@ -974,7 +1229,6 @@ async function detectSystemSpecs() {
         const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
         const hasWebWorkers = typeof Worker !== 'undefined';
 
-        // --- 7. RAM limits & Recommendation Calculation ---
         let maxAllowed = 512;
         let recommendedRam = 256;
         if (isMobile) {
@@ -1024,7 +1278,6 @@ async function detectSystemSpecs() {
             isPotato
         };
 
-        // --- 8. Update Sidebar UI with Crisp Vector Logos ---
         if (elements.sysOsText) elements.sysOsText.textContent = os;
         if (elements.sysOsIcon) elements.sysOsIcon.innerHTML = getOsBrandSvg(osKey, 16);
         if (elements.sysBrowserText) elements.sysBrowserText.textContent = browserDisplay;
@@ -1051,7 +1304,6 @@ async function detectSystemSpecs() {
         if (elements.lowEndBadge && isPotato) elements.lowEndBadge.classList.remove('hidden');
         if (isPotato) document.body.classList.add('potato-mode');
 
-        // Update RAM sliders
         if (elements.ramSlider) {
             elements.ramSlider.max = maxAllowed;
             const maxLabel = document.getElementById('ram-max-label');
@@ -1064,12 +1316,10 @@ async function detectSystemSpecs() {
             updateSliderProgress(elements.editRamSlider);
         }
 
-        // --- 9. Populate Diagnostics Modal with Full Specs & Large SVG Logo ---
         if (elements.diagOs) elements.diagOs.innerHTML = `${getOsBrandSvg(osKey, 18)} <span class="truncate">${os}</span>`;
         if (elements.diagBrowser) elements.diagBrowser.innerHTML = `${getBrowserBrandSvg(browserKey, 18)} <span class="truncate">${browser}</span>`;
         if (elements.diagDevice) elements.diagDevice.innerHTML = `<i class="fas ${isTablet ? 'fa-tablet-screen-button' : (isMobile ? 'fa-mobile-screen' : 'fa-laptop')} text-[#B83B48]"></i> ${deviceType} (${isTouch ? 'Touch' : 'Pointer'})`;
         
-        // Large Browser Diagnostics Card
         if (elements.diagBrowserLogoLg) elements.diagBrowserLogoLg.innerHTML = getBrowserBrandSvg(browserKey, 28);
         if (elements.diagBrowserNameHeading) elements.diagBrowserNameHeading.textContent = browser;
         if (elements.diagBrowserVersionPill) elements.diagBrowserVersionPill.textContent = browserVersion ? `v${browserVersion}` : 'Latest';
@@ -1125,7 +1375,6 @@ async function startVM(id) {
     try {
         const win = window.open(`vm-screen.html?id=${id}`, `webvm_${id}`, `width=${width},height=${height},resizable=yes`);
         if (!win || win.closed || typeof win.closed === 'undefined') {
-            // Popup blocked by browser or iframe constraints — fallback to navigating directly
             window.location.href = `vm-screen.html?id=${id}`;
         } else {
             showToast('VM Starting in new window...', 'success');
@@ -1142,7 +1391,7 @@ async function deleteMachineCompletely(id) {
         await dbManager.delete(STORE_SNAPSHOTS, id);
         machines = machines.filter(m => m.id !== id);
         await renderAllMachineItems();
-        await renderStorageManager(); // Update if open
+        await renderStorageManager();
         await updateStorageDisplay();
         showToast('Machine deleted', 'success');
     } catch(e) {
@@ -1150,7 +1399,6 @@ async function deleteMachineCompletely(id) {
     }
 }
 
-// --- VM List Rendering ---
 async function renderAllMachineItems() {
     if (!elements.vmList) return;
     
@@ -1188,7 +1436,7 @@ async function renderAllMachineItems() {
                                 <span>${machine.ram}MB RAM</span>
                                 ${machine.blankDiskSize ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span>${machine.blankDiskSize >= 1024 ? (machine.blankDiskSize/1024).toFixed(0) + 'GB' : machine.blankDiskSize + 'MB'} HDD</span>` : ''}
                                 ${machine.headless ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="text-[#9E2F3B] font-semibold">Headless TTY</span>` : ''}
-                                ${machine.network ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="truncate max-w-[260px]" title="${escapeHtml(machine.networkRelayUrl || 'wss://relay.widgetry.org/')}">Net: ${escapeHtml(formatRelayBadgeHost(machine.networkRelayUrl))}</span>` : ''}
+                                ${machine.network ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="truncate max-w-[260px]" title="${escapeHtml(machine.networkRelayUrl || 'wss://relay.widgetry.org/')}">Net: ${escapeHtml(formatRelayBadgeHost(machine.networkRelayUrl))}${machine.netDeviceType === 'virtio' ? ' (VirtIO)' : ''}</span>` : ''}
                                 ${hasSnap ? `<span aria-hidden="true" class="text-[#D9888E]">·</span><span class="text-[#9E2F3B] font-semibold">Snapshot ${formatBytes(snap.size)}</span>` : ''}
                             </div>
                         </div>
@@ -1220,14 +1468,12 @@ async function renderAllMachineItems() {
     }
 }
 
-// --- Blank Disk Generator with Visual Progress ---
 async function createBlankDiskFileWithProgress(sizeMB, name = 'virtual-disk.img', onProgress = null) {
     const size = Math.max(16, parseInt(sizeMB, 10) || 1024);
-    const chunkSize = 1024 * 1024; // 1 MB per chunk
+    const chunkSize = 1024 * 1024;
     const chunk = new Uint8Array(chunkSize);
     const chunks = [];
     
-    // Allocate in batches to allow UI repainting and smooth progress bar updates
     const batchSize = size > 1024 ? 64 : 32;
     for (let allocated = 0; allocated < size; allocated += batchSize) {
         const count = Math.min(batchSize, size - allocated);
@@ -1282,7 +1528,6 @@ function createBlankDiskFile(sizeMB, name = 'virtual-disk.img') {
     return new File([blob], name, { type: 'application/octet-stream', lastModified: Date.now() });
 }
 
-// --- Creation Modal Logic ---
 let newVM = { 
     name: '', 
     ram: 128, 
@@ -1323,9 +1568,12 @@ function resetModal() {
     if(elements.blankDiskSizeLabel) elements.blankDiskSizeLabel.textContent = '1024 MB (1.0 GB)';
     if(elements.networkToggle) elements.networkToggle.checked = false;
     if(elements.networkRelayContainer) elements.networkRelayContainer.classList.add('hidden');
-    if(elements.networkRelayInput) elements.networkRelayInput.value = 'wss://relay.widgetry.org/';
+    if(elements.networkRelayInput) elements.networkRelayInput.value = getDefaultRelayUrlSafe();
+    if(elements.networkDeviceSelect) elements.networkDeviceSelect.value = 'ne2k';
+    if(elements.networkRelayStatus) { elements.networkRelayStatus.textContent = ''; elements.networkRelayStatus.classList.add('hidden'); }
     if(elements.networkRelayError) { elements.networkRelayError.textContent = ''; elements.networkRelayError.classList.add('hidden'); }
     if(elements.headlessToggle) elements.headlessToggle.checked = false;
+    renderRelayPresetChips(elements.networkRelayPresets, elements.networkRelayInput);
     
     document.querySelectorAll('.disk-size-preset-btn').forEach(btn => {
         const sz = btn.dataset.size;
@@ -1344,7 +1592,6 @@ function updateStepUI() {
         if(el) el.classList.toggle('hidden', i + 1 !== currentStep);
     });
     
-    // Update step indicators
     elements.stepIndicators.forEach((el, i) => {
          const div = el.querySelector('div');
          if (i + 1 === currentStep) {
@@ -1379,6 +1626,16 @@ function updateStepUI() {
                         : 'None (Live/Read-only)';
                 }
             }
+            if(elements.summaryNetwork) {
+                const netOn = elements.networkToggle ? elements.networkToggle.checked : false;
+                if (!netOn) {
+                    elements.summaryNetwork.textContent = 'Disabled';
+                } else {
+                    const relayHost = formatRelayBadgeHost(elements.networkRelayInput ? elements.networkRelayInput.value : getDefaultRelayUrlSafe());
+                    const nic = elements.networkDeviceSelect && elements.networkDeviceSelect.value === 'virtio' ? 'VirtIO' : 'NE2000';
+                    elements.summaryNetwork.textContent = `${relayHost} (${nic})`;
+                }
+            }
         } else {
             elements.modalNextBtn.classList.remove('hidden');
             elements.modalCreateBtn.classList.add('hidden');
@@ -1405,7 +1662,6 @@ async function createVM() {
             hasBlankDisk = true;
             blankDiskSize = newVM.blankDiskSize;
             
-            // Show visual progress bar modal
             if (elements.diskAllocationModal) {
                 elements.diskAllocationModal.classList.remove('hidden');
                 if (elements.diskProgressTitle) elements.diskProgressTitle.textContent = `Allocating ${blankDiskSize} MB Virtual Disk`;
@@ -1437,7 +1693,7 @@ async function createVM() {
         }
 
         const networkEnabled = elements.networkToggle ? elements.networkToggle.checked : false;
-        let networkRelayUrl = 'wss://relay.widgetry.org/';
+        let networkRelayUrl = getDefaultRelayUrlSafe();
         if (networkEnabled && elements.networkRelayInput) {
             const relayCheck = validateCustomRelayUrl(elements.networkRelayInput.value);
             if (!relayCheck.valid) {
@@ -1446,6 +1702,7 @@ async function createVM() {
             }
             networkRelayUrl = relayCheck.normalized;
         }
+        const netDeviceType = normalizeNetDeviceTypeSafe(elements.networkDeviceSelect ? elements.networkDeviceSelect.value : 'ne2k');
 
         const config = {
             id, name, created: Date.now(),
@@ -1453,6 +1710,7 @@ async function createVM() {
             vram: parseInt(elements.vramSlider.value),
             network: networkEnabled,
             networkRelayUrl,
+            netDeviceType,
             acpi: elements.acpiToggle ? elements.acpiToggle.checked : true,
             headless: elements.headlessToggle ? elements.headlessToggle.checked : false,
             sourceType: newVM.sourceType,
@@ -1493,7 +1751,6 @@ async function createVM() {
     }
 }
 
-// --- Edit Modal ---
 function openEditModal(id) {
     const machine = machines.find(m => m.id === id);
     if (!machine) return;
@@ -1516,12 +1773,20 @@ function openEditModal(id) {
         elements.editNetworkRelayContainer.classList.toggle('hidden', !elements.editNetworkToggle.checked);
     }
     if (elements.editNetworkRelayInput) {
-        elements.editNetworkRelayInput.value = machine.networkRelayUrl || 'wss://relay.widgetry.org/';
+        elements.editNetworkRelayInput.value = machine.networkRelayUrl || getDefaultRelayUrlSafe();
+    }
+    if (elements.editNetworkDeviceSelect) {
+        elements.editNetworkDeviceSelect.value = normalizeNetDeviceTypeSafe(machine.netDeviceType);
+    }
+    if (elements.editNetworkRelayStatus) {
+        elements.editNetworkRelayStatus.textContent = '';
+        elements.editNetworkRelayStatus.classList.add('hidden');
     }
     if (elements.editNetworkRelayError) {
         elements.editNetworkRelayError.textContent = '';
         elements.editNetworkRelayError.classList.add('hidden');
     }
+    renderRelayPresetChips(elements.editNetworkRelayPresets, elements.editNetworkRelayInput);
     if (elements.editAcpiToggle) elements.editAcpiToggle.checked = machine.acpi !== false;
     if (elements.editAudioToggle) elements.editAudioToggle.checked = machine.audio !== false;
     if (elements.editHeadlessToggle) elements.editHeadlessToggle.checked = machine.headless || false;
@@ -1531,7 +1796,6 @@ function openEditModal(id) {
     if (elements.editGraphicsScaleSelect) elements.editGraphicsScaleSelect.value = machine.graphicsScale || "pixelated";
     if (elements.editCmdlineInput) elements.editCmdlineInput.value = machine.cmdline || "";
 
-    // Hard Disk Storage status & attach/detach/custom creation
     if (elements.editDiskStatusBadge && elements.editDiskContainer) {
         if (machine.hdaFile || machine.hasBlankDisk) {
             const diskSize = machine.blankDiskSize ? `${machine.blankDiskSize} MB (${(machine.blankDiskSize / 1024).toFixed(1)} GB)` : (machine.hdaFile?.name || 'Attached Image');
@@ -1725,6 +1989,9 @@ async function saveVmChanges() {
     }
 
     machine.network = editNetworkEnabled;
+    if (elements.editNetworkDeviceSelect) {
+        machine.netDeviceType = normalizeNetDeviceTypeSafe(elements.editNetworkDeviceSelect.value);
+    }
     if (elements.editAcpiToggle) machine.acpi = elements.editAcpiToggle.checked;
     if (elements.editAudioToggle) machine.audio = elements.editAudioToggle.checked;
     if (elements.editHeadlessToggle) machine.headless = elements.editHeadlessToggle.checked;
@@ -1745,7 +2012,6 @@ async function saveVmChanges() {
     }
 }
 
-// --- Snapshot Import (Optimized Zero-Copy Memory Safe) ---
 async function importSnapshot(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -1764,7 +2030,6 @@ async function importSnapshot(event) {
             sourceType: 'snapshot',
         };
 
-        // Store file directly as Blob: avoids huge heap memory allocation
         const snapshotData = { 
             id, 
             state: file, 
@@ -1787,7 +2052,6 @@ async function importSnapshot(event) {
     }
 }
 
-// --- App Status Updates ---
 async function updateStorageDisplay() {
     const estimate = await dbManager.getStorageEstimate();
     if (estimate && elements.storageDisplay) {
@@ -1850,7 +2114,6 @@ async function factoryReset() {
     }
 }
 
-// --- Emulator Console Logging Engine ---
 let emulatorLogs = [];
 let activeLogFilter = 'ALL';
 
@@ -1896,11 +2159,9 @@ function renderSingleLogEntry(entry) {
     const container = elements.emulatorLogsContent;
     if (!container) return;
 
-    // Clear initial spinner if exists
     const placeholder = container.querySelector('.italic');
     if (placeholder) placeholder.remove();
 
-    // Apply Filter
     if (activeLogFilter !== 'ALL') {
         if (activeLogFilter === 'SERIAL' && entry.level !== 'serial') return;
         if (activeLogFilter === 'INFO' && entry.level !== 'info') return;
@@ -1994,7 +2255,6 @@ function initLogModalListeners() {
         };
     }
 
-    // Filter Buttons
     document.querySelectorAll('.log-filter-btn').forEach(btn => {
         btn.onclick = () => {
             activeLogFilter = btn.dataset.logFilter || 'ALL';
@@ -2008,7 +2268,6 @@ function initLogModalListeners() {
     });
 }
 
-// --- Inter-tab Communication ---
 function initBroadcastChannel() {
     try {
         channel = new BroadcastChannel('webvm_channel');
@@ -2028,14 +2287,12 @@ function initBroadcastChannel() {
                 addEmulatorLog(event.data);
             }
         };
-        // Ping for any open VM windows when the dashboard loads
         channel.postMessage({ type: 'REQUEST_VM_STATUS' });
     } catch (e) {
         console.error("BroadcastChannel not supported or failed to initialize.", e);
     }
 }
 
-// --- Initialization ---
 async function initApp() {
     detectSystemSpecs();
     initBroadcastChannel();
@@ -2047,7 +2304,6 @@ async function initApp() {
         if (elements.overlay) elements.overlay.classList.add('hidden');
     };
 
-    // Listeners
     elements.createVmBtn.onclick = () => { closeMobileSidebar(); resetModal(); elements.createVmModal.classList.remove('hidden'); };
     elements.closeModalBtn.onclick = () => elements.createVmModal.classList.add('hidden');
     elements.modalBackBtn.onclick = () => { if(currentStep > 1) { currentStep--; updateStepUI(); }};
@@ -2080,8 +2336,6 @@ async function initApp() {
     elements.helpBtn.onclick = () => { closeMobileSidebar(); elements.helpModal.classList.remove('hidden'); };
     elements.closeHelpBtn.onclick = () => elements.helpModal.classList.add('hidden');
 
-
-    // Inputs
     document.querySelectorAll('input[name="source-type"]').forEach(r => {
         r.onchange = (e) => {
             newVM.sourceType = e.target.value;
@@ -2141,16 +2395,14 @@ async function initApp() {
     updateSliderProgress(elements.vramSlider);
     elements.vmNameInput.oninput = (e) => newVM.name = e.target.value;
 
-    // Sidebar
     elements.menuOpenBtn.onclick = () => { elements.sidebar.classList.remove('-translate-x-full'); elements.overlay.classList.remove('hidden'); };
     elements.menuCloseBtn.onclick = closeMobileSidebar;
     elements.overlay.onclick = closeMobileSidebar;
 
-    // VM List Actions
     elements.vmList.onclick = (e) => {
         const btn = e.target.closest('button');
         const item = e.target.closest('.vm-list-item');
-        if(!item) return; // Allow clicking on item itself later
+        if(!item) return;
         const id = item.dataset.id;
         if (!btn) return;
 
@@ -2159,7 +2411,6 @@ async function initApp() {
         if(btn.classList.contains('edit-vm-btn')) openEditModal(id);
     };
 
-    // System Diagnostics Modal
     if (elements.sysInfoBtn) {
         elements.sysInfoBtn.onclick = () => {
             closeMobileSidebar();
@@ -2187,7 +2438,6 @@ async function initApp() {
         };
     }
 
-    // Storage Manager
     if (elements.storageManagerBtn) {
         elements.storageManagerBtn.onclick = async () => {
             closeMobileSidebar();
@@ -2204,7 +2454,6 @@ async function initApp() {
         elements.nukeGhostsBtn.onclick = nukeGhostFiles;
     }
 
-    // Storage Manager Items List Action Delegation
     if (elements.storageItemsList) {
         elements.storageItemsList.onclick = async (e) => {
             const btn = e.target.closest('button[data-action]');
@@ -2221,12 +2470,10 @@ async function initApp() {
         };
     }
 
-    // Window helpers for backward-compatibility
     window.deleteMachineCompletely = deleteMachineCompletely;
     window.deleteOrphanedSnapshot = deleteOrphanedSnapshot;
     window.nukeGhostFiles = nukeGhostFiles;
 
-    // Edit Modal
     if (elements.closeEditModalX) elements.closeEditModalX.onclick = () => elements.editVmModal.classList.add('hidden');
     elements.cancelEditBtn.onclick = () => elements.editVmModal.classList.add('hidden');
     elements.saveChangesBtn.onclick = saveVmChanges;
@@ -2243,8 +2490,7 @@ async function initApp() {
     updateSliderProgress(elements.editRamSlider);
     updateSliderProgress(elements.editVramSlider);
 
-    // Custom Relay URL Listeners (Create + Edit Modals)
-    const syncRelayField = (toggleEl, containerEl, inputEl, errorEl) => {
+    const syncRelayField = (toggleEl, containerEl, inputEl, errorEl, statusEl, presetContainerEl) => {
         if (!toggleEl || !containerEl) return;
         const updateVis = () => {
             containerEl.classList.toggle('hidden', !toggleEl.checked);
@@ -2254,34 +2500,121 @@ async function initApp() {
         if (inputEl && errorEl) {
             inputEl.addEventListener('input', () => {
                 const res = validateCustomRelayUrl(inputEl.value);
+                if (statusEl) statusEl.classList.add('hidden');
                 if (res.valid) {
-                    errorEl.textContent = '';
-                    errorEl.classList.add('hidden');
+                    if (res.warning) {
+                        errorEl.textContent = res.warning;
+                        errorEl.className = 'text-[11px] text-amber-700 font-medium';
+                        errorEl.classList.remove('hidden');
+                    } else {
+                        errorEl.textContent = '';
+                        errorEl.classList.add('hidden');
+                    }
                 } else {
                     errorEl.textContent = res.error || 'Invalid URL';
+                    errorEl.className = 'text-[11px] text-red-700 font-medium';
                     errorEl.classList.remove('hidden');
                 }
+                if (presetContainerEl) renderRelayPresetChips(presetContainerEl, inputEl);
             });
         }
     };
 
-    syncRelayField(elements.networkToggle, elements.networkRelayContainer, elements.networkRelayInput, elements.networkRelayError);
-    syncRelayField(elements.editNetworkToggle, elements.editNetworkRelayContainer, elements.editNetworkRelayInput, elements.editNetworkRelayError);
+    syncRelayField(elements.networkToggle, elements.networkRelayContainer, elements.networkRelayInput, elements.networkRelayError, elements.networkRelayStatus, elements.networkRelayPresets);
+    syncRelayField(elements.editNetworkToggle, elements.editNetworkRelayContainer, elements.editNetworkRelayInput, elements.editNetworkRelayError, elements.editNetworkRelayStatus, elements.editNetworkRelayPresets);
 
-    document.querySelectorAll('.relay-preset-btn, .edit-relay-preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetId = btn.dataset.target;
-            const url = btn.dataset.relayUrl || 'wss://relay.widgetry.org/';
-            const targetInput = document.getElementById(targetId);
-            if (targetInput) {
-                targetInput.value = url;
-                targetInput.dispatchEvent(new Event('input'));
-                targetInput.focus();
-            }
+    if (elements.testNetworkRelayBtn) {
+        elements.testNetworkRelayBtn.addEventListener('click', () => runRelayProbeUI(elements.networkRelayInput, elements.networkRelayStatus, elements.networkRelayError, elements.testNetworkRelayBtn));
+    }
+    if (elements.saveNetworkRelayBtn) {
+        elements.saveNetworkRelayBtn.addEventListener('click', () => saveRelayBookmarkFromInput(elements.networkRelayInput));
+    }
+    if (elements.editTestNetworkRelayBtn) {
+        elements.editTestNetworkRelayBtn.addEventListener('click', () => runRelayProbeUI(elements.editNetworkRelayInput, elements.editNetworkRelayStatus, elements.editNetworkRelayError, elements.editTestNetworkRelayBtn));
+    }
+    if (elements.editSaveNetworkRelayBtn) {
+        elements.editSaveNetworkRelayBtn.addEventListener('click', () => saveRelayBookmarkFromInput(elements.editNetworkRelayInput));
+    }
+
+    if (elements.relayManagerBtn) {
+        elements.relayManagerBtn.onclick = () => {
+            closeMobileSidebar();
+            renderRelayManagerList();
+            if (elements.relayMgrFeedback) elements.relayMgrFeedback.textContent = '';
+            if (elements.relayManagerModal) elements.relayManagerModal.classList.remove('hidden');
+        };
+    }
+    if (elements.closeRelayManagerBtn) {
+        elements.closeRelayManagerBtn.onclick = () => {
+            if (elements.relayManagerModal) elements.relayManagerModal.classList.add('hidden');
+        };
+    }
+    if (elements.relayManagerModal) {
+        elements.relayManagerModal.addEventListener('click', (e) => {
+            if (e.target === elements.relayManagerModal) elements.relayManagerModal.classList.add('hidden');
         });
-    });
+    }
+    if (elements.relayMgrTestBtn) {
+        elements.relayMgrTestBtn.onclick = async () => {
+            if (!elements.relayMgrUrlInput || !elements.relayMgrFeedback) return;
+            const url = elements.relayMgrUrlInput.value;
+            elements.relayMgrTestBtn.disabled = true;
+            elements.relayMgrFeedback.className = 'text-[11px] font-mono text-[#634548] min-h-[1rem]';
+            elements.relayMgrFeedback.textContent = 'Testing WebSocket handshake...';
+            const res = await probeRelayConnectionSafe(url);
+            elements.relayMgrFeedback.className = res.ok
+                ? 'text-[11px] font-mono text-emerald-700 font-semibold min-h-[1rem]'
+                : 'text-[11px] font-mono text-red-700 font-semibold min-h-[1rem]';
+            elements.relayMgrFeedback.textContent = res.message;
+            elements.relayMgrTestBtn.disabled = false;
+        };
+    }
+    if (elements.relayMgrAddBtn) {
+        elements.relayMgrAddBtn.onclick = () => {
+            if (!elements.relayMgrUrlInput) return;
+            const core = getRelayCore();
+            if (!core || !core.saveCustomRelay) return;
+            const label = elements.relayMgrLabelInput ? elements.relayMgrLabelInput.value : '';
+            const url = elements.relayMgrUrlInput.value;
+            const check = validateCustomRelayUrl(url);
+            if (!check.valid) {
+                if (elements.relayMgrFeedback) {
+                    elements.relayMgrFeedback.className = 'text-[11px] font-mono text-red-700 font-semibold min-h-[1rem]';
+                    elements.relayMgrFeedback.textContent = check.error || 'Invalid URL';
+                }
+                showToast(check.error || 'Invalid WebSocket URL', 'error');
+                return;
+            }
+            if (check.normalized === (core.DEFAULT_RELAY_URL || 'wss://relay.widgetry.org/')) {
+                if (elements.relayMgrFeedback) {
+                    elements.relayMgrFeedback.className = 'text-[11px] font-mono text-[#634548] min-h-[1rem]';
+                    elements.relayMgrFeedback.textContent = 'Default WebSocket is already built in. Enter a custom URL.';
+                }
+                return;
+            }
+            const res = core.saveCustomRelay(label, check.normalized);
+            if (!res.ok) {
+                if (elements.relayMgrFeedback) {
+                    elements.relayMgrFeedback.className = 'text-[11px] font-mono text-red-700 font-semibold min-h-[1rem]';
+                    elements.relayMgrFeedback.textContent = res.error || 'Invalid URL';
+                }
+                showToast(res.error || 'Invalid WebSocket URL', 'error');
+                return;
+            }
+            if (elements.relayMgrLabelInput) elements.relayMgrLabelInput.value = '';
+            if (elements.relayMgrUrlInput) elements.relayMgrUrlInput.value = '';
+            if (elements.relayMgrFeedback) {
+                elements.relayMgrFeedback.className = 'text-[11px] font-mono text-emerald-700 font-semibold min-h-[1rem]';
+                elements.relayMgrFeedback.textContent = `Saved '${res.relay.label}'`;
+            }
+            renderRelayManagerList();
+            renderAllRelayPresetBars();
+            showToast(`Custom WebSocket server '${res.relay.label}' saved!`, 'success');
+        };
+    }
 
-// --- Offline Caching & PWA Engine ---
+    renderAllRelayPresetBars();
+
 let deferredPwaPrompt = null;
 
 async function initPWAAndOfflineCaching() {
@@ -2290,7 +2623,6 @@ async function initPWAAndOfflineCaching() {
     const statusText = document.getElementById('offline-cache-status');
     const installBtn = document.getElementById('pwa-install-btn');
 
-    // Check saved setting (default: false / OFF)
     const savedOfflinePref = localStorage.getItem('webvm_offline_cache');
     const isOfflineEnabled = savedOfflinePref !== null ? savedOfflinePref === 'true' : false;
 
@@ -2327,7 +2659,6 @@ async function initPWAAndOfflineCaching() {
             const registration = await navigator.serviceWorker.register('./sw.js');
             console.log('[PWA] Service Worker registered:', registration);
             
-            // Force precaching core assets
             if (registration.active) {
                 registration.active.postMessage({ type: 'FORCE_PRECACHE' });
             } else if (navigator.serviceWorker.controller) {
@@ -2368,7 +2699,6 @@ async function initPWAAndOfflineCaching() {
         }
     }
 
-    // Toggle button click listener
     if (toggleBtn) {
         toggleBtn.onclick = () => {
             const currentChecked = toggleBtn.getAttribute('aria-checked') === 'true';
@@ -2380,14 +2710,12 @@ async function initPWAAndOfflineCaching() {
         };
     }
 
-    // Initial state setup
     if (isOfflineEnabled) {
         enableOfflineCaching();
     } else {
         updateToggleUI(false, 'DISABLED');
     }
 
-    // PWA Installation Event
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPwaPrompt = e;
@@ -2415,7 +2743,6 @@ async function initPWAAndOfflineCaching() {
     });
 }
 
-    // Load Data
     try {
         await dbManager.init();
         machines = await dbManager.getAll(STORE_CONFIGS);
@@ -2430,8 +2757,6 @@ async function initPWAAndOfflineCaching() {
 
 document.addEventListener('DOMContentLoaded', initApp);
 
-
-// Accessibility pass for keyboard, VoiceOver, and screen-reader users.
 (function installAccessibilityPass() {
     const labels = {
         'menu-close-btn': 'Close navigation menu',

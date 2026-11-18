@@ -20,6 +20,7 @@
     <image:image>
       <image:loc>https://virtual-machine.pages.dev/og-image.jpg</image:loc>
       <image:title>WebVM Dashboard – Virtual Machine Manager</image:title>
+      <image:caption>Create, configure, and manage browser virtual machines, virtual hard disks, and custom WebSocket servers.</image:caption>
     </image:image>
   </url>
   <url>
@@ -27,5 +28,10 @@
     <lastmod>2026-11-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://virtual-machine.pages.dev/og-image.jpg</image:loc>
+      <image:title>WebVM Display – Live Browser Virtual Machine</image:title>
+      <image:caption>Live VGA display, serial console, performance profiler, and WebSocket networking controls.</image:caption>
+    </image:image>
   </url>
 </urlset>
