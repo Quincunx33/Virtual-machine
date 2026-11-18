@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/hero-web-vm.png" alt="Web VM Emulator — x86 virtualization in the browser" width="100%" />
+  <video src="https://github.com/user-attachments/assets/338656cf-cc76-4a87-a494-750f81ccee6b" controls playsinline preload="metadata" width="100%" aria-label="Web VM Emulator demo video">Your browser does not support the video element.</video>
 </p>
 
 <h1 align="center">Web VM Emulator</h1>
