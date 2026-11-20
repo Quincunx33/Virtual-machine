@@ -2656,7 +2656,8 @@ async function initPWAAndOfflineCaching() {
 
         try {
             updateToggleUI(true, 'CACHING...');
-            const registration = await navigator.serviceWorker.register('./sw.js');
+            const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+            registration.update().catch(() => {});
             console.log('[PWA] Service Worker registered:', registration);
             
             if (registration.active) {

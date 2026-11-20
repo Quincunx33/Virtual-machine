@@ -21,6 +21,7 @@
     <link rel="canonical" href="https://virtual-machine.pages.dev/"/>
     <link rel="alternate" hreflang="en" href="https://virtual-machine.pages.dev/"/>
     <link rel="alternate" hreflang="x-default" href="https://virtual-machine.pages.dev/"/>
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://virtual-machine.pages.dev/sitemap.xml"/>
 
     <meta property="og:type" content="website"/>
     <meta property="og:url" content="https://virtual-machine.pages.dev/"/>
@@ -36,6 +37,7 @@
     <meta property="og:image:alt" content="WebVM - Browser Virtual Machine &amp; PC Emulator"/>
 
     <meta name="twitter:card" content="summary_large_image"/>
+    <meta name="twitter:domain" content="virtual-machine.pages.dev"/>
     <meta name="twitter:url" content="https://virtual-machine.pages.dev/"/>
     <meta name="twitter:title" content="WebVM – Browser Virtual Machine &amp; PC Emulator"/>
     <meta name="twitter:description" content="Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline."/>
@@ -48,8 +50,9 @@
       "@type": "WebSite",
       "@id": "https://virtual-machine.pages.dev/#website",
       "name": "WebVM",
-      "alternateName": ["Web VM", "Browser Virtual Machine"],
+      "alternateName": ["Web VM", "Web VM Emulator", "Browser Virtual Machine"],
       "url": "https://virtual-machine.pages.dev/",
+      "description": "Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization.",
       "inLanguage": "en"
     }
     </script>
@@ -59,18 +62,23 @@
       "@type": "WebApplication",
       "@id": "https://virtual-machine.pages.dev/#app",
       "name": "WebVM",
-      "alternateName": "Web VM",
+      "alternateName": ["Web VM", "Web VM Emulator"],
       "url": "https://virtual-machine.pages.dev/",
+      "mainEntityOfPage": "https://virtual-machine.pages.dev/",
+      "isPartOf": {
+        "@id": "https://virtual-machine.pages.dev/#website"
+      },
       "applicationCategory": "UtilitiesApplication",
       "applicationSubCategory": "Virtual Machine & x86 PC Emulator",
       "operatingSystem": "All",
       "browserRequirements": "Requires modern browser with WebAssembly and IndexedDB support",
       "softwareVersion": "2.2",
+      "dateModified": "2026-11-20",
       "isAccessibleForFree": true,
       "inLanguage": "en",
       "screenshot": "https://virtual-machine.pages.dev/og-image.jpg",
       "image": "https://virtual-machine.pages.dev/og-image.jpg",
-      "keywords": "WebVM, browser virtual machine, x86 emulator, WebAssembly, Linux, Windows, FreeDOS, libv86, custom WebSocket networking",
+      "keywords": "WebVM, browser virtual machine, x86 emulator, WebAssembly, Linux, Windows, FreeDOS, libv86, custom WebSocket networking, IndexedDB virtual disk",
       "featureList": [
         "Client-side x86 CPU emulation via WebAssembly and libv86",
         "Boot ISO, floppy IMG, raw hard disk images, or Linux bzImage/initrd",
@@ -80,6 +88,10 @@
         "Touch virtual keyboard and draggable Assistive Touch controls"
       ],
       "description": "Run Linux, Windows, and DOS directly in your browser with high-performance WebAssembly x86 virtualization. 100% client-side, private, and offline.",
+      "softwareHelp": {
+        "@type": "WebPage",
+        "url": "https://virtual-machine.pages.dev/#faq"
+      },
       "author": {
         "@type": "Person",
         "name": "Tasfiya Tabassum",
@@ -115,14 +127,16 @@
         {
           "@type": "HowToStep",
           "position": 2,
-          "name": "Configure RAM, VRAM, and Virtual Hard Disk",
-          "text": "Allocate system memory, video memory, optional blank HDA disk capacity, and CPU profile suited to your device."
+          "name": "Configure RAM, Disk, and WebSocket Network",
+          "text": "Allocate system memory, video memory, optional blank HDA virtual hard disk capacity, CPU profile, and default or custom WebSocket server.",
+          "url": "https://virtual-machine.pages.dev/#how-it-works"
         },
         {
           "@type": "HowToStep",
           "position": 3,
           "name": "Boot Machine and Save Local Snapshots",
-          "text": "Start the virtual machine in your browser and save or export RAM state snapshots locally in IndexedDB to resume anytime."
+          "text": "Start the virtual machine in your browser and save or export RAM state snapshots locally in IndexedDB to resume anytime.",
+          "url": "https://virtual-machine.pages.dev/#how-it-works"
         }
       ]
     }
@@ -193,6 +207,14 @@
           "acceptedAnswer": {
             "@type": "Answer",
             "text": "Yes. While a virtual machine is running, you can save a complete RAM snapshot locally or export and import state files (.bin, .v86state) to resume your session exactly where you left off."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I connect a virtual machine to a custom WebSocket network server?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. WebVM includes a built-in default WebSocket relay and lets you add, test, save, and switch to your own custom wss:// or ws:// WebSocket server right from the dashboard or live VM screen."
           }
         }
       ]
@@ -584,6 +606,7 @@
                 
                 <div class="hidden md:flex items-center gap-8">
                     <a href="#features" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">Capabilities</a>
+                    <a href="#how-it-works" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">How It Works</a>
                     <a href="#tech" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">Engine</a>
                     <a href="#faq" class="text-sm font-medium text-[#634548] hover:text-[#231113] hover:underline underline-offset-4 decoration-[#FFB8B8] decoration-2 transition-colors whitespace-nowrap shrink-0">FAQ</a>
                 </div>
@@ -603,6 +626,7 @@
         <div id="mobile-menu" class="hidden md:hidden bg-white/95 backdrop-blur-xl border-b border-[#FFD8D8] transition-all">
             <div class="p-4 space-y-2">
                 <a href="#features" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">Capabilities</a>
+                <a href="#how-it-works" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">How It Works</a>
                 <a href="#tech" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">Engine</a>
                 <a href="#faq" class="block px-4 py-2.5 text-[#634548] hover:text-[#231113] hover:bg-[#FFF5F5] rounded-lg text-sm font-medium">FAQ</a>
                 <a href="text.html" class="block w-full text-center bg-[#FFB8B8] hover:bg-[#FFA3A3] text-[#231113] border border-[#F39E9E] py-3 rounded-xl font-bold shadow-sm">Launch Dashboard</a>
@@ -610,7 +634,8 @@
         </div>
     </nav>
 
-    <main class="relative pt-28 pb-16 sm:pt-36 sm:pb-24 lg:pt-44 lg:pb-28 bg-white overflow-hidden">
+    <main id="main-content">
+    <section aria-label="Introduction" class="relative pt-28 pb-16 sm:pt-36 sm:pb-24 lg:pt-44 lg:pb-28 bg-white overflow-hidden">
         <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
             <div class="blob-drift-a absolute -top-16 left-1/4 w-72 h-72 sm:w-[420px] sm:h-[420px] bg-[#FFB8B8]/35 rounded-full blur-[100px]"></div>
             <div class="blob-drift-b absolute bottom-0 right-1/6 w-72 h-72 sm:w-[480px] sm:h-[480px] bg-[#FFB8B8]/25 rounded-full blur-[120px]"></div>
@@ -697,7 +722,7 @@
                 </div>
             </div>
         </div>
-    </main>
+    </section>
 
     <section id="features" aria-labelledby="features-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -740,7 +765,42 @@
         </div>
     </section>
 
-    <section id="tech" aria-labelledby="tech-heading" class="py-16 sm:py-24 bg-white border-t border-[#FFE2E2]">
+    <section id="how-it-works" aria-labelledby="how-heading" class="py-16 sm:py-24 bg-white border-t border-[#FFE2E2]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12 sm:mb-16" data-reveal>
+                <h2 id="how-heading" class="text-2xl sm:text-4xl font-bold text-[#231113] mb-3 sm:mb-4 [text-wrap:balance]">How to Boot an OS in Your Browser</h2>
+                <p class="text-sm sm:text-base text-[#634548] max-w-2xl mx-auto">Launch Linux, Windows, or FreeDOS with custom WebSocket networking and IndexedDB disks in three steps.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                <article class="feature-card bg-[#FFF8F8] p-6 sm:p-8 rounded-2xl border border-[#FFD8D8]" data-reveal="scale" style="--reveal-delay: 0ms;">
+                    <span class="inline-block font-mono text-xs font-bold text-[#B83B48] bg-white border border-[#FFD8D8] px-2.5 py-1 rounded-lg mb-4">STEP 01</span>
+                    <h3 class="text-lg sm:text-xl font-bold text-[#231113] mb-2.5">Select Boot Media</h3>
+                    <p class="text-sm text-[#634548] leading-relaxed">
+                        Open the <a href="text.html" class="text-[#B83B48] font-medium hover:underline">WebVM Dashboard</a>, choose Create New Machine, and load an <code class="text-[#9E2F3B] bg-white px-1 py-0.5 rounded font-mono">.iso</code>, floppy <code class="text-[#9E2F3B] bg-white px-1 py-0.5 rounded font-mono">.img</code>, or hard disk image.
+                    </p>
+                </article>
+
+                <article class="feature-card bg-[#FFF8F8] p-6 sm:p-8 rounded-2xl border border-[#FFD8D8]" data-reveal="scale" style="--reveal-delay: 90ms;">
+                    <span class="inline-block font-mono text-xs font-bold text-[#B83B48] bg-white border border-[#FFD8D8] px-2.5 py-1 rounded-lg mb-4">STEP 02</span>
+                    <h3 class="text-lg sm:text-xl font-bold text-[#231113] mb-2.5">Configure Hardware &amp; Network</h3>
+                    <p class="text-sm text-[#634548] leading-relaxed">
+                        Set guest RAM, VRAM, optional blank virtual HDA disk, and connect using the built-in default relay or your custom <code class="text-[#9E2F3B] bg-white px-1 py-0.5 rounded font-mono">wss://</code> WebSocket server.
+                    </p>
+                </article>
+
+                <article class="feature-card bg-[#FFF8F8] p-6 sm:p-8 rounded-2xl border border-[#FFD8D8]" data-reveal="scale" style="--reveal-delay: 180ms;">
+                    <span class="inline-block font-mono text-xs font-bold text-[#B83B48] bg-white border border-[#FFD8D8] px-2.5 py-1 rounded-lg mb-4">STEP 03</span>
+                    <h3 class="text-lg sm:text-xl font-bold text-[#231113] mb-2.5">Boot &amp; Save Snapshots</h3>
+                    <p class="text-sm text-[#634548] leading-relaxed">
+                        Start x86 WebAssembly execution in the dedicated VM display, monitor live MIPS telemetry or COM1 serial logs, and export local RAM state snapshots anytime.
+                    </p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section id="tech" aria-labelledby="tech-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 relative z-10 text-center">
             <div data-reveal>
                 <h2 id="tech-heading" class="text-2xl sm:text-3xl font-bold text-[#231113] mb-4">Powered by Modern Web Standards</h2>
@@ -770,7 +830,7 @@
         </div>
     </section>
 
-    <section id="faq" aria-labelledby="faq-heading" class="py-16 sm:py-24 bg-[#FFF6F6] border-t border-[#FFE2E2]">
+    <section id="faq" aria-labelledby="faq-heading" class="py-16 sm:py-24 bg-white border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-10 sm:mb-14" data-reveal>
                 <h2 id="faq-heading" class="text-2xl sm:text-4xl font-bold text-[#231113] mb-3 [text-wrap:balance]">
@@ -865,11 +925,25 @@
                         Yes. While a virtual machine is running, you can save a complete RAM snapshot locally or export and import state files (<code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.bin</code>, <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">.v86state</code>) to resume your session exactly where you left off.
                     </div>
                 </details>
+
+                <details class="group bg-white rounded-2xl border border-[#FFD8D8] open:border-[#FFB8B8] transition-colors" data-reveal style="--reveal-delay: 270ms;">
+                    <summary class="flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer list-none select-none">
+                        <h3 class="text-sm sm:text-base font-semibold text-[#231113] text-left">
+                            Can I connect a virtual machine to a custom WebSocket network server?
+                        </h3>
+                        <span class="faq-chevron w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFD8D8] flex items-center justify-center text-[#B83B48] flex-shrink-0 group-open:bg-[#FFB8B8] group-open:text-[#231113]">
+                            <i class="fas fa-chevron-down text-xs" aria-hidden="true"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 sm:px-6 pb-5 sm:pb-6 text-xs sm:text-sm text-[#634548] leading-relaxed border-t border-[#FFEAEA] pt-4">
+                        Yes. WebVM includes a built-in default WebSocket relay and lets you add, test, save, and switch to your own custom <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">wss://</code> or <code class="text-[#9E2F3B] bg-[#FFF2F2] px-1.5 py-0.5 rounded font-mono">ws://</code> WebSocket server right from the dashboard or live VM screen.
+                    </div>
+                </details>
             </div>
         </div>
     </section>
 
-    <section aria-labelledby="cta-heading" class="py-14 sm:py-20 bg-white border-t border-[#FFE2E2]">
+    <section aria-labelledby="cta-heading" class="py-14 sm:py-20 bg-[#FFF6F6] border-t border-[#FFE2E2]">
         <div class="max-w-4xl mx-auto px-4 text-center">
             <div class="relative overflow-hidden p-8 sm:p-12 bg-[#FFB8B8] rounded-3xl border border-[#F39E9E]" data-reveal="scale">
                 <div class="cta-ring-a absolute -top-24 -right-24 w-64 h-64 rounded-full border border-white/45 pointer-events-none"></div>
@@ -886,13 +960,20 @@
             </div>
         </div>
     </section>
+    </main>
 
     <footer class="py-8 sm:py-10 bg-white border-t border-[#FFE2E2]">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-            <p class="text-[#634548] text-center sm:text-left">
-                Based on <a href="https://github.com/copy/v86" target="_blank" rel="noopener noreferrer" class="text-[#B83B48] font-medium hover:underline">libv86</a>. Built for the modern web.
-            </p>
-            <nav aria-label="Creator links" class="flex flex-wrap items-center justify-center gap-5 sm:gap-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
+            <div class="flex items-center gap-3 text-[#634548] text-center sm:text-left">
+                <img src="src/assets/images/pwa_app_icon_1787090612548.jpg" alt="WebVM Browser Virtual Machine Logo" width="28" height="28" loading="lazy" decoding="async" class="w-7 h-7 rounded-lg border border-[#FFD8D8] object-cover shrink-0"/>
+                <p>
+                    WebVM based on <a href="https://github.com/copy/v86" target="_blank" rel="noopener noreferrer" class="text-[#B83B48] font-medium hover:underline">libv86</a>. Client-side x86 virtualization.
+                </p>
+            </div>
+            <nav aria-label="Footer links" class="flex flex-wrap items-center justify-center gap-5 sm:gap-6">
+                <a href="text.html" class="text-[#634548] hover:text-[#231113] transition-colors font-medium whitespace-nowrap">VM Dashboard</a>
+                <a href="#how-it-works" class="text-[#634548] hover:text-[#231113] transition-colors whitespace-nowrap">Guide</a>
+                <a href="#faq" class="text-[#634548] hover:text-[#231113] transition-colors whitespace-nowrap">FAQ</a>
                 <a href="https://taissu.pages.dev" target="_blank" rel="noopener noreferrer" class="text-[#634548] hover:text-[#231113] transition-colors inline-flex items-center gap-2 whitespace-nowrap">
                     <i class="fas fa-globe text-[#B83B48]" aria-hidden="true"></i>
                     <span>Portfolio</span>

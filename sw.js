@@ -1,10 +1,11 @@
-const CACHE_NAME = 'webvm-offline-v4-blush-white';
+const CACHE_NAME = 'webvm-offline-v5-blush-white';
 
 const CORE_ASSETS = [
     './',
     './index.html',
     './text.html',
     './vm-screen.html',
+    './landing.js',
     './dashboard.js',
     './vm-manager.js',
     './libv86.js',
@@ -15,41 +16,145 @@ const CORE_ASSETS = [
     './src/assets/images/pwa_app_icon_1787090612548.jpg',
     'https://cdn.tailwindcss.com',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
     'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap'
 ];
 
+async function toNonRedirectedResponse(response) {
+    if (!response || !response.redirected) return response;
+    const body = await response.clone().arrayBuffer();
+    return new Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: new Headers(response.headers)
+    });
+}
+
+async function precacheAsset(cache, url, fetchOptions) {
+    try {
+        const res = await fetch(url, fetchOptions);
+        if (!res || !res.ok || res.type === 'opaque' || res.type === 'opaqueredirect') {
+            return;
+        }
+        const finalUrl = res.url;
+        const cleanRes = await toNonRedirectedResponse(res);
+        await cache.put(url, cleanRes.clone());
+        if (finalUrl && finalUrl.startsWith(self.location.origin)) {
+            const finalPath = new URL(finalUrl).pathname;
+            await cache.put(finalPath, cleanRes.clone());
+        }
+    } catch (_) {}
+}
+
+async function findCachedPage(request) {
+    const directMatch = await caches.match(request, { ignoreSearch: true });
+    if (directMatch) return toNonRedirectedResponse(directMatch);
+
+    const pathname = new URL(request.url).pathname.toLowerCase();
+    const candidates = pathname.includes('vm-screen')
+        ? ['./vm-screen.html', './text.html', './index.html']
+        : (pathname.endsWith('/text') || pathname.endsWith('/text.html'))
+            ? ['./text.html', './index.html']
+            : ['./index.html', './', './text.html'];
+
+    for (const candidate of candidates) {
+        const hit = await caches.match(candidate);
+        if (hit) return toNonRedirectedResponse(hit);
+    }
+    return null;
+}
+
+async function handleNavigationRequest(request) {
+    try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.type === 'opaqueredirect') {
+            return networkResponse;
+        }
+        if (networkResponse.redirected) {
+            const cleanResponse = await toNonRedirectedResponse(networkResponse);
+            if (cleanResponse && cleanResponse.ok) {
+                const cache = await caches.open(CACHE_NAME);
+                await cache.put(request, cleanResponse.clone());
+            }
+            return cleanResponse;
+        }
+        if (networkResponse.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+    } catch (_) {
+        const cached = await findCachedPage(request);
+        if (cached) return cached;
+        return new Response('Offline - Unable to reach WebVM.', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
+    }
+}
+
+async function handleLocalAssetRequest(request) {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+        const safeCached = await toNonRedirectedResponse(cachedResponse);
+        fetch(request)
+            .then(async (networkResponse) => {
+                if (networkResponse && networkResponse.ok && networkResponse.type !== 'opaqueredirect') {
+                    const clean = await toNonRedirectedResponse(networkResponse);
+                    const cache = await caches.open(CACHE_NAME);
+                    await cache.put(request, clean);
+                }
+            })
+            .catch(() => {});
+        return safeCached;
+    }
+
+    try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.type === 'opaqueredirect') {
+            return networkResponse;
+        }
+        if (networkResponse && networkResponse.ok) {
+            const clean = await toNonRedirectedResponse(networkResponse);
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(request, clean.clone());
+            return clean;
+        }
+        return networkResponse;
+    } catch (_) {
+        return Response.error();
+    }
+}
+
+async function handleExternalRequest(request) {
+    try {
+        const response = await fetch(request);
+        if (response && response.ok && !response.redirected) {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(request, response.clone());
+        }
+        return response;
+    } catch (_) {
+        const cached = await caches.match(request);
+        if (cached) return toNonRedirectedResponse(cached);
+        return Response.error();
+    }
+}
+
 self.addEventListener('install', (event) => {
-    console.log('[Service Worker] Installing WebVM PWA Service Worker...');
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            console.log('[Service Worker] Pre-caching WebVM core assets & emulator binaries');
-            return Promise.allSettled(
-                CORE_ASSETS.map(url => 
-                    fetch(url, { cache: 'no-cache' })
-                        .then(res => {
-                            if (res.ok) return cache.put(url, res);
-                            console.warn(`[Service Worker] Could not cache: ${url} (${res.status})`);
-                        })
-                        .catch(err => console.warn(`[Service Worker] Failed fetching: ${url}`, err))
-                )
-            );
-        }).then(() => self.skipWaiting())
+        caches.open(CACHE_NAME)
+            .then((cache) => Promise.allSettled(CORE_ASSETS.map((url) => precacheAsset(cache, url, { cache: 'no-cache' }))))
+            .then(() => self.skipWaiting())
     );
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[Service Worker] Activating WebVM Service Worker...');
     event.waitUntil(
-        caches.keys().then((keyList) => {
-            return Promise.all(
-                keyList.map((key) => {
-                    if (key !== CACHE_NAME) {
-                        console.log('[Service Worker] Removing old cache:', key);
-                        return caches.delete(key);
-                    }
-                })
-            );
-        }).then(() => self.clients.claim())
+        caches.keys()
+            .then((keyList) => Promise.all(keyList.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+            .then(() => self.clients.claim())
     );
 });
 
@@ -58,71 +163,35 @@ self.addEventListener('fetch', (event) => {
     if (!event.request.url.startsWith('http')) return;
 
     const url = new URL(event.request.url);
+    const isSameOrigin = url.origin === self.location.origin;
 
-    const isLocalAsset = url.origin === location.origin || 
-                         url.pathname.endsWith('.js') || 
-                         url.pathname.endsWith('.wasm') || 
-                         url.pathname.endsWith('.bin') ||
-                         url.pathname.endsWith('.html');
-
-    if (isLocalAsset) {
-        event.respondWith(
-            caches.match(event.request).then((cachedResponse) => {
-                if (cachedResponse) {
-                    fetch(event.request)
-                        .then(networkResponse => {
-                            if (networkResponse && networkResponse.ok) {
-                                caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse));
-                            }
-                        })
-                        .catch(() => {});
-                    return cachedResponse;
-                }
-
-                return fetch(event.request).then((networkResponse) => {
-                    if (!networkResponse || !networkResponse.ok) return networkResponse;
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
-                    return networkResponse;
-                }).catch(() => {
-                    if (event.request.headers.get('accept')?.includes('text/html')) {
-                        return caches.match('./index.html') || caches.match('./vm-screen.html');
-                    }
-                });
-            })
-        );
+    if (event.request.mode === 'navigate' && isSameOrigin) {
+        event.respondWith(handleNavigationRequest(event.request));
         return;
     }
 
-    event.respondWith(
-        fetch(event.request)
-            .then((response) => {
-                if (response && response.ok) {
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-                }
-                return response;
-            })
-            .catch(() => {
-                return caches.match(event.request);
-            })
-    );
+    const isLocalAsset = isSameOrigin ||
+        url.pathname.endsWith('.js') ||
+        url.pathname.endsWith('.wasm') ||
+        url.pathname.endsWith('.bin') ||
+        url.pathname.endsWith('.html');
+
+    if (isLocalAsset) {
+        event.respondWith(handleLocalAssetRequest(event.request));
+        return;
+    }
+
+    event.respondWith(handleExternalRequest(event.request));
 });
 
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'FORCE_PRECACHE') {
-        console.log('[Service Worker] Explicit precache requested by user.');
         event.waitUntil(
-            caches.open(CACHE_NAME).then((cache) => {
-                return Promise.allSettled(
-                    CORE_ASSETS.map(url => 
-                        fetch(url, { cache: 'reload' })
-                            .then(res => res.ok && cache.put(url, res))
-                    )
-                );
-            }).then(() => {
-                event.ports[0]?.postMessage({ success: true });
-            })
+            caches.open(CACHE_NAME)
+                .then((cache) => Promise.allSettled(CORE_ASSETS.map((url) => precacheAsset(cache, url, { cache: 'reload' }))))
+                .then(() => {
+                    event.ports[0]?.postMessage({ success: true });
+                })
         );
     }
 });

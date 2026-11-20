@@ -350,9 +350,11 @@
 
     if ('serviceWorker' in navigator && localStorage.getItem('webvm_offline_cache') !== 'false') {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch((err) => {
-                console.log('SW registration note:', err);
-            });
+            navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+                .then((registration) => registration.update().catch(() => {}))
+                .catch((err) => {
+                    console.log('SW registration note:', err);
+                });
         });
     }
 })();
